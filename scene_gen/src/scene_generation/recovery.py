@@ -48,8 +48,20 @@ def gaps(report):
             or r.get('status') == 'error' and r.get('error_kind',report.get('error_kind')) == 'measurement_error']
 
 
-def decide(report, review=None):
-    """补查在场景构建内执行后，按剩余证据选择动作。"""
+def evidence_limited(report):
+    """剩余缺口只是量测或探测能力不足：没有执行错误、没有未关闭的检查器故障。"""
+    rows = gaps(report)
+    return bool(rows) and not any(f['status']=='open' for f in report.get('recovery_failures',[])) and all(
+        r.get('status') == 'partial' or r.get('status') == 'error' and r.get('error_kind') == 'measurement_error'
+        for r in rows)
+
+
+def decide(report, review=None, *, allow_unverified=False):
+    """补查在场景构建内执行后，按剩余证据选择动作。
+
+    allow_unverified 只用于静态预览：剩余缺口全部是量测/探测能力不足、且审查接受时，
+    交付带未验证清单的候选，而不是停在 needs_check_support。缺口仍写入结果，不算通过。
+    """
     # 检查器程序异常不交给几何作者修复，即使同份报告还含有缺陷。
     if any(f['status']=='open' for f in report.get('recovery_failures',[])):
         return 'repair' if repairable_rows(report) else 'needs_environment'
@@ -63,6 +75,8 @@ def decide(report, review=None):
     if defects or review and review.get('verdict') == 'repair':
         return 'repair'
     if gaps(report):
+        if allow_unverified and evidence_limited(report) and review and review.get('verdict') == 'accept':
+            return 'candidate_ready'
         return 'needs_check_support'
     if report.get('status') in {'error','partial'}:
         return 'needs_environment'

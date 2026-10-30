@@ -49,7 +49,9 @@ accept/uncertain时affected_instances应省略或为空。证据仍不足用unce
 当前可见缺件、资产数量错误、错误外形、穿透、悬空和明确静态尺寸冲突必须处理，不能以例外跳过。
 需要配置规程初始关节/内容物状态、切换为其他装配姿态、接触位置或执行操作才能证明的事项，
 可在deferred_results中用status="out_of_scope"，增加target_stage="initial_state|static_fit|operation"，并明确evidence说明尚缺什么。
-这些项保留为未验证，绝不标为resolved。只要当前布局外观合格、工程检查通过且剩余项都已如此明确归属，可accept交付静态预览。
+这些项保留为未验证，绝不标为resolved。只要当前布局外观合格、工程检查没有fail且剩余项都已如此明确归属，可accept交付静态预览。
+工程检查中status="partial"、只因量测不可靠（measurement_error）或框架缺少对应探测而未完成的条目，不是已确认缺陷：
+静态预览可以accept，但必须把这些条目编号逐一写入unverified；任何status="fail"的条目仍须repair。
 不要要求先装管入仪器、抓取、拆盖停放或配置内容物才能查看当前静态布局；完整模式不允许此例外。
 '''
 

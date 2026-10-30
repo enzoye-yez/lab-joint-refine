@@ -27,6 +27,16 @@ images = [args[i + 1] for i, a in enumerate(args) if a == "--image"]
 Path({log!r}).write_text(json.dumps({{"args": args, "prompt": prompt,
     "images": [Path(p).read_bytes().hex() for p in images]}}))
 mode = {mode!r}
+if mode == "agent":
+    cwd = Path(args[args.index("--cd") + 1])
+    assert args[args.index("--sandbox") + 1] == "workspace-write"
+    assert (cwd / "AGENT_TASK.md").is_file() and (cwd / "check").is_file()
+    job = json.loads((cwd / "selfcheck.json").read_text())
+    (cwd / "model.py").write_text("def build(output_dir):\n    return " + repr(job["asset_ids"]) + "\n")
+    print(json.dumps({{"type": "item.completed", "item": {{"type": "command_execution", "command": "./check"}}}}))
+    print(json.dumps({{"type": "item.completed", "item": {{"type": "agent_message", "text": "{{\"done\": true}}"}}}}))
+    print(json.dumps({{"type": "turn.completed", "usage": {{"input_tokens": 900, "output_tokens": 70}}}}))
+    sys.exit(0)
 if mode == "fail":
     print(json.dumps({{"type": "turn.failed", "error": {{"message": "rate limited"}}}}))
     sys.exit(1)
@@ -64,6 +74,31 @@ class CodexTransportTests(unittest.TestCase):
         self.assertEqual(call["images"], [base64.b64decode(PNG).hex()])
         self.assertIn("[attached image #1]", call["prompt"])
         self.assertIn("Return {\"ok\": true}.", call["prompt"])
+
+    def author_payload(self, previous):
+        context = {"job": {"asset_ids": ["A15"]}, "profile": {"validation_mode": "static"},
+                   "current_model_py": previous, "feedback": None}
+        payload = self.payload()
+        payload["messages"][1]["content"][0]["text"] = json.dumps(context)
+        return payload
+
+    def test_agent_author_returns_script_under_author_contract(self):
+        from asset_generation.contracts import author_result
+        with tempfile.TemporaryDirectory() as folder:
+            transport = CodexTransport(self.fake(folder, "agent"), agent=True, workspace_root=folder)
+            transport.phase = "asset:asset15"
+            first = transport.post("unused", self.author_payload(None), "codex-login", 30)
+            source = author_result(json.loads(first["choices"][0]["message"]["content"]), None, 500000)
+            self.assertIn("['A15']", source)
+            self.assertEqual(first["agent_session"]["checks_run"], 1)
+            self.assertTrue(Path(first["agent_session"]["workspace"]).is_relative_to(folder))
+            repair = transport.post("unused", self.author_payload("def build(output_dir):\n    pass\n"), "codex-login", 30)
+            value = json.loads(repair["choices"][0]["message"]["content"])
+            self.assertEqual(author_result(value, "def build(output_dir):\n    pass\n", 500000), source)
+            # Reviews and other phases keep the plain read-only request (the fake rejects it).
+            transport.phase = "visual_review"
+            with self.assertRaises(ProviderError):
+                transport.post("unused", self.author_payload(None), "codex-login", 30)
 
     def test_failure_is_retryable_provider_error(self):
         with tempfile.TemporaryDirectory() as folder:

@@ -156,7 +156,12 @@ def execute(bundle, profile, config, generation, keys, run_root, transport, sand
                     atomic_json(destination/"checks.json", report)
                     entry["preview_paths"] = [im["path"] for im in preview_images]
                 feedback = {"numerical": report}
-                if report["status"] == "pass" and preview_images:
+                # Partial rows without a confirmed failure are measurement/probe gaps the
+                # author cannot fix; review the asset instead of stopping, keep the gaps.
+                unverified = [r["id"] for r in report.get("checks", []) if r.get("status") == "partial"]
+                reviewable = report["status"] == "pass" or (report["status"] == "partial" and not any(
+                    r.get("status") in {"fail", "error"} for r in report.get("checks", [])))
+                if reviewable and preview_images:
                     if not resume_review:
                         state["pending"]["review_checkpoint"] = {
                             "entry":dict(entry),"report":report,"files":snapshot(destination)}
@@ -168,6 +173,7 @@ def execute(bundle, profile, config, generation, keys, run_root, transport, sand
                     feedback["visual"] = review
                     if review["verdict"] == "accept":
                         state["status"] = "candidate_ready"
+                        entry["unverified_checks"] = unverified
                     elif review["verdict"] == "uncertain":
                         state["status"] = "needs_review"
                 elif report["status"] == "error":
@@ -209,7 +215,8 @@ def summary(store):
     state = store.state["generation"]
     latest = state["revisions"][-1] if state["revisions"] else None
     feedback = (latest or {}).get("feedback", {})
-    unverified = feedback.get("numerical", {}).get("coverage", []) + feedback.get("visual", {}).get("unverified", [])
+    unverified = (feedback.get("numerical", {}).get("coverage", []) + feedback.get("visual", {}).get("unverified", [])
+                  + ["检查未完成（量测或探测能力不足）："+c for c in (latest or {}).get("unverified_checks", [])])
     return {"status": state["status"], "provenance": store.state["identity"]["provenance"],
             "iterations": len(state["revisions"]), "latest_revision": latest["directory"] if latest else None,
             "budget": store.totals(), "asset_ids": store.state["identity"]["input"]["asset_ids"],

@@ -105,7 +105,7 @@ def main(argv=None):
                 return 0
             sandbox.preflight()
             load_model(robot)
-            run = SceneRun(catalogue,env,contract,provider,generation,limits,credentials(project),root,transport_for(provider),
+            run = SceneRun(catalogue,env,contract,provider,generation,limits,credentials(project),root,transport_for(provider,root),
                            sandbox,robot,project,args.resume,args.retry_uncertain,
                            expected_implementation=args.expected_implementation)
             result = run.run(read_json(args.feedback) if args.feedback else None)

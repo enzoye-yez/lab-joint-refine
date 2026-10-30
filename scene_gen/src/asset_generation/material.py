@@ -97,7 +97,55 @@ def convex_solid(vertices,faces):
         if np.any((projection.max(axis=0)>1e-8)&(projection.min(axis=0)<-1e-8)):return False
     return True
 
-def integrity(model,data,*,instance=None,tolerance=.0005,max_pairs=200000,query=None):
+def _local(model,data,geom,vector):
+    """World direction in the frame where model.py places this geom (its body frame)."""
+    rotation=data.xmat[int(model.geom_bodyid[geom])].reshape(3,3)
+    return [round(float(x),4) for x in rotation.T@np.asarray(vector,dtype=float)]
+
+
+def collision_hint(model,data,a,b,result,depth):
+    """Actionable separation for the author; derived from the measured normal (geom1 to geom2)."""
+    normal=result.get("normal")
+    hint={"body1":model.body(int(model.geom_bodyid[a])).name,"body2":model.body(int(model.geom_bodyid[b])).name,
+          "depth_mm":round(depth*1000,2)}
+    if normal is not None:
+        hint.update(move_geom2_local=_local(model,data,b,normal),move_geom1_local=_local(model,data,a,-np.asarray(normal)),
+            instruction="沿 move_geom2_local（geom2 所属 body 的局部坐标）移动 geom2 约 depth_mm，"
+                        "或沿 move_geom1_local 移动 geom1；若二者应当咬合，则改为声明连接/接口并控制嵌入深度")
+    return hint
+
+
+def island_hint(model,data,query,island,others,boxes,limit=.05):
+    """Nearest measured neighbour of a disconnected rigid island within the same rigid group."""
+    if not others:return {"nearest":None,"instruction":"该刚体只有这一块可见材料与其余部分分离；检查 body 归属或补连接结构"}
+    def box_gap(g,h):
+        return float(np.max(np.maximum(boxes[g][0]-boxes[h][1],boxes[h][0]-boxes[g][1]).clip(min=0)))
+    candidates=sorted(((box_gap(g,h),g,h) for g in island[:16] for h in others),key=lambda x:x[0])[:24]
+    best=None
+    for gap,g,h in candidates:
+        if gap>limit:break
+        result=observe(query,g,h,limit);d=result.get("distance_m")
+        if d is not None and (best is None or d<best[0]):best=(d,g,h,result.get("normal"))
+    if best is None:
+        return {"nearest":None,"instruction":f"{int(limit*1000)} mm 内没有同一刚体的其他材料；该部分悬空，需连接到主体或移入正确的 body"}
+    d,g,h,normal=best
+    hint={"nearest_geom":model.geom(h).name,"from_geom":model.geom(g).name,"gap_mm":round(d*1000,2)}
+    if normal is not None and d>0:
+        hint["move_island_local"]=_local(model,data,g,normal)
+        hint["instruction"]="沿 move_island_local 移动该孤立部分约 gap_mm 使其与 nearest_geom 接触，或加连接件"
+    else:
+        hint["instruction"]="与 nearest_geom 已接触或重叠但无法确认材料连续；检查是否为非封闭网格，或改用基本体"
+    return hint
+
+
+# Bodies already joined by a joint or weld may embed by design: a button set into its
+# bezel, a hub seated on its pedestal, a latch tongue in its catch. Such engagement up to
+# this depth is recorded, not reported as a collision defect. Deeper overlap, and any
+# overlap between unrelated bodies, remains a defect.
+ENGAGEMENT_ALLOWANCE_M=.003+1e-6
+
+def integrity(model,data,*,instance=None,tolerance=.0005,max_pairs=200000,query=None,
+              engagement=ENGAGEMENT_ALLOWANCE_M):
     from scene_generation.geometry import bounds
     geoms=[g for g in range(model.ngeom) if model.geom_bodyid[g]>0
            and model.geom_type[g] not in (mujoco.mjtGeom.mjGEOM_PLANE,mujoco.mjtGeom.mjGEOM_HFIELD)
@@ -116,7 +164,7 @@ def integrity(model,data,*,instance=None,tolerance=.0005,max_pairs=200000,query=
     boxes={g:bounds(model,data,g) for g in geoms}
     components={g:g for g in displayed};possible={g:g for g in displayed}
     rigid_components=components.copy();rigid_possible=components.copy()
-    gaps=[];defects=[];hits=[];examined=0;skipped=0;unknown_count=0
+    gaps=[];defects=[];hits=[];engagements=[];examined=0;skipped=0;unknown_count=0
     convex_meshes={};unknown_pairs=[];connection_witnesses=[]
     eps=1e-5
     # Candidate generation is conservative; omitted pairs retain uncertainty.
@@ -133,7 +181,10 @@ def integrity(model,data,*,instance=None,tolerance=.0005,max_pairs=200000,query=
             bb=int(model.geom_bodyid[b])
             same_group=groups[ba]==groups[bb] and a in components and b in components
             if np.any(hi+eps<boxes[b][0]) or np.any(boxes[b][1]+eps<lo): continue
-            if ba==bb and (not same_group or _find(components,a)==_find(components,b)): continue
+            # Same-body pairs are skipped only once rigidly confirmed. Articulated
+            # connectivity may already link them through another body, which says
+            # nothing about this body's own material and used to hide the pair.
+            if ba==bb and (not same_group or _find(rigid_components,a)==_find(rigid_components,b)): continue
             row={"geom1":model.geom(a).name,"geom2":model.geom(b).name}
             if examined>=max_pairs:
                 skipped+=1
@@ -187,8 +238,12 @@ def integrity(model,data,*,instance=None,tolerance=.0005,max_pairs=200000,query=
                 if same_group:_join(possible,a,b)
                 if same_group and rigid[ba]==rigid[bb]:_join(rigid_possible,a,b)
                 unknown_pairs.append((a,b,{**row,"error_kind":"measurement_error","detail":result.get("error","original material intersection unresolved")}))
-            if ba!=bb and solid and ((d is not None and d < -tolerance) or penetration>tolerance):
-                hits.append({**row,**result})
+            depth=max(-d if d is not None else 0,penetration)
+            if ba!=bb and solid and depth>tolerance:
+                if groups[ba]==groups[bb] and depth<=engagement:
+                    engagements.append({**row,"depth_m":float(depth)})
+                else:
+                    hits.append({**row,**result,"repair_hint":collision_hint(model,data,a,b,result,depth)})
     # A redundant unknown same-body union pair is no longer an open obligation
     # when another measured path proves material connectivity. Cross-body collision
     # obligations remain independent even if connectivity has been established.
@@ -206,10 +261,13 @@ def integrity(model,data,*,instance=None,tolerance=.0005,max_pairs=200000,query=
         if len(islands)>1:
             for representative in sorted(islands):
                 island=islands[representative]
+                others=[g for r,members in islands.items() if r!=representative for g in members]
                 defects.append({"body":model.body(int(model.geom_bodyid[island[0]])).name,
                                 "geom1":model.geom(island[0]).name,
                                 "geoms":[model.geom(g).name for g in island],
-                                "detail":"modeled rigid/weld connection has geometrically disconnected visible material"})
+                                "detail":"modeled rigid/weld connection has geometrically disconnected visible material",
+                                "repair_hint":island_hint(model,data,query,island,others,boxes)
+                                    if len(defects)<32 else None})
     # Test articulation between rigid groups independently of defects inside a
     # group. Otherwise repairing a rigid island reveals a previously hidden gap.
     articulation={r:r for r in set(rigid.values())}
@@ -267,8 +325,10 @@ def integrity(model,data,*,instance=None,tolerance=.0005,max_pairs=200000,query=
             "disconnected_components":defects,"disconnected_count":len(defects),
             "surface_mismatches":mismatches,"surface_mismatch_count":len(mismatches),
             "collisions":hits,"collision_count":len(hits),"coverage_gaps":gaps,
+            "engagements":engagements,"engagement_count":len(engagements),"engagement_allowance_m":engagement,
             "examined_pairs":examined,"unexamined_pairs":skipped,"measurement_error_count":unknown_count,
-            "detail":"Visible material connectivity, distinct-body static intersections, collision-envelope consistency; not strength or full surface equivalence."}
+            "detail":"Visible material connectivity, distinct-body static intersections, collision-envelope consistency; "
+                     "shallow engagement between jointed or welded bodies is recorded separately. Not strength or full surface equivalence."}
 
 def prepare_surfaces(model,data,query):
     from scene_generation.geometry import owner

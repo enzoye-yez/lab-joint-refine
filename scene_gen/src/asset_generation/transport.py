@@ -64,11 +64,14 @@ class GenerationTransport:
             raise ProviderError("生成网络进程返回格式无效；请求结果不明",uncertain=True) from None
 
 
-def transport_for(config):
-    """按服务配置选择传输：codex 走本机登录的 Codex CLI，其余走 HTTPS 网络进程。"""
+def transport_for(config, workspace=None):
+    """按服务配置选择传输：codex 走本机登录的 Codex CLI，其余走 HTTPS 网络进程。
+
+    workspace 保存编码 agent 会话目录（通常是运行目录），便于事后审计。
+    """
     if config.provider == "codex":
         from .codex_transport import CodexTransport
-        return CodexTransport()
+        return CodexTransport(agent=config.codex_agent_author, workspace_root=workspace)
     return GenerationTransport()
 
 

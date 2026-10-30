@@ -67,7 +67,10 @@ class SceneFirstTests(unittest.TestCase):
         b=Backend(unknown=True);r,t=self.make([plan(),ASSET,TOOL,ACCEPT,ACCEPT,ACCEPT],b)
         result=r.run()
         self.assertEqual(b.events[:3],['generate','generate','assemble'])
-        self.assertEqual(result['status'],'needs_check_support')
+        # Only an incomplete measurement remains and review accepts: a static preview with
+        # the gap listed, never a quality acceptance.
+        self.assertEqual(result['status'],'static_preview_ready')
+        self.assertTrue(any('主检查未完成' in u for u in result['unverified']))
         self.assertTrue(result['assembly']['complete']);self.assertFalse(result['assembly']['quality_accepted'])
         self.assertTrue(any(x['id']=='asset:instrument:material_integrity' and x['status']=='partial' for x in result['assembly']['issues']))
         self.assertTrue((r.root/result['scene_artifact']/'model.xml').is_file())
@@ -255,7 +258,7 @@ class SceneFirstTests(unittest.TestCase):
         b=Layout(unknown=True)
         r,t=self.make([plan(),ASSET,TOOL,ACCEPT,ACCEPT,ACCEPT,repair,ACCEPT,ACCEPT],b)
         result=r.run()
-        self.assertEqual(result['status'],'needs_check_support')
+        self.assertEqual(result['status'],'static_preview_ready')
         self.assertEqual(b.build_calls,2);self.assertEqual(b.scene_calls,2)
         self.assertEqual(result['scene_rounds'],2)  # Both candidates receive full quality review.
         self.assertEqual(r.state['repair_history'][0]['status'],'evaluated')

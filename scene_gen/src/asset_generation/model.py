@@ -248,6 +248,8 @@ class GenerationModel:
             self.progress(phase, "request_sent")
             print(f"模型请求 #{call['index']+1}：{phase}，传输尝试 {retry+1}，图片 {len(images)} 张", flush=True)
             try:
+                # Transports that act differently per phase (codex agent author) read this.
+                self.transport.phase = phase
                 response = self.transport.post(self.config.base_url.rstrip("/")+"/chat/completions",
                                                payload, key, self.config.timeout_seconds)
                 response = redact(response, self.credentials.values())

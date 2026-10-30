@@ -1,0 +1,18 @@
+{
+  "max_iterations": 60,
+  "max_model_calls": 800,
+  "max_reserved_tokens": 240000000,
+  "max_transport_retries": 30,
+  "max_unknown_http_retries": 2,
+  "transport_cooldown_seconds": 300,
+  "max_output_tokens": 16000,
+  "max_request_bytes": 24000000,
+  "max_image_bytes": 8000000,
+  "max_images": 128,
+  "max_script_bytes": 500000,
+  "build_timeout_seconds": 120,
+  "max_artifact_bytes": 64000000,
+  "max_artifact_files": 128,
+  "image": "harness-asset-worker:0.1",
+  "review_context_bytes": 3000000
+}

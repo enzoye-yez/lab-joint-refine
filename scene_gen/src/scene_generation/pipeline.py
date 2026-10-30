@@ -696,7 +696,8 @@ class SceneRun:
             return False
         eligible={i for t in tasks for i in t['instances']}
         affected &= eligible
-        jobs=list(dict.fromkeys(items[i]['job'] for t in tasks for i in t['instances'] if i in affected))
+        from .repair_schedule import job_order
+        jobs=job_order(self,tasks,items,affected)
         input_key=self.repair_input_key()
         from .capabilities import problem_identity
         problem_key=problem_identity(report,review)
@@ -881,7 +882,9 @@ class SceneRun:
         if static:
             gaps.append("静态预览未执行动力学、按钮/锁扣操作、关节开合空间及机器人可达性验证")
         status = "static_candidate_ready" if static and self.state["status"] == "candidate_ready" else self.state["status"]
-        preview_only = static and any(row.get("deferred_from") for row in deferred)
+        # Remaining measurement/probe gaps keep a static result at preview level.
+        preview_only = static and (any(row.get("deferred_from") for row in deferred)
+                                   or bool(check_gaps((latest or {}).get('report',{}))))
         if preview_only and status == "static_candidate_ready":
             status = "static_preview_ready"
         result = {"activity":self.state.get("activity"),"status":status,"provenance":self.store.state["identity"]["provenance"],

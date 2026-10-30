@@ -66,7 +66,7 @@ def main(argv=None):
                                   "images": len(bundle["images"]), "model_calls": 0, "sandbox": backend}, ensure_ascii=False))
                 return 0
             sandbox.preflight()
-            result = execute(bundle, profile, config, generation, credentials(project), root, transport_for(config),
+            result = execute(bundle, profile, config, generation, credentials(project), root, transport_for(config, root),
                              sandbox, project, resume=args.resume, retry_uncertain=args.retry_uncertain)
             print(json.dumps({k: result[k] for k in ("status", "iterations", "latest_revision", "budget")}, ensure_ascii=False))
             return 0 if result["status"] == "candidate_ready" else 3

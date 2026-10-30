@@ -43,10 +43,44 @@ def schedule(run, tasks):
             'failed_mechanisms':list(dict.fromkeys(h.get('mechanism') for h in failures if h.get('mechanism'))),
             'reason':'连续三次修改与验证未改善，保留问题并处理独立任务' if len(failures)>=3 else None,
             'reopen_when':'相关资产、依赖、检查实现或有效证据变化；恢复与目录变化不重置'}
-    # Every eligible issue gets a turn before an equally bound issue repeats.
-    tasks.sort(key=lambda t:(t['scheduling']['attempts'],not t.get('operation_blocking',False),t['id']))
+    # Every eligible issue gets a turn before an equally bound issue repeats. Turns are
+    # counted by assets the repair actually changed: target_checks lists every open
+    # task each round, so counting it gave all tasks the same number and the order
+    # fell back to report order, which kept the first planned assets in front.
+    edits=job_edits(history)
+    jobs_of=lambda t:{i['job'] for i in run.state['plan']['instances'] if i['id'] in t.get('instances',[])}
+    for task in tasks:
+        task['scheduling']['asset_edits']=min((edits[j] for j in jobs_of(task)),default=0)
+        task['scheduling']['severity']=severity(task)
+    tasks.sort(key=lambda t:(t['scheduling']['asset_edits'],t['scheduling']['attempts'],not t.get('operation_blocking',False),
+                             -t['scheduling']['severity'],t['id']))
     run.state['repair_schedule']=tasks
     return [t for t in tasks if t['scheduling']['status']=='ready']
+
+
+def job_edits(history):
+    """How many applied repairs changed each asset job."""
+    from collections import Counter
+    return Counter(j for h in history if h.get('status') in {'applied','evaluated'}
+                   for j in (h.get('action') or {}).get('jobs',[]))
+
+
+def severity(task):
+    """Confirmed named defects in the task's evidence; review-reported defects rank by finding count."""
+    targets=task.get('targets',{})
+    coverage=task.get('target_coverage',{})
+    count=sum(coverage.get(k,{}).get('recorded',len(v)) for k,v in targets.items())
+    return count or len(task.get('findings',[]))
+
+
+def job_order(run, tasks, items, affected):
+    """Jobs in task priority; inside a multi-instance task, least-edited assets first."""
+    edits=job_edits(run.state.get('repair_history',[]))
+    order=[]
+    for task in tasks:
+        jobs={items[i]['job'] for i in task['instances'] if i in affected}
+        order.extend(sorted(jobs-set(order),key=lambda j:(edits[j],j)))
+    return order
 
 
 def action_tasks(tasks, action, plan, updated):

@@ -42,17 +42,21 @@ class Config:
     max_image_downloads: int = 128
     max_reserved_tokens: int = 1200000
     download_images: bool = True
+    # codex only: author requests run as a coding-agent session with local self-checks.
+    codex_agent_author: bool = False
 
     def __post_init__(self):
         for name, value in asdict(self).items():
-            if name == "download_images":
+            if name in {"download_images", "codex_agent_author"}:
                 if type(value) is not bool:
-                    raise ValidationError("download_images 必须是布尔值")
+                    raise ValidationError(f"{name} 必须是布尔值")
             elif isinstance(getattr(type(self), name, None), int):
                 if type(value) is not int or value < (0 if name == "repair_attempts" else 1):
                     raise ValidationError(f"配置 {name} 必须是有效整数")
             elif not isinstance(value, str) or not value.strip():
                 raise ValidationError(f"配置 {name} 必须是非空字符串")
+        if self.codex_agent_author and self.provider != "codex":
+            raise ValidationError("codex_agent_author 只适用于 codex 服务")
         if self.provider == "codex":
             # Codex CLI 使用本机 ChatGPT 登录态，不读取 API 密钥。
             if self.api_key_env != "CODEX_LOGIN":
@@ -84,6 +88,8 @@ class Config:
         # Preserve historical identities using the original credential slot.
         if self.api_key_env == "HARNESS_MODEL_API_KEY":
             result.pop("api_key_env")
+        if not self.codex_agent_author:
+            result.pop("codex_agent_author")  # Keep identities of runs made before the switch existed.
         return result
 
     def model_key(self, values):

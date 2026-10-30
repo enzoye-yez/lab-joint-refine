@@ -200,6 +200,10 @@ class Store:
             actual = usage.get("total_tokens") if isinstance(usage, dict) else None
             if type(actual) is int and actual >= 0:
                 call["reported_total_tokens"] = actual
+                # Codex CLI reports the provider's own count, images included; such a call is
+                # settled at that count and its pre-send reservation is released.
+                if payload.get("provider") == "codex" and actual > 0:
+                    call["settled_by_usage"] = True
         self.save()
         try:
             receipt.unlink(missing_ok=True)
@@ -248,7 +252,8 @@ class Store:
                 "page_fetches": sum(c["kind"] == "page" for c in calls),
                 "reserved_tokens": sum(c["reserved_tokens"] for c in calls),
                 "reported_total_tokens": sum(c.get("reported_total_tokens", 0) for c in calls),
-                "accounted_tokens": sum(max(c["reserved_tokens"], c.get("reported_total_tokens", 0)) for c in calls)}
+                "accounted_tokens": sum(c["reported_total_tokens"] if c.get("settled_by_usage") else
+                                        max(c["reserved_tokens"], c.get("reported_total_tokens", 0)) for c in calls)}
 
 
 def run_directory(project: Path, name: str):

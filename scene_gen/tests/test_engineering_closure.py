@@ -356,8 +356,9 @@ class StandaloneUnknownTests(unittest.TestCase):
     from test_generation_pipeline import GenerationPipelineTests as _Cases
     setUp=_Cases.setUp
     run_loop=_Cases.run_loop
-    def test_standalone_unknown_resume_does_not_author_or_modify_original(self):
+    def test_standalone_unknown_is_reviewed_and_resume_does_not_author_or_modify_original(self):
         from generation_fixtures import FixtureSandbox,SOURCE
+        from test_generation_pipeline import REVIEW
         class Unknown(FixtureSandbox):
             def build_and_check(self,*args):
                 report,renders=super().build_and_check(*args)
@@ -365,12 +366,15 @@ class StandaloneUnknownTests(unittest.TestCase):
                 row.update(status="partial",complete=False)
                 report["status"]="partial"
                 return report,renders
-        result,_=self.run_loop([{"model_py":SOURCE}],sandbox=Unknown())
-        self.assertEqual(result["status"],"needs_check_support")
+        # An incomplete (not failed) measurement is reviewed instead of stopping the
+        # asset; the gap stays listed as unverified and is never reported as passed.
+        result,_=self.run_loop([{"model_py":SOURCE},REVIEW],sandbox=Unknown())
+        self.assertEqual(result["status"],"candidate_ready")
+        self.assertIn("检查未完成（量测或探测能力不足）：material_integrity",result["unverified"])
         before=snapshot(self.run/"revisions/0001")
         sandbox=Unknown()
         result,transport=self.run_loop([],resume=True,sandbox=sandbox)
-        self.assertEqual(result["status"],"needs_check_support")
+        self.assertEqual(result["status"],"candidate_ready")
         self.assertEqual(transport.requests,[])
         self.assertEqual(sandbox.calls,0)
         self.assertEqual(before,snapshot(self.run/"revisions/0001"))

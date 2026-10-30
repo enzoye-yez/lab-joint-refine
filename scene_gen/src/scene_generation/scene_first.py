@@ -467,7 +467,7 @@ def run_static(run):
         else:
             report,review=assess_scene(run,published)
         if run.select_repair_candidate():continue
-        action=decide(report,review)
+        action=decide(report,review,allow_unverified=True)
         run.state["last_decision"]={"action":action,"scene":run.state["published_scene"]["directory"]}
         if action!="repair":
             run.state["status"]="incomplete_scene" if missing else action

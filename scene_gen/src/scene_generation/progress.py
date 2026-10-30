@@ -214,6 +214,7 @@ def repair_comparison(previous, updated, old_review=None, new_review=None, *, ol
     before={r["id"]:r for r in previous.get("checks",[])}
     after={r["id"]:r for r in updated.get("checks",[])}
     resolved, introduced, lost, improved, persistent, superseded = [], [], [], [], [], []
+    missing = []  # A check row that disappeared or became skipped is unreviewed, not merely unmeasured.
     improved_partial = []
     old_items = {i["id"]:i for i in (old_plan or {}).get("instances", [])}
     new_items = {i["id"]:i for i in (new_plan or {}).get("instances", [])}
@@ -232,7 +233,7 @@ def repair_comparison(previous, updated, old_review=None, new_review=None, *, ol
                     "reason":"实际摆放从工作台改为落地；旧桌边约束不适用，地面承托仍按原公差检查"})
                 continue
         if new is None or old.get("status")!="skipped" and new.get("status")=="skipped":
-            lost.append(key);continue
+            lost.append(key);missing.append(key);continue
         if (old.get('connectivity') or {}).get('version')!=(new.get('connectivity') or {}).get('version'):
             lost.append(key)
         old_obligations={g['obligation'] for g in old.get('coverage_gaps',[]) if g.get('obligation')}
@@ -308,12 +309,17 @@ def repair_comparison(previous, updated, old_review=None, new_review=None, *, ol
     # old rule only counted a fully cleared check, so partial success looked like a
     # no-op and was discarded, wasting the whole attempt.
     partial_gain=bool(not gain and improved_partial)
-    outcome=("coverage_lost" if lost else "mixed" if introduced and (gain or partial_gain)
+    # Gains above are counted only on rows with complete evidence, so a check that
+    # became unmeasurable can never count as improved. A row that became incomplete is
+    # recorded but no longer vetoes confirmed gains elsewhere (that veto discarded 20 of
+    # 47 NP-002 repair rounds). A row that disappeared still vetoes.
+    outcome=("coverage_lost" if missing else "mixed" if introduced and (gain or partial_gain)
              else "regressed" if introduced else "improved" if gain
-             else "improved_partial" if partial_gain else "improved_layout" if layout_gain else "ineffective")
+             else "improved_partial" if partial_gain else "coverage_lost" if lost
+             else "improved_layout" if layout_gain else "ineffective")
     return {"outcome":outcome,"layout_compactness_improved":layout_gain,"resolved_checks":sorted(resolved),"improved_checks":improved,
             "partially_improved_checks":improved_partial,
             "new_defects":introduced,"coverage_lost":sorted(lost),"remaining_checks":sorted(persistent),
             "superseded_checks":superseded,
             "adopt":outcome in {"improved","improved_partial","improved_layout"},
-            "rule":"同一检查编号、当前版本完整证据才能解决旧问题；能减少已命名缺陷也算进展；取舍候选保留但不自动替换基线"}
+            "rule":"同一检查编号、当前版本完整证据才能解决旧问题；能减少已命名缺陷也算进展；覆盖丢失单独记录，不否决其他检查的确认改善；取舍候选保留但不自动替换基线"}

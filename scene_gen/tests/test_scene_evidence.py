@@ -10,7 +10,7 @@ from scene_generation.evidence import review_with_evidence
 from scene_generation.review import scoped_review
 
 
-ACCEPT={"verdict":"accept","findings":[],"unverified":[]}
+ACCEPT={"verdict":"accept", "motion_coverage": [],"findings":[],"unverified":[]}
 UNCERTAIN={"verdict":"uncertain","findings":[],"unverified":[],"blocking":["缺少内部视图"]}
 VIEW={"kind":"view","joints":{},"hide_bodies":["lid"],"focus_body":"base","azimuth":45,"elevation":-90}
 

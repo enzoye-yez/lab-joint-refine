@@ -17,6 +17,7 @@ from scene_generation.dispatch import recover
 from scene_generation.recovery import decide, located_repairs
 from scene_generation.recovery_geometry import load_scene
 import test_scene_first as fixture
+from test_parallel_authors import TwoAssetBackend
 
 
 class RecordedRecoveryTests(unittest.TestCase):
@@ -75,9 +76,14 @@ class WorkflowTests(unittest.TestCase):
     def mobile_plan(self):
         from test_mobile_layout import mobile_fixture
         self.env,plan=mobile_fixture(self.root)
+        # Two more synthetic assets (fixture role no longer exists) exercise batched publication.
+        from scene_generation.inputs import catalog
+        source=self.root/'assets3.md'
+        source.write_text('# Test\n### A01｜Synthetic\n100 mm\n### A02｜Synthetic two\n100 mm\n### A03｜Synthetic three\n100 mm\n',encoding='utf-8')
+        self.cat=catalog(source,self.gen)
         for index in range(2):
             key='fixture'+str(index)
-            plan['jobs'].insert(-1,{'id':key,'asset_ids':['A01'],'role':'fixture',
+            plan['jobs'].insert(-1,{'id':key,'asset_ids':['A0'+str(index+2)],'role':'asset',
                 'depends_on':['instrument'],'requirements':'developer publication fixture'})
             plan['jobs'][-1]['depends_on'].append(key)
             plan['instances'].append({'id':key,'job':key,'placement':'table','table_id':'bench',
@@ -87,9 +93,10 @@ class WorkflowTests(unittest.TestCase):
     def test_publication_batches_a_sweep_and_reuses_unchanged_scene(self):
         from scene_generation.scene_first import collect,publish
         plan=self.mobile_plan()
-        backend=fixture.Backend()
-        run,_=self.make([plan,fixture.ASSET,{'keep_layout':'developer fixture'},
-                         fixture.ASSET,fixture.ASSET,fixture.TOOL],backend)
+        backend=TwoAssetBackend()
+        # Layout refinement now precedes the first non-asset (tool) job.
+        run,_=self.make([plan,fixture.ASSET,fixture.ASSET,fixture.ASSET,
+                         {'keep_layout':'developer fixture'},fixture.TOOL],backend)
         run.initialize()
         self.assertEqual(collect(run),[])
         # The first asset is visible; all later assets are committed without full-scene loads.
@@ -103,9 +110,9 @@ class WorkflowTests(unittest.TestCase):
 
     def test_pause_keeps_staged_assets_and_resume_assembles_without_regenerating(self):
         plan=self.mobile_plan()
-        backend=fixture.Backend()
-        run,_=self.make([plan,fixture.ASSET,{'keep_layout':'developer fixture'},
-                         fixture.ASSET,fixture.ASSET],backend)
+        backend=TwoAssetBackend()
+        run,_=self.make([plan,fixture.ASSET,fixture.ASSET,fixture.ASSET,
+                         {'keep_layout':'developer fixture'}],backend)
         generate=run.generate_job
         def pause_before_tool(job,*args,**kwargs):
             if job['role']=='tool':raise KeyboardInterrupt
@@ -119,7 +126,7 @@ class WorkflowTests(unittest.TestCase):
         for artifact in result['assembly']['ready_unassembled_jobs'].values():
             self.assertTrue((run.root/artifact/'model.xml').is_file())
         before=result['budget']['model_calls']
-        resumed,transport=self.make([fixture.TOOL]+[fixture.ACCEPT]*5,fixture.Backend(),resume=True)
+        resumed,transport=self.make([fixture.TOOL]+[fixture.ACCEPT]*5,TwoAssetBackend(),resume=True)
         result=resumed.run()
         self.assertTrue(result['assembly']['complete'])
         self.assertEqual(result['assembly']['ready_unassembled_jobs'],{})

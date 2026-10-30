@@ -69,16 +69,17 @@ class QualityLoopTests(unittest.TestCase):
             result=repair_comparison(record['before'],record['after'])
             self.assertEqual(result['outcome'],'improved_partial',path.name)
             self.assertFalse(record['after']['checks'][0]['complete'])
-    def test_rigid_repair_retains_articulated_unknown_and_is_adopted(self):
+    def test_rigid_repair_is_adopted_while_floating_articulation_remains(self):
+        # The hinged sphere touches nothing: a decided floating articulation, not an unknown.
         old,new=material(),material(True)
-        self.assertEqual(old['obligations']['articulated_connection'],'unknown')
-        self.assertEqual(new['obligations']['articulated_connection'],'unknown')
+        self.assertEqual(old['obligations']['articulated_connection'],'fail')
+        self.assertEqual(new['obligations']['articulated_connection'],'fail')
         self.assertEqual(old['disconnected_count'],2)
         self.assertEqual(new['disconnected_count'],0)
+        self.assertEqual(new['floating_count'],1)
         result=repair_comparison({'checks':[old]},{'checks':[new]})
         self.assertTrue(result['adopt'],result)
         self.assertEqual(result['resolved_checks'],[])
-        self.assertFalse(new['complete'])
 
     def test_delete_material_or_new_collision_rejected(self):
         old,new=material(),material(True)

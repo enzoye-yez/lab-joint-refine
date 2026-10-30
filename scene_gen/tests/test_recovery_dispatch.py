@@ -77,7 +77,7 @@ class DispatchTests(unittest.TestCase):
 
     def test_second_real_capability_executes_after_ineffective_first_and_changes_decision(self):
         before = snapshot(self.artifact)
-        with patch.object(DistanceQuery,'measure',side_effect=MeasurementError('injected native failure')):
+        with patch.object(DistanceQuery,'measure',side_effect=MeasurementError('injected native failure')),patch('asset_generation.mesh_exact.exact',return_value=None):
             result = self.recover()
         self.assertEqual(self.backend.calls,['full_recheck_v2','collision_certificates_v1'])
         self.assertEqual(decide(result),'repair')
@@ -90,7 +90,7 @@ class DispatchTests(unittest.TestCase):
     def test_support_uses_contact_evidence_and_not_clearance(self):
         self.write_scene('0 0 .2')
         self.backend.recheck_scene = lambda *args: unknown('support:b')
-        with patch.object(DistanceQuery,'measure',side_effect=MeasurementError('injected')):
+        with patch.object(DistanceQuery,'measure',side_effect=MeasurementError('injected')),patch('asset_generation.mesh_exact.exact',return_value=None):
             result = self.recover(unknown('support:b'))
         self.assertEqual(result['checks'][0]['status'],'pass')
         self.assertEqual(result['checks'][0]['contact_count'],1)

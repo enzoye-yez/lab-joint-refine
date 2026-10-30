@@ -11,7 +11,8 @@ import sys
 from asset_generation.contracts import GenerationConfig, check_profile
 from asset_generation.local import LocalBackend
 
-DIAGNOSTICS = ("collisions", "disconnected_components", "surface_mismatches", "unsupported_components")
+DIAGNOSTICS = ("collisions", "disconnected_components", "surface_mismatches", "unsupported_components",
+               "floating_articulations")
 
 
 def compact(row, limit=8):
@@ -21,9 +22,14 @@ def compact(row, limit=8):
         values = row.get(key) or []
         if values:
             item[key] = [{k: v for k, v in value.items() if k in
-                          ("geom1", "geom2", "geoms", "body", "distance_m", "excess_m", "repair_hint", "detail")}
+                          ("geom1", "geom2", "geoms", "body", "distance_m", "excess_m", "repair_hint", "detail",
+                           "joint", "parent_body", "free_directions", "penetration_lower_bound_m", "depth_method")}
                          for value in values[:limit]]
             item[key + "_total"] = len(values)
+    for key in ("problems", "drifting_bodies", "high_blocking_contacts", "low_blocking_contacts", "reached",
+                "lock_holds", "moved_when_active_mm", "moved_when_released_mm", "trapped_by", "unswept_joints"):
+        if row.get(key) not in (None, [], {}):
+            item[key] = row[key]
     if row.get("coverage_gaps"):
         item["coverage_gaps_total"] = len(row["coverage_gaps"])
         item["coverage_gap_examples"] = [g.get("detail", "")[:200] for g in row["coverage_gaps"][:3]]

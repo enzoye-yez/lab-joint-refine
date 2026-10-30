@@ -7,7 +7,7 @@ POLICY = {"max_cuts":8, "max_area_fraction":.10, "edge_margin_m":.08,
           "leg_corner_keep_m":.12,
           "robot_protected_half_size_m":.25, "min_pocket_floor_m":.01,
           "max_instance_margin_m":.03,
-          "rule":"只允许关联桌面实例下方的轴对齐矩形凹槽或通孔；整体尺寸、桌腿和机器人安装区固定。新增底座和嵌件由fixture资产生成，不关闭碰撞。"}
+          "rule":"只允许关联桌面实例下方的轴对齐矩形凹槽或通孔；整体尺寸、桌腿和机器人安装区固定。不新增底座或嵌件，不关闭碰撞。"}
 
 
 def validate_cuts(cuts, plan, env=None):

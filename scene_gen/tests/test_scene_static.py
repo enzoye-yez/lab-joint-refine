@@ -32,20 +32,20 @@ class StaticSceneTests(unittest.TestCase):
         return assemble(self.plan,self.env,{"instrument":write_component(self.root/"instrument"),
             "tool":write_component(self.root/"tool",True)},self.root/"robot",self.root/"scene")
 
-    def test_static_asset_never_steps_or_probes_but_checks_dimensions(self):
+    def test_static_scene_mode_still_runs_asset_motion_and_checks_dimensions(self):
+        # Scene static mode never skips the asset's own motion, settling or probe checks.
         write_artifact(self.root/"asset")
         profile = check_profile({"validation_mode":"static", "dimensions":[{"id":"width", "geoms":["base_geom"],
             "axis":0, "expected_m":.2, "tolerance_m":.001}]})
-        with patch("mujoco.mj_step",side_effect=AssertionError("No stepping")), \
-             patch("asset_generation.probes.interaction_probes",side_effect=AssertionError("No interaction")):
-            report = validate_artifact(self.root/"asset",["A01"],profile,self.root/"asset_views")
+        report = validate_artifact(self.root/"asset",["A01"],profile,self.root/"asset_views")
         self.assertEqual(report["status"],"fail")
         self.assertEqual(report["validation_mode"],"static")
-        self.assertEqual(len(report["renders"]),3)
         rows = {row["id"]:row for row in report["checks"]}
         self.assertEqual(rows["width"]["status"],"fail")
-        for key in ("sampled_joint_sweep","numerical_stability","interaction_probes"):
-            self.assertEqual(rows[key]["status"],"skipped")
+        for key in ("sampled_joint_sweep:button","mechanism_drive:button","numerical_stability","interaction_probes"):
+            self.assertEqual(rows[key]["status"],"pass",rows[key])
+        # Initial three views plus both ends of the declared button mechanism.
+        self.assertEqual(len(report["renders"]),5)
 
     def test_static_scene_never_steps_or_solves_robot_targets(self):
         artifact = self.scene()
@@ -129,7 +129,7 @@ class StaticSceneTests(unittest.TestCase):
         provider = Config()
         generation = GenerationConfig()
         inventory = catalog(source,generation)
-        review = {"verdict":"accept","findings":[],"unverified":[]}
+        review = {"verdict":"accept", "motion_coverage": [],"findings":[],"unverified":[]}
         transport = FakeTransport([self.plan,{"model_py":"def build(output_dir):\n    pass\n"},
             {"model_py":"def build(output_dir):\n    # TOOL_FIXTURE\n    pass\n"},review,review,review])
         sandbox = SceneSandbox()

@@ -23,7 +23,7 @@ from test_mobile_layout import mobile_fixture
 from test_scene_evidence import UNCERTAIN, VIEW
 from scene_generation.evidence import review_with_evidence
 
-ACCEPT = {"verdict":"accept","findings":[],"unverified":[]}
+ACCEPT = {"verdict":"accept", "motion_coverage": [],"findings":[],"unverified":[]}
 
 
 class RevisionTests(unittest.TestCase):

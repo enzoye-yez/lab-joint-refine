@@ -175,7 +175,7 @@ class MobileLayoutTests(unittest.TestCase):
         return run,transport
 
     def test_mobile_pipeline_refines_once_and_delivers_document(self):
-        review={"verdict":"accept","findings":[],"unverified":["开发者样例"]}
+        review={"verdict":"accept", "motion_coverage": [],"findings":[],"unverified":["开发者样例"]}
         run,transport=self.run_fixture([self.plan,{"model_py":"def build(output_dir):\n pass"},
             {"keep_layout":"已核对合成几何"},{"model_py":"def build(output_dir):\n # TOOL_FIXTURE\n pass"},
             review,review,review])
@@ -221,7 +221,7 @@ class MobileLayoutTests(unittest.TestCase):
         self.assertEqual([sum(v["type"]=="image_url" for v in page) for page in pages],[24,1])
 
     def test_invalid_refinement_does_not_block_assets(self):
-        review={"verdict":"accept","findings":[],"unverified":[]}
+        review={"verdict":"accept", "motion_coverage": [],"findings":[],"unverified":[]}
         run,_=self.run_fixture([self.plan,{"model_py":"def build(output_dir):\n pass"},
             {},{}, {}, {"model_py":"def build(output_dir):\n # TOOL_FIXTURE\n pass"},review,review,review])
         result=run.run()

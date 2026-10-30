@@ -37,7 +37,9 @@ MANIFEST = {"schema_version": "1.0", "asset_ids": ["A01"],
     "assumptions": ["开发者合成工程样例"], "approximations": [],
     "buttons": [{"id": "button", "joint": "button_slide", "geom": "button_geom", "pressed_at": 0.002,
                  "released_at": 0.0005, "event": "release"}],
-    "connections": [{"id": "cap_connection", "equality": "cap_lock", "release_event": "release", "irreversible": False}]}
+    "connections": [{"id": "cap_connection", "equality": "cap_lock", "release_event": "release", "irreversible": False}],
+    "mechanisms": [{"id": "button", "requirement": "开发者合成：按钮按下并回弹", "joints": ["button_slide"],
+                    "lock": None, "actuation": "button"}]}
 
 SOURCE = 'def build(output_dir):\n    # Developer-authored fixture; not executed by host tests.\n    pass\n'
 

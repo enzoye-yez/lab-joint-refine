@@ -19,7 +19,7 @@ import test_scene_evidence as evidence_fixtures
 import test_scene_first as loop_fixtures
 from scene_fixtures import plan
 
-ACCEPT={"verdict":"accept","findings":[],"unverified":[]}
+ACCEPT={"verdict":"accept", "motion_coverage": [],"findings":[],"unverified":[]}
 def answer(key,status="resolved"):
     return {"id":key,"status":status,"evidence":"developer fixture observation"}
 

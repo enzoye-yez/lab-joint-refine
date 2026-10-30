@@ -206,7 +206,7 @@ class ComponentRecoveryTests(unittest.TestCase):
     def test_main_report_keeps_confirmed_component_defect_beside_unknown(self):
         with tempfile.TemporaryDirectory() as temporary:
             artifact=self.fixture(Path(temporary),floating=True)
-            with patch.object(DistanceQuery,'measure',new=self.inject_internal_unknown(DistanceQuery.measure)):
+            with patch.object(DistanceQuery,'measure',new=self.inject_internal_unknown(DistanceQuery.measure)),patch('asset_generation.mesh_exact.exact',return_value=None):
                 report=scene_checks(artifact,SceneConfig(validation_mode='static'),numerical_contract({}))
             row=next(r for r in report['checks'] if r['id']=='support:station')
             self.assertEqual(row['status'],'fail')
@@ -220,7 +220,7 @@ class ComponentRecoveryTests(unittest.TestCase):
             root=Path(temporary)
             artifact=self.fixture(root)
             limits=SceneConfig(validation_mode='static');contract=numerical_contract({})
-            with patch.object(DistanceQuery,'measure',new=self.inject_internal_unknown(DistanceQuery.measure)):
+            with patch.object(DistanceQuery,'measure',new=self.inject_internal_unknown(DistanceQuery.measure)),patch('asset_generation.mesh_exact.exact',return_value=None):
                 report=scene_checks(artifact,limits,contract)
                 row=next(r for r in report['checks'] if r['id']=='support:station')
                 self.assertEqual(row['status'],'partial')

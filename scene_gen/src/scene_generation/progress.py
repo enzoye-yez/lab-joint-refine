@@ -235,7 +235,8 @@ def repair_comparison(previous, updated, old_review=None, new_review=None, *, ol
         if new is None or old.get("status")!="skipped" and new.get("status")=="skipped":
             lost.append(key);missing.append(key);continue
         if (old.get('connectivity') or {}).get('version')!=(new.get('connectivity') or {}).get('version'):
-            lost.append(key)
+            # Different checker versions cannot be compared; nothing else may outweigh that.
+            lost.append(key);missing.append(key)
         old_obligations={g['obligation'] for g in old.get('coverage_gaps',[]) if g.get('obligation')}
         new_obligations={g['obligation'] for g in new.get('coverage_gaps',[]) if g.get('obligation')}
         if new_obligations-old_obligations:lost.append(key)

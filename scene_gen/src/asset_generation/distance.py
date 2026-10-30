@@ -413,17 +413,43 @@ class DistanceQuery:
             return None
         return self.support_witness(g1,g2,normal,-depth,limit)
 
+    def native_candidates(self, g1, g2, limit):
+        """Native CCD answers in both argument orders, each with both witness orders.
+
+        MuJoCo 3.3.7 reorders a pair by geom type internally and, with native CCD, can
+        return the witness points without swapping them back. The candidates are only
+        re-labelled measurements; validate() still certifies every one independently.
+        """
+        m = self.model
+        for first,second,flip in ((g1,g2,False),(g2,g1,True)):
+            segment = np.zeros(6)
+            distance = float(mujoco.mj_geomDistance(m,self.data,first,second,limit,segment))
+            if flip:
+                segment = np.r_[segment[3:],segment[:3]]
+            yield distance,segment
+            yield distance,np.r_[segment[3:],segment[:3]]
+
     def measure(self, g1, g2, limit=.05):
         m = self.model
         original = int(m.opt.disableflags)
+        solver = (int(m.opt.ccd_iterations),float(m.opt.ccd_tolerance))
         errors = []
         try:
+            # Measurement only: converge mesh-mesh overlap depth instead of the step-time budget.
+            # MuJoCo 3.3.7 sizes its native polytope buffers for about 100 iterations; more crashes.
+            m.opt.ccd_iterations,m.opt.ccd_tolerance = max(solver[0],100),min(solver[1],1e-9)
             for method,flags in (("native",original & ~int(mujoco.mjtDisableBit.mjDSBL_NATIVECCD)),
                                  ("legacy_checked",original | int(mujoco.mjtDisableBit.mjDSBL_NATIVECCD))):
                 m.opt.disableflags = flags
-                segment = np.zeros(6)
-                distance = float(mujoco.mj_geomDistance(m,self.data,g1,g2,limit,segment))
-                result,error = self.validate(g1,g2,distance,segment,limit)
+                if method == "native":
+                    for distance,segment in self.native_candidates(g1,g2,limit):
+                        result,error = self.validate(g1,g2,distance,segment,limit)
+                        if result is not None:
+                            break
+                else:
+                    segment = np.zeros(6)
+                    distance = float(mujoco.mj_geomDistance(m,self.data,g1,g2,limit,segment))
+                    result,error = self.validate(g1,g2,distance,segment,limit)
                 if result is not None:
                     result.update(geom1=m.geom(g1).name,geom2=m.geom(g2).name,method=method,
                                   consistency_checked=True)
@@ -447,6 +473,7 @@ class DistanceQuery:
                         return analytic
         finally:
             m.opt.disableflags = original
+            m.opt.ccd_iterations,m.opt.ccd_tolerance = solver
         result=self.convex_distance(g1,g2,limit)
         if result is not None:
             result.update(geom1=m.geom(g1).name,geom2=m.geom(g2).name,method='convex_distance',

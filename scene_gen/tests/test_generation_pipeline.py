@@ -13,7 +13,7 @@ from asset_generation.pipeline import execute
 from generation_fixtures import SOURCE, PROVENANCE, FakeTransport, FixtureSandbox, package
 from test_generation_checks import dimension_profile
 
-REVIEW = {"verdict": "accept", "findings": [], "unverified": ["机器人执行未验证"]}
+REVIEW = {"verdict": "accept", "motion_coverage": [], "findings": [], "unverified": ["机器人执行未验证"]}
 
 
 class GenerationPipelineTests(unittest.TestCase):
@@ -110,7 +110,7 @@ class GenerationPipelineTests(unittest.TestCase):
 
     def test_accept_with_findings_retries_review_without_rebuilding(self):
         sandbox = FixtureSandbox()
-        invalid = {"verdict":"accept","findings":["外形一致"],"unverified":[]}
+        invalid = {"verdict":"accept", "motion_coverage": [],"findings":["外形一致"],"unverified":[]}
         result, transport = self.run_loop([{"model_py":SOURCE},invalid,REVIEW],sandbox=sandbox)
         self.assertEqual(result["status"],"candidate_ready")
         self.assertEqual(sandbox.calls,1)
@@ -120,7 +120,7 @@ class GenerationPipelineTests(unittest.TestCase):
 
     def test_repeated_invalid_review_preserves_asset_and_requires_review(self):
         sandbox = FixtureSandbox()
-        invalid = {"verdict":"accept","findings":["存在真实缺陷"],"unverified":[]}
+        invalid = {"verdict":"accept", "motion_coverage": [],"findings":["存在真实缺陷"],"unverified":[]}
         result,_ = self.run_loop([{"model_py":SOURCE},invalid,invalid,invalid],sandbox=sandbox)
         self.assertEqual(result["status"],"needs_review")
         self.assertEqual(sandbox.calls,1)

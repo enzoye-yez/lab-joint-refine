@@ -20,7 +20,7 @@ from scene_generation.evidence import review_with_evidence
 from scene_generation.recovery import decide
 from scene_generation.review import scoped_review
 
-ACCEPT={"verdict":"accept","findings":[],"unverified":[]}
+ACCEPT={"verdict":"accept", "motion_coverage": [],"findings":[],"unverified":[]}
 UNCERTAIN={"verdict":"uncertain","findings":[],"unverified":[],"blocking":["support is not measured"]}
 SUPPORT={"kind":"support","instance":"device"}
 UNKNOWN={"id":"support:device","status":"partial","complete":False,"measurement_error_count":1}
@@ -275,7 +275,7 @@ class SurfaceCertificateTests(unittest.TestCase):
         if separate:roof='<body name="separate">'+roof+'</body>'
         m=mujoco.MjModel.from_xml_string(f'<mujoco><asset><mesh name="ring" vertex="{vertices}" face="{faces}"/></asset><worldbody><body name="base"><geom name="ring" type="mesh" mesh="ring"/>{roof}</body></worldbody></mujoco>')
         d=mujoco.MjData(m);geometry_state(m,d);q=DistanceQuery(m,d,recovery=True)
-        with patch.object(q,"measure",side_effect=MeasurementError("synthetic unavailable distance")):
+        with patch.object(q,"measure",side_effect=MeasurementError("synthetic unavailable distance")),patch('asset_generation.mesh_exact.exact',return_value=None):
             return integrity(m,d,query=q)
     def test_actual_original_surface_intersection_proves_same_body_union(self):
         result=self.union_case()

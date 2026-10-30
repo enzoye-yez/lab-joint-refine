@@ -88,6 +88,7 @@ def validate_plan(value, asset_ids, limits, env=None):
         require(isinstance(job, dict) and set(job)-{"configurations"} == {"id", "asset_ids", "role", "depends_on", "requirements"}, "任务字段无效")
         identifier(job["id"])
         require(job["id"] not in jobs and isinstance(job['role'],str) and job["role"] in {"asset", "tool", "fixture"}, "任务重复或类型无效")
+        require(job["role"] != "fixture", "本阶段不生成桌面辅助装置（fixture）；只允许asset与tool任务")
         require(isinstance(job["asset_ids"], list) and job["asset_ids"] and all(isinstance(a,str) for a in job['asset_ids'])
                 and len(set(job["asset_ids"])) == len(job["asset_ids"]), "任务资产编号无效")
         require(all(isinstance(x, str) and x in asset_ids for x in job["asset_ids"]), "任务引用未知资产")

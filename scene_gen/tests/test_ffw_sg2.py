@@ -224,7 +224,7 @@ class FfwTests(unittest.TestCase):
         result=read_json(run.root/"result.json")
         self.assertTrue(result["assembly"]["available"])
         self.assertEqual(result["budget"]["model_calls"],2)
-        review={"verdict":"accept","findings":[],"unverified":["开发合成测试，不证明质量"]}
+        review={"verdict":"accept", "motion_coverage": [],"findings":[],"unverified":["开发合成测试，不证明质量"]}
         resumed,transport=self.run_fixture([{"keep_layout":"合成尺寸已核对"},review,review],resume=True)
         result=resumed.run()
         self.assertEqual(result["status"],"static_candidate_ready")

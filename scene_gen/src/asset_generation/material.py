@@ -19,6 +19,66 @@ def _join(parent, a, b):
     a,b=_find(parent,a),_find(parent,b)
     parent[max(a,b)]=min(a,b)
 
+def physical(model,a,b):
+    """Whether MuJoCo's contact filter lets geoms a and b collide."""
+    ta,aa,tb,ab=(int(x) for x in (model.geom_contype[a],model.geom_conaffinity[a],
+                                   model.geom_contype[b],model.geom_conaffinity[b]))
+    if not (ta&ab or tb&aa):return False
+    ba,bb=int(model.geom_bodyid[a]),int(model.geom_bodyid[b])
+    if ba==bb:return False
+    parent=lambda x,y:int(model.body_parentid[x])==y and y!=0
+    filtered=not model.opt.disableflags&mujoco.mjtDisableBit.mjDSBL_FILTERPARENT
+    return not (filtered and (parent(ba,bb) or parent(bb,ba)))
+
+CAPTURE_FIT_M=.002
+
+def captured(model,data,query,joint,child,parent,boxes,fit=CAPTURE_FIT_M):
+    """Joint-aware engagement: the child is held if every displacement the joint does
+    not permit is blocked by parent material within the fit tolerance.
+
+    A slide must be blocked across its axis; a hinge across and along its axis. Each
+    probe shifts the child's geoms by `fit` and asks the original-surface test whether
+    new material intersection appears. This certifies geometric capture, not strength.
+    """
+    from .mesh_exact import exact
+    axis=data.xmat[model.jnt_bodyid[joint]].reshape(3,3)@model.jnt_axis[joint]
+    axis=axis/np.linalg.norm(axis)
+    seed=np.eye(3)[int(np.argmin(np.abs(axis)))]
+    u=np.cross(axis,seed);u/=np.linalg.norm(u);v=np.cross(axis,u)
+    directions=[u,-u,v,-v]+([axis,-axis] if model.jnt_type[joint]!=mujoco.mjtJoint.mjJNT_SLIDE else [])
+    near=[(c,p) for c in child for p in parent
+          if not (np.any(boxes[c][1]+fit<boxes[p][0]) or np.any(boxes[p][1]+fit<boxes[c][0]))]
+    def state():
+        out={}
+        for c,p in near:
+            e=exact(query,c,p)
+            if e is not None:out[(c,p)]=e
+        return out
+    before=state();blocked=[];free=[]
+    if near and not before:
+        # No original-surface evidence for any nearby pair: capture stays undecided.
+        return {"joint":model.joint(joint).name,"body":model.body(int(model.jnt_bodyid[joint])).name,
+                "fit_tolerance_m":fit,"blocked_directions":[],"free_directions":[],
+                "clearance_to_parent_m":None,"captured":False,"undecided":True}
+    saved=data.geom_xpos[child].copy()
+    try:
+        for direction in directions:
+            data.geom_xpos[child]=saved+fit*direction
+            after=state();hit=None
+            for key,e in after.items():
+                if not e["intersecting"]:continue
+                prior=before.get(key)
+                grew=(prior is None or not prior["intersecting"] or not e["depth_known"] or not prior["depth_known"]
+                      or e["penetration_lower_bound_m"]>prior["penetration_lower_bound_m"]+.25*fit)
+                if grew:hit=key;break
+            (blocked if hit else free).append(np.round(direction,4).tolist())
+    finally:
+        data.geom_xpos[child]=saved
+    clearance=min((e["distance_m"] for e in before.values()),default=None)
+    return {"joint":model.joint(joint).name,"body":model.body(int(model.jnt_bodyid[joint])).name,
+            "fit_tolerance_m":fit,"blocked_directions":blocked,"free_directions":free,
+            "clearance_to_parent_m":clearance,"captured":bool(near) and not free}
+
 def visible(model,g):
     return model.geom_rgba[g,3]>0 and model.geom_group[g]<3
 
@@ -229,6 +289,28 @@ def integrity(model,data,*,instance=None,tolerance=.0005,max_pairs=200000,query=
                 if certificate is not None and certificate["penetration_upper_bound_m"]<=tolerance:
                     result=certificate;d=result["distance_m"]
                     connected=d<=eps;unknown=False
+            # The simulator collides mesh colliders by their convex hulls, so a measured
+            # hull overlap between colliding geoms is a physical collision whatever the
+            # original triangles look like.
+            hull_depth=-d if (not solid and d is not None and d<0 and physical(model,a,b)) else 0.
+            if unknown:
+                from .mesh_exact import exact
+                evidence=exact(query,a,b)
+                if evidence is not None:
+                    result={**row,**evidence};d=evidence["distance_m"]
+                    penetration=evidence["penetration_lower_bound_m"] or 0
+                    connected=evidence["intersecting"] or d<=eps
+                    unknown=False;solid=True
+                    if ba!=bb and evidence["crossing"] and not evidence["depth_known"]:
+                        # Proven visible crossing of open shells; depth itself is not measurable.
+                        target=engagements if groups[ba]==groups[bb] else hits
+                        target.append({**row,**evidence,"depth_m":None,"repair_hint":
+                            None if target is engagements else collision_hint(model,data,a,b,evidence,tolerance)})
+                        if connected and same_group:
+                            _join(components,a,b);_join(possible,a,b)
+                            if rigid[ba]==rigid[bb]:
+                                _join(rigid_components,a,b);_join(rigid_possible,a,b)
+                        continue
             if connected and same_group:
                 _join(components,a,b);_join(possible,a,b)
                 if rigid[ba]==rigid[bb]:
@@ -238,7 +320,8 @@ def integrity(model,data,*,instance=None,tolerance=.0005,max_pairs=200000,query=
                 if same_group:_join(possible,a,b)
                 if same_group and rigid[ba]==rigid[bb]:_join(rigid_possible,a,b)
                 unknown_pairs.append((a,b,{**row,"error_kind":"measurement_error","detail":result.get("error","original material intersection unresolved")}))
-            depth=max(-d if d is not None else 0,penetration)
+            depth=max(-d if d is not None else 0,penetration,hull_depth)
+            if hull_depth>0:solid=True
             if ba!=bb and solid and depth>tolerance:
                 if groups[ba]==groups[bb] and depth<=engagement:
                     engagements.append({**row,"depth_m":float(depth)})
@@ -277,9 +360,33 @@ def integrity(model,data,*,instance=None,tolerance=.0005,max_pairs=200000,query=
         c=_find(components,g)
         if c in measured:_join(articulation,r,measured[c])
         measured[c]=r
+    capture_evidence=[]
+    for b in sorted(bodies):
+        p=int(model.body_parentid[b])
+        if p not in bodies or rigid[b]==rigid[p] or _find(articulation,rigid[b])==_find(articulation,rigid[p]):continue
+        joints=[j for j in range(model.body_jntadr[b],model.body_jntadr[b]+model.body_jntnum[b])
+                if model.jnt_type[j] in (mujoco.mjtJoint.mjJNT_HINGE,mujoco.mjtJoint.mjJNT_SLIDE,mujoco.mjtJoint.mjJNT_BALL)]
+        if len(joints)!=1:continue
+        child=rigid_grouped.get(rigid[b],[]);parent=rigid_grouped.get(rigid[p],[])
+        evidence=captured(model,data,query,joints[0],child,parent,boxes)
+        capture_evidence.append(evidence)
+        if evidence["captured"]:_join(articulation,rigid[b],rigid[p])
+    # A jointed part neither touching nor captured by its parent's material is a decided
+    # defect: it visibly floats and only the joint definition holds it in place.
+    floating=[];decided={r:_find(articulation,r) for r in articulation}
+    for evidence in capture_evidence:
+        b=model.body(evidence["body"]).id;p=int(model.body_parentid[b])
+        if evidence["captured"] or evidence.get("undecided") or _find(articulation,rigid[b])==_find(articulation,rigid[p]):continue
+        _join(decided,rigid[b],rigid[p])
+        clearance=evidence["clearance_to_parent_m"]
+        floating.append({**evidence,"parent_body":model.body(p).name,
+            "detail":"jointed part is neither in contact with nor captured by its parent's material",
+            "repair_hint":{"instruction":"让该部件的导向/轴销/铰链叶片与父件材料接触或包覆：沿 free_directions 补导轨、轴肩、"
+                "轴套或限位面，使 free_directions 全部被父件材料在 fit_tolerance_m 内挡住",
+                "clearance_mm":None if clearance is None else round(clearance*1000,2)}})
     for gs in grouped.values():
         rs={rigid[int(model.geom_bodyid[g])] for g in gs}
-        if len({_find(articulation,r) for r in rs})>1:
+        if len({_find(decided,r) for r in rs})>1:
             unresolved=True
             gaps.append({"error_kind":"unsupported_check","obligation":"articulation:"+"|".join(sorted(model.body(r).name for r in rs)),
                          "detail":"articulated connection needs geometric engagement evidence; clearance alone is not a defect",
@@ -305,7 +412,7 @@ def integrity(model,data,*,instance=None,tolerance=.0005,max_pairs=200000,query=
                     "excess_m":excess,"detail":"collision envelope protrudes beyond visible material"})
     # Unknown intersection pairs remain uncovered even when connectivity is independently proven.
     complete=not gaps and not skipped and not unresolved
-    status="fail" if defects or hits or mismatches else "pass" if complete else "partial"
+    status="fail" if defects or hits or mismatches or floating else "pass" if complete else "partial"
     def partitions(parent,gs):
         result={}
         for g in gs:result.setdefault(_find(parent,g),[]).append(model.geom(g).name)
@@ -317,7 +424,7 @@ def integrity(model,data,*,instance=None,tolerance=.0005,max_pairs=200000,query=
             "connectivity":connectivity,
             "obligations":{"rigid_connection":"fail" if defects else "unknown" if skipped or any(
                 partitions(rigid_components,gs)!=partitions(rigid_possible,gs) for gs in rigid_grouped.values()) else "pass",
-                "articulated_connection":"unknown" if unresolved else "pass",
+                "articulated_connection":"fail" if floating else "unknown" if unresolved else "pass",
                 "collision":"fail" if hits else "unknown" if unknown_count or skipped else "pass",
                 "collision_envelope":"fail" if mismatches else "pass"},
             "instances":[instance] if instance else [],"complete":complete,"tolerance_m":tolerance,
@@ -326,6 +433,7 @@ def integrity(model,data,*,instance=None,tolerance=.0005,max_pairs=200000,query=
             "surface_mismatches":mismatches,"surface_mismatch_count":len(mismatches),
             "collisions":hits,"collision_count":len(hits),"coverage_gaps":gaps,
             "engagements":engagements,"engagement_count":len(engagements),"engagement_allowance_m":engagement,
+            "capture_evidence":capture_evidence,"floating_articulations":floating,"floating_count":len(floating),
             "examined_pairs":examined,"unexamined_pairs":skipped,"measurement_error_count":unknown_count,
             "detail":"Visible material connectivity, distinct-body static intersections, collision-envelope consistency; "
                      "shallow engagement between jointed or welded bodies is recorded separately. Not strength or full surface equivalence."}

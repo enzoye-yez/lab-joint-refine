@@ -15,7 +15,7 @@ from scene_fixtures import environment,plan,SceneSandbox
 
 ASSET_SOURCE = 'def build(output_dir):\n    pass\n'
 TOOL_SOURCE = 'def build(output_dir):\n    # TOOL_FIXTURE\n    pass\n'
-REVIEW = {"verdict":"accept","findings":[],"unverified":["合成响应，不是正式模型结果"]}
+REVIEW = {"verdict":"accept", "motion_coverage": [],"findings":[],"unverified":["合成响应，不是正式模型结果"]}
 
 
 class ScenePipelineTests(unittest.TestCase):
@@ -202,7 +202,7 @@ class ScenePipelineTests(unittest.TestCase):
 
     def test_asset_review_format_retry_does_not_modify_geometry(self):
         sandbox = SceneSandbox()
-        invalid = {"verdict":"accept","findings":["未见缺件"],"unverified":[]}
+        invalid = {"verdict":"accept", "motion_coverage": [],"findings":["未见缺件"],"unverified":[]}
         replies = self.base_replies[:2]+[invalid]+self.base_replies[2:]+[REVIEW]
         result,transport = self.run_loop(replies,sandbox=sandbox)
         self.assertEqual(result["status"],"candidate_ready")
@@ -212,7 +212,7 @@ class ScenePipelineTests(unittest.TestCase):
 
     def test_invalid_scene_review_retries_without_reassembly(self):
         sandbox = SceneSandbox()
-        invalid = {"verdict":"accept","findings":["station: 外形一致"],"unverified":[]}
+        invalid = {"verdict":"accept", "motion_coverage": [],"findings":["station: 外形一致"],"unverified":[]}
         result,_ = self.run_loop(self.base_replies+[invalid,REVIEW],sandbox=sandbox)
         self.assertEqual(result["status"],"candidate_ready")
         self.assertEqual(sandbox.scene_calls,1)
@@ -248,21 +248,21 @@ class ScenePipelineTests(unittest.TestCase):
         self.assertEqual(len(set(aliases)), 2)
 
     def test_deferred_asset_reaches_assembly_and_scene_must_resolve_it(self):
-        deferred = {"verdict":"defer","findings":[],"unverified":[],
+        deferred = {"verdict":"accept","motion_coverage":[],"findings":[],"unverified":[],
                     "deferred":[{"stage":"scene","detail":"组合装配后的夹具间隙"},
                                 {"stage":"operation","detail":"真实抓取保持力"}]}
         resolved = {**REVIEW,"deferred_results":[{"id":"tool:00007_asset_review:1","status":"resolved",
                       "evidence":"合成场景视角及夹具间隙检查证据"}]}
         result,transport = self.run_loop(self.base_replies[:4]+[deferred,resolved],limits=SceneConfig(validation_mode="static"))
         self.assertEqual(result["status"],"static_candidate_ready")
-        self.assertEqual(result["jobs"]["tool"],"assembly_ready")
+        self.assertEqual(result["jobs"]["tool"],"candidate_ready")
         self.assertEqual([x["status"] for x in result["deferred_checks"]],["resolved","pending"])
         scene_context = json.loads(transport.requests[-1]["messages"][1]["content"][0]["text"])
         self.assertEqual(len(scene_context["deferred_checks"]),2)
         self.assertTrue(any("真实抓取保持力" in x for x in result["unverified"]))
 
     def test_missing_deferred_resolution_cannot_pass_scene(self):
-        deferred = {"verdict":"defer","findings":[],"unverified":[],
+        deferred = {"verdict":"accept","motion_coverage":[],"findings":[],"unverified":[],
                     "deferred":[{"stage":"scene","detail":"装配间隙"}]}
         result,_ = self.run_loop(self.base_replies[:4]+[deferred,REVIEW,REVIEW,REVIEW])
         self.assertEqual(result["status"],"needs_review")
@@ -271,7 +271,7 @@ class ScenePipelineTests(unittest.TestCase):
         self.assertIsNotNone(result["scene_artifact"])
 
     def test_static_preview_keeps_other_pose_checks_pending_not_resolved(self):
-        deferred = {"verdict":"defer","findings":[],"unverified":[],
+        deferred = {"verdict":"accept","motion_coverage":[],"findings":[],"unverified":[],
                     "deferred":[{"stage":"scene","detail":"工具抓取时的配合姿态"}]}
         review = {**REVIEW,"deferred_results":[{"id":"tool:00007_asset_review:1","status":"out_of_scope",
                  "target_stage":"static_fit","evidence":"当前悬停，只验证初始几何布局"}]}
@@ -284,14 +284,14 @@ class ScenePipelineTests(unittest.TestCase):
         self.assertEqual(result["verification_scope"],"initial_static_layout")
 
     def test_deferred_instrument_can_feed_tool_without_false_acceptance(self):
-        deferred = {"verdict":"defer","findings":[],"unverified":[],
+        deferred = {"verdict":"accept","motion_coverage":[],"findings":[],"unverified":[],
                     "deferred":[{"stage":"scene","detail":"夹具装配配合"}]}
         resolved = {**REVIEW,"deferred_results":[{"id":"instrument:00002_asset:1","status":"resolved",
                     "evidence":"合成组合场景配合检查"}]}
         result,transport = self.run_loop(self.base_replies[:2]+[deferred]+self.base_replies[3:]+[resolved])
         self.assertEqual(result["status"],"candidate_ready")
         context = json.loads(transport.requests[3]["messages"][1]["content"][0]["text"])
-        self.assertEqual(context["dependencies"]["instrument"]["status"],"assembly_ready")
+        self.assertEqual(context["dependencies"]["instrument"]["status"],"candidate_ready")
         self.assertEqual(len(context["dependencies"]["instrument"]["deferred_checks"]),1)
 
     def test_resume_uncertain_reviews_existing_geometry_only(self):

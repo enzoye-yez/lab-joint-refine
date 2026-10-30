@@ -273,8 +273,7 @@ class SceneRun:
         record["deferred_checks"] = deferred_records(review,job["id"],destination.name)
         record["feedback"] = {"numerical":report,"visual":review}
         record['layout_revision'] = self.layout_context()['revision']
-        record["status"] = {"accept":"candidate_ready","defer":"assembly_ready",
-                            "uncertain":"needs_review","repair":"failed"}[review["verdict"]]
+        record["status"] = {"accept":"candidate_ready","uncertain":"needs_review","repair":"failed"}[review["verdict"]]
         return record["feedback"]
 
     def failure_history(self, key, limit=6):

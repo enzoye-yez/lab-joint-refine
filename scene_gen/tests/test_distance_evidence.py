@@ -78,9 +78,11 @@ class DistanceEvidenceTests(unittest.TestCase):
         m,d=compiled('<mujoco><worldbody><geom name="a" type="sphere" size=".1"/>'
                      '<geom name="b" type="sphere" size=".1" pos=".3 0 0"/></worldbody></mujoco>')
         calls=[]
+        native_off=int(mujoco.mjtDisableBit.mjDSBL_NATIVECCD)
         def probe(*args):
             calls.append(int(m.opt.disableflags))
-            if len(calls)==1:
+            # Native CCD (tried in both argument orders) returns an inconsistent zero.
+            if not calls[-1]&native_off:
                 return 0
             args[-1][:]=[.1,0,0,.2,0,0]
             return .1
@@ -88,7 +90,7 @@ class DistanceEvidenceTests(unittest.TestCase):
             result=DistanceQuery(m,d).measure(0,1,.2)
         self.assertEqual(result['method'],'legacy_checked')
         self.assertEqual(int(m.opt.disableflags),0)
-        self.assertNotEqual(calls[0],calls[1])
+        self.assertNotEqual(calls[0],calls[-1])
 
     def test_positive_gap_is_not_support_and_selector_is_scoped(self):
         m,d=compiled('<mujoco><worldbody><body name="rack__body"><geom name="rack__top" type="box" size=".1 .1 .1"/></body>'

@@ -16,18 +16,20 @@ REQUIREMENTS_POLICY = '''
 '''
 
 ASSET_SCOPE = '''
-当前阶段是单资产/装置的静态外观与本体审查，不是组合场景验收。
-只将本体可见缺陷、与已知要求冲突列为findings；这些问题用repair，不能延后。
-装管后的适配、跨实例接触、支撑与整体遮挡等必须等场景装配后验证：
-返回verdict="defer"，findings=[]，增加deferred:[{"stage":"scene","detail":"需要装配后确认的具体问题"}]。
-动态操作、抓取控制、连续轨迹属于后续operation阶段，可用同一列表的stage="operation"记录。
-defer只允许继续组装以获取证据，不表示问题已验证通过。不能把本阶段的缺件/穿模/来源冲突转移到后续。
+当前阶段是单资产/装置的本体审查：外形、本体内部配合与全部本体运动机构都必须在本阶段判定完毕，不能延后。
+verdict只能是accept或repair。本体问题（缺件、外形或机构错误、可见穿模或悬空、与资料冲突、本体内部配合不当、
+机构缺失或运动不合理）一律repair。只有本资产内部已全部核对无误才accept。
+跨实例事项（与其他资产的插接、放入其他仪器、桌面支撑与整体遮挡）不属于本阶段，可在deferred中记录
+stage="scene"；机器人抓取、操作序列与轨迹记录为stage="operation"。这些记录可与accept共存，交由对应阶段完成，
+但不能把本体缺陷写进deferred。
+必须返回motion_coverage:[{"requirement":"资料中的一条运动/交互要求原文","mechanism":"interfaces.json中实现它的机构id或null",
+"verdict":"ok|missing|wrong","evidence":"依据：机构扫描/驱动/锁止/释放检查编号与机构两端渲染图"}]，
+逐条覆盖资料Required interactions与任务requirements中属于本资产本体的全部运动要求（打开/关闭、滑动、旋转、摆动、按压、锁止/解锁、取下/装回等）。
+任何missing或wrong都必须repair并写入findings。数值检查中mechanism_*、sampled_joint_sweep:*、release_probe:*、numerical_stability为fail时必须repair。
 未绑定精确数值检查的尺寸列入unverified，不能仅凭图像认定精确合规。
-新设计的夹具没有原厂照片，不能要求其与不存在的原厂照片一致；原图用于核对所服务仪器的接口。
 reference_policy与evidence明确说明已传入哪些图片，不要把依赖单独渲染当作组合装配图。
-如果本阶段的确因图片不足或资料矛盾无法作判断，用uncertain并增加blocking:["本阶段无法解决的具体原因"]。
-只有后续阶段证据缺失时使用defer，不能用uncertain阻止获取该证据。accept时findings和deferred都应为空。
-保持verdict/findings/unverified三个基础字段；blocking、deferred为按需附加字段。
+只有图片无法打开或资料自相矛盾导致完全无法判断时才用uncertain，并增加blocking:["具体原因"]。
+保持verdict/findings/unverified三个基础字段；motion_coverage必填；blocking、deferred为按需附加字段。
 如果instance_contract.expected_model_units非空，必须增加prototype_units字段，按当前实际几何/渲染报告单个模型内的完整资产单元数量。
 零件、盖、内部机构不是独立资产单元。多支完整管是多个单元；场景负责复制，不能在每个模型内再次复制整套数量。
 单模型数量不匹配必须repair；图像或几何证据不足无法计数则prototype_units=null并uncertain及blocking，不能默认满足。
@@ -50,8 +52,7 @@ accept/uncertain时affected_instances应省略或为空。证据仍不足用unce
 需要配置规程初始关节/内容物状态、切换为其他装配姿态、接触位置或执行操作才能证明的事项，
 可在deferred_results中用status="out_of_scope"，增加target_stage="initial_state|static_fit|operation"，并明确evidence说明尚缺什么。
 这些项保留为未验证，绝不标为resolved。只要当前布局外观合格、工程检查没有fail且剩余项都已如此明确归属，可accept交付静态预览。
-工程检查中status="partial"、只因量测不可靠（measurement_error）或框架缺少对应探测而未完成的条目，不是已确认缺陷：
-静态预览可以accept，但必须把这些条目编号逐一写入unverified；任何status="fail"的条目仍须repair。
+工程检查中任何status="fail"或"partial"的条目都必须处理：能修复的repair；确属后续阶段的项按上面规则归属并说明。
 不要要求先装管入仪器、抓取、拆盖停放或配置内容物才能查看当前静态布局；完整模式不允许此例外。
 '''
 
@@ -71,16 +72,16 @@ def scoped_review(value, stage, deferred=(), expected_units=None, preview=False,
 def _scoped_review(value, stage, deferred=(), expected_units=None, preview=False, instance_ids=None, layout_targets=()):
     require(isinstance(value, dict), "阶段审查须为对象")
     required = {"verdict", "findings", "unverified"}
-    allowed = required | {"deferred", "blocking", "deferred_results", "prototype_units"}
+    allowed = required | {"deferred", "blocking", "deferred_results", "prototype_units", "motion_coverage"}
     if stage == "scene":
         allowed.update({"affected_instances", "affected_layout"})
     require(required <= set(value) <= allowed, "阶段审查字段无效：缺少="+str(sorted(required-set(value)))+"；未知="+str(sorted(set(value)-allowed)))
     require(stage in {"asset", "scene"} and isinstance(value["verdict"], str), "审查阶段或结论无效")
-    is_defer = value["verdict"] == "defer"
+    require(value["verdict"] != "defer", "资产与场景审查不再使用defer：本体问题repair，跨实例事项写入deferred并给出accept或repair")
     base = {k: value[k] for k in required}
-    if is_defer:
-        base["verdict"] = "accept"
-    visual_result(base)  # 缺陷列表仍然不能与accept/defer共存。
+    visual_result(base)  # 缺陷列表不能与accept共存。
+    if stage == "asset":
+        motion_coverage(value)
     if expected_units is not None:
         units = value.get("prototype_units")
         require("prototype_units" in value and (type(units) is int and units > 0 or units is None and value["verdict"] == "uncertain"),
@@ -94,13 +95,11 @@ def _scoped_review(value, stage, deferred=(), expected_units=None, preview=False
                 and isinstance(item["stage"], str) and item["stage"] in {"scene", "operation"}
                 and isinstance(item["detail"], str) and 0 < len(item["detail"].strip()) <= 4000,
                 "待验证项必须明确scene或operation阶段及具体内容")
-    require(not is_defer or (stage == "asset" and pending), "defer仅用于单资产阶段且必须列出待验证事项")
-    require(not pending or (stage == "asset" and value["verdict"] in {"defer", "repair", "uncertain"}),
-            "待验证项不能与accept共存或在场景阶段再次延后")
+    require(not pending or stage == "asset", "场景阶段不能再次延后事项")
     blocking = value.get("blocking", [])
     require(isinstance(blocking, list) and all(isinstance(x, str) and x.strip() for x in blocking), "阻断原因须为文本列表")
     require(value["verdict"] != "uncertain" or blocking,
-            "uncertain须明确本阶段blocking原因；只有后续证据缺失请用defer，操作未验证写入unverified")
+            "uncertain须明确本阶段blocking原因；跨实例事项写入deferred，操作未验证写入unverified")
     require(value["verdict"] == "uncertain" or not blocking, "非uncertain结论不能包含阻断原因")
     require(value["verdict"] != "repair" or value["findings"], "repair必须列出本阶段具体缺陷")
     if stage == "scene":
@@ -123,6 +122,24 @@ def _scoped_review(value, stage, deferred=(), expected_units=None, preview=False
     require(value["verdict"] != "accept" or all(r["status"] in {"resolved","out_of_scope"} for r in resolutions),
             "仍有未解决的场景事项，不能接受")
     return value
+
+
+def motion_coverage(value):
+    """Per-requirement motion verdicts; any gap forces repair with a finding."""
+    rows = value.get("motion_coverage")
+    if rows is None and value["verdict"] != "accept":
+        return []
+    require(isinstance(rows, list) and len(rows) <= 128, "资产审查accept时必须返回motion_coverage列表（无运动要求时为空列表）")
+    for row in rows:
+        require(isinstance(row, dict) and set(row) == {"requirement", "mechanism", "verdict", "evidence"}
+                and isinstance(row["requirement"], str) and row["requirement"].strip()
+                and (row["mechanism"] is None or isinstance(row["mechanism"], str))
+                and row["verdict"] in {"ok", "missing", "wrong"} and isinstance(row["evidence"], str) and row["evidence"].strip(),
+                "motion_coverage条目须含requirement、mechanism、verdict(ok|missing|wrong)与evidence")
+    bad = [r for r in rows if r["verdict"] != "ok"]
+    require(not bad or (value["verdict"] == "repair" and value["findings"]),
+            "存在缺失或错误的运动机构时必须repair并写入findings")
+    return rows
 
 
 def deferred_records(review, job, version):

@@ -349,6 +349,8 @@ def audit_assets(run):
         destination=run.begin("asset_review")
         record={k:deepcopy(v) for k,v in current.items() if k not in {"stage","dirty","regenerate","quality_key"}}
         artifact=safe_path(run.root,current["artifact"])
+        # Motion, settling and probes run in every mode (checks.py); static only selects the
+        # kinematic geometry state used for the material checks.
         profile=check_profile({**run.contract["jobs"].get(key,{}),"validation_mode":"static"})
         from .local_repair import check_key,cached_check
         local=cached_check(run,check_key(run,current,job,profile))
@@ -374,7 +376,13 @@ def audit_assets(run):
             if not images:images=[image_record(safe_path(run.root,x),run.root,run.generation) for x in current.get("preview_paths",[])]
         record.update(feedback={"numerical":report},preview_paths=[i["path"] for i in images],status="needs_review",numeric_audit_key=audit_key)
         atomic_json(destination/"checks.json",report)
-        if images:
+        if report["status"]=="fail":
+            # Confirmed numerical defects go straight back to the author; a visual review
+            # cannot overrule them and would only spend a call.
+            review={"verdict":"repair","findings":failing_findings(report),"unverified":[],"motion_coverage":[]}
+            atomic_json(destination/"review.json",review)
+            record.update(feedback={"numerical":report,"visual":review},status="failed",deferred_checks=[])
+        elif images:
             bundle=task_bundle(run.catalogue,job)
             save_review_checkpoint(run,"asset",record)
             run.review_asset(job,bundle,bundle["images"],images,report,destination,record)
@@ -383,6 +391,23 @@ def audit_assets(run):
         run.state["jobs"][key]["dirty"]=False
         usable(run,run.state["jobs"][key])
         run.store.save()
+
+
+def failing_findings(report, limit=24):
+    """Actionable author findings from failed check rows, with the checker's own hints."""
+    out=[]
+    for row in report.get("checks",[]):
+        if row.get("status")!="fail":continue
+        evidence=[]
+        for key in ("collisions","disconnected_components","floating_articulations","surface_mismatches","problems","drifting_bodies"):
+            for item in (row.get(key) or [])[:3]:
+                evidence.append(item if isinstance(item,str) else {k:item[k] for k in item if k in
+                    ("geom1","geom2","body","joint","depth_mm","repair_hint","free_directions","displacement_mm","fraction")})
+        for side in ("high","low"):
+            if row.get(f"{side}_blocking_contacts"):evidence.append({f"{side}_blocking":row[f"{side}_blocking_contacts"]})
+        out.append(f"{row['id']}：检查失败；依据：{str(row.get('detail',''))[:160]}；证据：{evidence}"[:1600])
+        if len(out)>=limit:break
+    return out
 
 
 def inherited_checks(run):
@@ -400,7 +425,7 @@ def inherited_checks(run):
                 "execution_failure":deepcopy(numerical.get("execution_failure",{}))})
         visual=job.get("feedback",{}).get("visual",{})
         verdict=visual.get("verdict")
-        rows.append({"id":"asset:"+key+":visual","status":"fail" if verdict=="repair" else "pass" if verdict in {"accept","defer"} else "partial",
+        rows.append({"id":"asset:"+key+":visual","status":"fail" if verdict=="repair" else "pass" if verdict=="accept" else "partial",
             "detail":"Asset visual review; see findings and unverified evidence", "instances":instances,
             "findings":visual.get("findings",[]),"unverified":visual.get("unverified",[])})
         if job.get("replacement_failure"):
@@ -524,7 +549,7 @@ def run_static(run):
         else:
             report,review=assess_scene(run,published)
         if run.select_repair_candidate():continue
-        action=decide(report,review,allow_unverified=True)
+        action=decide(report,review)
         run.state["last_decision"]={"action":action,"scene":run.state["published_scene"]["directory"]}
         if action!="repair":
             run.state["status"]="incomplete_scene" if missing else action

@@ -37,7 +37,13 @@ interfaces.json 格式：
 可选mechanical_events:[{"id":"机械事件编号","interface":"已声明的真实操作接口id","action":"release|attach"}]。
 手动卡扣、拨杆和取下附件可以引用此类事件，不得伪造software接口。release_event/attach_event可引用动作相符的机械事件。
 按钮事件、software接口编号和mechanical_events编号共享事件名称空间，不能重复定义同一事件。
-这仅声明机械关系；当前运行时不会凭声明自动触发机械动作，静态阶段必须标记交互未验证。
+这仅声明机械关系；框架会用外力实际拉开连接来验证锁合与释放。
+必须声明mechanisms:[{"id":"机构编号","requirement":"资料中对应的运动/交互要求原文","joints":["实现它的hinge/slide/ball关节"],
+ "lock":"锁住它的equality名称或null","actuation":"gripper|button|software|gravity|manual","continuous":false}]。
+资料Required interactions与任务requirements中每一项本体运动（开合、滑动、旋转、摆动、按压、锁止/解锁、翻折）都要有真实关节实现并列入mechanisms；
+每个hinge/slide/ball关节都必须属于某个机构；连续旋转（转子等）声明continuous=true，其余关节必须有限位且行程与资料一致。
+框架会逐个机构：全行程扫描检查新增穿透；用有界广义力把机构驱动到两端限位（弹簧与重力已补偿，只有接触、限位和约束能挡住它）；
+有lock时先验证锁在相同驱动下不动、解除后能动；在z=0临时地面上重力静置2秒检查自由件不漂移。按钮行程不能压进面板，活动件与导向/轴销须有材料接触或包覆。
 操作接口可增加approach_axis:[x,y,z]，表示site局部坐标系中指向外部操作侧的单位向量。仅在有结构依据时声明；省略表示方向未验证。
 没有对应对象时列表为空。按钮沿正关节方向按下；事件需接触和位移，不可自行宣布成功。
 连接分两类，选错类别会被拒绝：
@@ -69,7 +75,7 @@ findings只记录需要修复的缺陷，不写正面观察或通过说明。ver
 每条finding必须可直接据以修改脚本，固定写成“部件/几何名：问题；依据（哪张图或哪条检查）；建议修改（方向、数值或结构）”。
 只把阻断缺陷写入findings：缺件、错误机构或外形、可见穿模或悬空、与资料明确冲突。外观细节、配色、
 不影响结构与操作的轻微比例差异写入unverified并以“次要：”开头，不据此repair。
-数值检查中status="partial"且仅因量测不可靠或缺少探测器而未完成的条目不是缺陷，列入unverified即可。
+数值检查中任何status="fail"的条目都是缺陷，必须repair；status="partial"的条目须在findings或unverified中逐条说明原因。
 '''
 
 AUTHOR += """

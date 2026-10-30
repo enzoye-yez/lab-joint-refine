@@ -20,7 +20,7 @@ from scene_fixtures import SceneSandbox,environment,plan,manifest
 
 ASSET={"model_py":"def build(output_dir):\n    pass\n"}
 TOOL={"model_py":"def build(output_dir):\n    # TOOL_FIXTURE\n    pass\n"}
-ACCEPT={"verdict":"accept","findings":[],"unverified":[]}
+ACCEPT={"verdict":"accept", "motion_coverage": [],"findings":[],"unverified":[]}
 
 class Backend(SceneSandbox):
     def __init__(self,unknown=False,crash=False):
@@ -67,9 +67,9 @@ class SceneFirstTests(unittest.TestCase):
         b=Backend(unknown=True);r,t=self.make([plan(),ASSET,TOOL,ACCEPT,ACCEPT,ACCEPT],b)
         result=r.run()
         self.assertEqual(b.events[:3],['generate','generate','assemble'])
-        # Only an incomplete measurement remains and review accepts: a static preview with
-        # the gap listed, never a quality acceptance.
-        self.assertEqual(result['status'],'static_preview_ready')
+        # An incomplete measurement is never waved through: the scene stops for checker
+        # support with the gap listed, and is not a quality acceptance.
+        self.assertEqual(result['status'],'needs_check_support')
         self.assertTrue(any('主检查未完成' in u for u in result['unverified']))
         self.assertTrue(result['assembly']['complete']);self.assertFalse(result['assembly']['quality_accepted'])
         self.assertTrue(any(x['id']=='asset:instrument:material_integrity' and x['status']=='partial' for x in result['assembly']['issues']))
@@ -258,7 +258,7 @@ class SceneFirstTests(unittest.TestCase):
         b=Layout(unknown=True)
         r,t=self.make([plan(),ASSET,TOOL,ACCEPT,ACCEPT,ACCEPT,repair,ACCEPT,ACCEPT],b)
         result=r.run()
-        self.assertEqual(result['status'],'static_preview_ready')
+        self.assertEqual(result['status'],'needs_check_support')
         self.assertEqual(b.build_calls,2);self.assertEqual(b.scene_calls,2)
         self.assertEqual(result['scene_rounds'],2)  # Both candidates receive full quality review.
         self.assertEqual(r.state['repair_history'][0]['status'],'evaluated')

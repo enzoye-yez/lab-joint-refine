@@ -329,48 +329,44 @@ def _validate_one(root, asset_ids, profile, render_dir=None, *, model_file="mode
                  "distance_m": float(c.dist)} for c in data.contact if c.dist < -profile["penetration_tolerance_m"]]
     add("initial_contacts", "fail" if contacts else "pass", "默认碰撞过滤下初始接触穿透", contacts=contacts[:40])
     poses = [("initial", data.qpos.copy())]
-    sample_count = 0
-    sweep_collisions = []
-    for j in (range(model.njnt) if not static else ()):
-        if model.jnt_type[j] not in (mujoco.mjtJoint.mjJNT_HINGE, mujoco.mjtJoint.mjJNT_SLIDE) or not model.jnt_limited[j]:
-            continue
-        for q in np.linspace(*model.jnt_range[j], 7):
-            mujoco.mj_resetData(model, data)
-            data.qpos[model.jnt_qposadr[j]] = q
-            mujoco.mj_forward(model, data)
-            sample_count += 1
-            if any(c.dist < -profile["penetration_tolerance_m"] for c in data.contact):
-                sweep_collisions.append({"joint": model.joint(j).name, "position": float(q)})
-        if len(poses) < 4:
-            poses.append((f"joint_{j}_end", data.qpos.copy()))
-    add("sampled_joint_sweep", "skipped" if static else ("fail" if sweep_collisions else "pass"), "静态模式跳过" if static else "逐关节7点采样，非连续碰撞证明",
-        samples=sample_count, collisions=sweep_collisions[:40])
+    # Motion is part of finishing an asset, in every scene validation mode.
+    from . import motion
+    qpos0 = data.qpos.copy()
+    results.append(motion.mechanism_contract(model, manifest))
+    sweep_rows, mechanism_poses = motion.mechanism_sweep(model, manifest, qpos0, profile["penetration_tolerance_m"])
+    uncovered = [model.joint(j).name for j in motion.movable(model)
+                 if not any(model.joint(j).name in m.get("joints", []) for m in motion.declared(manifest))]
+    results.extend(sweep_rows)
+    if uncovered or not sweep_rows:
+        add("sampled_joint_sweep", "fail" if uncovered else "pass",
+            "未归入机构的关节无法按机构扫描" if uncovered else "资产没有可动关节", unswept_joints=uncovered[:40])
+    poses.extend(mechanism_poses[:8])
+    results.extend(motion.mechanism_drive(model, manifest, qpos0))
+    results.append(motion.settle(safe_path(Path(root), model_file), qpos0))
     mujoco.mj_resetData(model, data)
-    for _ in range(0 if static else profile["settle_steps"]):
-        mujoco.mj_step(model, data)
-    stable = np.isfinite(data.qpos).all() and np.isfinite(data.qvel).all() and not any(w.number for w in data.warning)
-    add("numerical_stability", "skipped" if static else ("pass" if stable else "fail"), "静态模式跳过" if static else "仅检查短时数值有限性与引擎警告，不证明有支撑或静止",
-        steps=0 if static else profile["settle_steps"], simulation_seconds=float(data.time))
+    mujoco.mj_forward(model, data)
     renders = []
     if render_dir is not None:
         try:
             renders = render_views(model, poses, Path(render_dir))
-            add("render", "pass", "静态初始姿态多视角" if static else "初始姿态多视角及有限数量的关节末端姿态")
+            add("render", "pass", "初始姿态多视角及各机构两端姿态")
         except Exception as exc:
             add("render", "error", type(exc).__name__ + ": 无法生成审查图像")
     coverage = ["未自动证明静态几何间无交叠、支撑稳定、夹具适配或机器人任务可执行",
                 "关节检查为独立姿态采样；按钮力学、连接释放与复合机构需专门操作探测",
                 "资料中未绑定只读数值检查的尺寸仍未获独立量测认证"]
-    if static:
-        add("interaction_probes", "skipped", "静态模式不按压按钮或释放连接")
-        coverage[1] = "静态模式：未执行关节开合、重力步进、按钮或连接操作验证"
-    elif manifest["buttons"] or manifest["connections"]:
-        from .probes import interaction_probes
-        try:
-            results.extend(interaction_probes(root,manifest))
-        except Exception as exc:
-            add("interaction_probes","error",str(exc)[:2000],error_kind='check_execution')
-        coverage[1] = "按钮及释放使用框架压头/声明软件事件短探测；复合机构、重新接合与完整机器人路径仍需任务验证"
+    from .probes import interaction_probes
+    try:
+        probe_rows = interaction_probes(root, manifest) if manifest["buttons"] or manifest["connections"] else []
+        probe_rows = [r for r in probe_rows if not (r["id"].startswith("release_probe:") and r.get("complete") is False)]
+        probe_rows.extend(motion.release_probes(model, manifest, qpos0))
+        add("interaction_probes", "fail" if any(r["status"] == "fail" for r in probe_rows) else "pass",
+            "按钮压头、软件释放与机械释放探测汇总；跨资产插拔与抓取由轨迹阶段验证",
+            probes=[r["id"] for r in probe_rows])
+        results.extend(probe_rows)
+    except Exception as exc:
+        add("interaction_probes", "error", str(exc)[:2000], error_kind='check_execution')
+    coverage[1] = "单资产内机构扫描、驱动、锁止与释放已探测；跨资产插拔、抓取与机器人路径由轨迹阶段验证"
     status = report_status(results)
     return validate_report({"status": status, "checks": results, "renders": renders, "manifest": manifest,
             "geometry_summary":geometry_summary, "coverage": coverage,

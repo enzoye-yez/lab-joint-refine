@@ -37,7 +37,7 @@ class ProtocolInputTests(unittest.TestCase):
         with patch("asset_prep.extraction.extract_inventory",side_effect=AssertionError("No extraction")), \
              patch("asset_prep.search.Search",side_effect=AssertionError("No search")):
             inventory = catalog(self.package,generation,self.pdf)
-            review = {"verdict":"accept","findings":[],"unverified":[]}
+            review = {"verdict":"accept", "motion_coverage": [],"findings":[],"unverified":[]}
             transport = FakeTransport([plan(),{"model_py":"def build(output_dir):\n    pass\n"},
                 {"model_py":"def build(output_dir):\n    # TOOL_FIXTURE\n    pass\n"},review,review,review])
             env = environment(self.root/"robot")

@@ -115,10 +115,12 @@ class VariantObservationTests(unittest.TestCase):
         m["configurations"]["small"]["file"]="../model.xml"
         (self.artifact/"interfaces.json").write_text(json.dumps(m))
         with self.assertRaises(ValidationError):catalogue(self.artifact)
-    def test_static_asset_validation_does_not_call_dynamics(self):
-        with patch("mujoco.mj_forward",side_effect=AssertionError("no dynamics")):
-            r=validate_artifact(self.artifact,["A01"],check_profile({"validation_mode":"static"}))
-        self.assertEqual(r["status"],"pass",r)
+    def test_static_scene_mode_still_finishes_asset_motion_checks(self):
+        # The asset stage always runs its own motion, settling and probe checks.
+        r=validate_artifact(self.artifact,["A01"],check_profile({"validation_mode":"static"}))
+        ids={row["id"].split(":")[0] for row in r["checks"]}
+        self.assertLessEqual({"mechanism_contract","numerical_stability","interaction_probes"},ids,r)
+        self.assertFalse(any(row["status"]=="skipped" for row in r["checks"]),r)
 
 class CoverageTests(unittest.TestCase):
     def test_action_dedup_normalizes_equivalent_cameras(self):
@@ -140,11 +142,13 @@ class CoverageTests(unittest.TestCase):
 
 
 class ClosureBoundaryTests(unittest.TestCase):
-    def test_joint_clearance_is_unknown_not_a_geometric_defect(self):
+    def test_joint_clearance_without_capture_is_a_floating_articulation(self):
+        # A jointed part that neither touches nor is captured by its parent visibly floats.
         r=probe(BASE.format(child='<body name="lid" pos="0 0 .126"><joint axis="0 1 0"/><geom name="lid_g" type="box" size=".05 .05 .025"/></body>'))
-        self.assertEqual(r["status"],"partial",r)
+        self.assertEqual(r["status"],"fail",r)
         self.assertEqual(r["disconnected_count"],0)
-        self.assertFalse(r["complete"])
+        self.assertEqual([f["body"] for f in r["floating_articulations"]],["lid"])
+        self.assertTrue(r["floating_articulations"][0]["free_directions"])
 
     def test_hidden_collision_proxy_intersection_is_not_filtered_out(self):
         r=probe(BASE.format(child='<body name="child"><geom name="child_visible" type="box" size=".02 .02 .02" pos="0 0 .12"/><geom name="hidden_proxy" type="box" size=".02 .02 .02" pos="0 0 .1" rgba="1 1 1 0"/></body>'))
@@ -166,7 +170,7 @@ class ClosureBoundaryTests(unittest.TestCase):
         from asset_generation.distance import DistanceQuery,MeasurementError
         m=mujoco.MjModel.from_xml_string(model_xml(BASE.format(child='<geom name="touch" type="box" size=".03 .03 .03" pos="0 0 .13"/>')))
         d=mujoco.MjData(m);geometry_state(m,d)
-        with patch.object(DistanceQuery,"measure",side_effect=MeasurementError("synthetic")):
+        with patch.object(DistanceQuery,"measure",side_effect=MeasurementError("synthetic")),patch('asset_generation.mesh_exact.exact',return_value=None):
             r=integrity(m,d)
         self.assertEqual(r["status"],"partial",r)
         self.assertEqual(r["measurement_error_count"],1)
@@ -235,7 +239,7 @@ class AssetRecoveryTests(unittest.TestCase):
                     calls.append(requests[0]["kind"])
                     return inspect_artifact(a,scope,requests,destination),None
             with patch.dict(REGISTRY,{"synthetic_ineffective":Ineffective(),"material":MaterialInspection()},clear=True), \
-                 patch.object(DistanceQuery,"measure",side_effect=MeasurementError("synthetic primary failure")):
+                 patch.object(DistanceQuery,"measure",side_effect=MeasurementError("synthetic primary failure")),patch('asset_generation.mesh_exact.exact',return_value=None):
                 report={"status":"partial","validation_mode":"static","checks":[integrity(m,d)]}
                 result=recover_checks(Backend(),asset,report,root/"recovery",implementation="test")
                 self.assertEqual(result["status"],"pass",result)

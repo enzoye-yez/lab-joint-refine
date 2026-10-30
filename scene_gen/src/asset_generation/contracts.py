@@ -140,7 +140,8 @@ def author_result(value, previous, max_bytes):
 
 
 def visual_result(value):
-    require(isinstance(value, dict) and set(value) == {"verdict", "findings", "unverified"}, "视觉审查格式无效")
+    require(isinstance(value, dict) and {"verdict", "findings", "unverified"} <= set(value)
+            <= {"verdict", "findings", "unverified", "motion_coverage"}, "视觉审查格式无效")
     require(isinstance(value['verdict'],str) and value["verdict"] in {"accept", "repair", "uncertain"}, "视觉审查结论无效")
     for key in ("findings", "unverified"):
         require(isinstance(value[key], list) and all(isinstance(x, str) for x in value[key]), "审查项须为文本列表")

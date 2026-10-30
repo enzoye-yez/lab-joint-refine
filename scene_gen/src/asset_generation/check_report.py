@@ -6,7 +6,8 @@ from asset_prep.errors import ValidationError
 ROW_STATUSES = frozenset({'pass', 'fail', 'partial', 'error', 'skipped'})
 REPORT_STATUSES = ROW_STATUSES - {'skipped'}
 STATIC_SKIPS = {
-    'asset': frozenset({'sampled_joint_sweep', 'numerical_stability', 'interaction_probes'}),
+    # Asset motion, settling and probes run in every mode; an asset stage finishes its own checks.
+    'asset': frozenset(),
     'scene': frozenset({'scene_joint_sweeps', 'settling', 'robot_reachability'}),
 }
 

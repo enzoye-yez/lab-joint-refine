@@ -45,8 +45,8 @@ class GenerationPipelineTests(unittest.TestCase):
 
         self.assertEqual(result["provenance"], PROVENANCE)
         self.assertEqual(result["budget"]["model_calls"], 2)
-        self.assertEqual(transport.urls, ["https://api.gpugeek.com/v1/chat/completions"] * 2)
-        self.assertEqual([request["model"] for request in transport.requests], ["GPT-6-astra"] * 2)
+        self.assertEqual(transport.urls, [Config().base_url + "/chat/completions"] * 2)
+        self.assertEqual([request["model"] for request in transport.requests], [Config().model] * 2)
         self.assertTrue(any(p["type"] == "image_url" for p in transport.requests[0]["messages"][1]["content"]))
         ledger = json.loads((self.run/"state.json").read_text(encoding="utf-8"))
         self.assertEqual(ledger["generation"]["revisions"][0]["author"]["response_model"], "developer-fixture-model")

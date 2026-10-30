@@ -9,9 +9,13 @@ from asset_prep.config import Config, credentials
 from asset_prep.errors import ProviderError, ValidationError
 from asset_prep.providers import redact
 
+# 开发者编写的 HTTP 兼容服务配置，仅用于本地替身传输，不发真实请求。
+HTTP = dict(provider="compatible", base_url="https://api.example.test/v1", model="test-http-model",
+            api_key_env="HARNESS_MODEL_API_KEY")
+
 class CredentialSelectionTests(unittest.TestCase):
     def test_separate_slots_and_missing_new_does_not_fallback(self):
-        old=Config(); new=Config(api_key_env="HARNESS_MODEL_API_KEY2")
+        old=Config(**HTTP); new=Config(**{**HTTP, "api_key_env": "HARNESS_MODEL_API_KEY2"})
         keys={"HARNESS_MODEL_API_KEY":"fixture-old", "HARNESS_MODEL_API_KEY2":"fixture-new"}
         self.assertEqual(old.model_key(keys),"fixture-old")
         self.assertEqual(new.model_key(keys),"fixture-new")
@@ -25,11 +29,11 @@ class CredentialSelectionTests(unittest.TestCase):
             self.assertEqual(credentials(p),{"HARNESS_MODEL_API_KEY":"fixture-old","HARNESS_MODEL_API_KEY2":"fixture-process"})
 
     def test_legacy_identity_preserved_and_new_slot_bound(self):
-        c=Config(); expected=asdict(c)
+        c=Config(**HTTP); expected=asdict(c)
         for k in ("api_key_env","max_model_calls","max_search_calls","max_image_downloads","max_reserved_tokens","max_page_fetches","timeout_seconds"):expected.pop(k)
         self.assertEqual(c.identity(),expected)
-        self.assertEqual(Config(api_key_env="HARNESS_MODEL_API_KEY2").identity()["api_key_env"],"HARNESS_MODEL_API_KEY2")
-        with self.assertRaises(ValidationError):Config(api_key_env="UNRELATED_SECRET")
+        self.assertEqual(Config(**{**HTTP, "api_key_env": "HARNESS_MODEL_API_KEY2"}).identity()["api_key_env"],"HARNESS_MODEL_API_KEY2")
+        with self.assertRaises(ValidationError):Config(**{**HTTP, "api_key_env": "UNRELATED_SECRET"})
 
     def test_worker_does_not_inherit_second_key(self):
         from asset_generation.local import LocalBackend

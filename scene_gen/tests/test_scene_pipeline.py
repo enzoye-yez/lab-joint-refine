@@ -45,12 +45,12 @@ class ScenePipelineTests(unittest.TestCase):
             result = run.run(feedback)
         return result,transport
 
-    def test_complete_scene_no_extraction_and_gpugeek_model(self):
+    def test_complete_scene_no_extraction_and_default_model(self):
         result,transport = self.run_loop(self.base_replies+[REVIEW])
         self.assertEqual(result["status"],"candidate_ready")
         self.assertEqual(result["budget"]["model_calls"],6)
-        self.assertTrue(all(x["model"] == "GPT-6-astra" for x in transport.requests))
-        self.assertEqual(set(transport.urls),{"https://api.gpugeek.com/v1/chat/completions"})
+        self.assertTrue(all(x["model"] == Config().model for x in transport.requests))
+        self.assertEqual(set(transport.urls),{Config().base_url+"/chat/completions"})
         self.assertTrue((self.root/"run"/result["scene_artifact"]/"model.xml").is_file())
         self.assertEqual(len(result["scene_sha256"]),64)
         tool_context = json.loads(transport.requests[3]["messages"][1]["content"][0]["text"])

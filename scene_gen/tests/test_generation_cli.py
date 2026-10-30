@@ -19,7 +19,7 @@ class GenerationCliTests(unittest.TestCase):
             output = io.StringIO()
             with patch("asset_generation.cli.run_directory", return_value=root/"preflight"), \
                  patch("asset_generation.cli.credentials", side_effect=AssertionError("No credential reads")), \
-                 patch("asset_generation.cli.Transport", side_effect=AssertionError("No model transport")), \
+                 patch("asset_generation.cli.transport_for", side_effect=AssertionError("No model transport")), \
                  patch("asset_generation.cli.DockerSandbox.preflight", side_effect=SandboxUnavailable("fixture missing docker")), \
                  contextlib.redirect_stdout(output):
                 code = main(["--package", str(source), "--asset", "A01", "--run", "fixture"])

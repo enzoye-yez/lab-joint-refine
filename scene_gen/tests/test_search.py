@@ -17,6 +17,9 @@ from asset_prep.storage import Store
 from fixtures import PROVENANCE, FakeTransport, documents, inventory, references, selection
 from test_boundaries import TempCase
 
+# 开发者编写的 HTTP 兼容服务配置，仅用于本地替身传输，不发真实请求。
+HTTP_CONFIG = Config(provider="compatible", base_url="https://api.example.test/v1", model="test-http-model",
+                     api_key_env="HARNESS_MODEL_API_KEY")
 
 def native_response():
     # 模拟实际探测的最小 trace 结构；无 action/sources 字段，不能要求供应商必填。
@@ -65,14 +68,14 @@ class SearchTests(TempCase):
         return Search(config, {"HARNESS_MODEL_API_KEY": "fixture-key"}, store, transport), store, transport
 
     def test_default_uses_native_endpoint_and_only_model_key(self):
-        adapter, store, transport = self.adapter()
+        adapter, store, transport = self.adapter(HTTP_CONFIG)
         self.assertIsInstance(adapter, ModelWebSearch)
         result = adapter.query("tube")
         self.assertTrue(transport.requests[0][0].endswith("/responses"))
         request = transport.requests[0][1]
         self.assertEqual(request["tools"], [{"type": "web_search"}])
         self.assertEqual(request["max_tool_calls"], 1)
-        self.assertEqual(request["model"], "GPT-6-astra")
+        self.assertEqual(request["model"], HTTP_CONFIG.model)
         self.assertEqual(transport.native_auth, ["fixture-key"])
         self.assertEqual(result["sources"][0]["content"], "")
         self.assertEqual(store.totals()["model_calls"], 1)

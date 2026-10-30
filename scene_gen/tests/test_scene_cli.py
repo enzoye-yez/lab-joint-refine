@@ -20,7 +20,7 @@ class SceneCliTests(unittest.TestCase):
             with patch("scene_generation.cli.run_directory",return_value=root/"run"), \
                  patch("scene_generation.cli.DockerSandbox",side_effect=AssertionError("No Docker")), \
                  patch("scene_generation.cli.credentials",side_effect=AssertionError("No keys")), \
-                 patch("scene_generation.cli.Transport",side_effect=AssertionError("No model")), \
+                 patch("scene_generation.cli.transport_for",side_effect=AssertionError("No model")), \
                  contextlib.redirect_stdout(io.StringIO()):
                 self.assertEqual(main(["--package",str(source),"--run","fixture","--backend","local"]),0)
             report = json.loads((root/"run/preflight.json").read_text(encoding="utf-8"))
@@ -34,7 +34,7 @@ class SceneCliTests(unittest.TestCase):
             source.write_text("### A01｜合成\n固定工程样例。",encoding="utf-8")
             with patch("scene_generation.cli.run_directory",return_value=root/"run"), \
                  patch("scene_generation.cli.credentials",side_effect=AssertionError("No keys")), \
-                 patch("scene_generation.cli.Transport",side_effect=AssertionError("No model")), \
+                 patch("scene_generation.cli.transport_for",side_effect=AssertionError("No model")), \
                  patch("asset_prep.extraction.extract_inventory",side_effect=AssertionError("No extraction")), \
                  patch("scene_generation.cli.DockerSandbox.preflight",side_effect=SandboxUnavailable("fixture")), \
                  contextlib.redirect_stdout(io.StringIO()):

@@ -303,7 +303,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description="按顺序运行静态场景实验；默认仅准备，--execute 才调用模型")
     parser.add_argument("--batch", required=True, help="新批次名称；使用 --resume 接续未完成队列")
     parser.add_argument("--protocols", nargs="+", default=[f"NP-{i:03d}" for i in range(1, 6)])
-    parser.add_argument("--input-root", type=Path, default=Path("D:/harness/selected50_protocols"))
+    parser.add_argument("--input-root", type=Path, default=Path(__file__).resolve().parents[1] / "benchmark")
     parser.add_argument("--scene-config", type=Path, help="场景配置；相对路径以项目根目录为准，仅用于新批次")
     parser.add_argument("--generation-config", type=Path, help="资产生成配置；相对路径以项目根目录为准，仅用于新批次")
     parser.add_argument("--provider-config", type=Path, help="显式服务配置；仅用于新批次，随后冻结并传给运行入口")

@@ -11,10 +11,10 @@ from .errors import ValidationError, ProviderError
 
 @dataclass(frozen=True)
 class Config:
-    provider: str = "gpugeek"
-    base_url: str = "https://api.gpugeek.com/v1"
-    model: str = "GPT-6-astra"
-    api_key_env: str = "HARNESS_MODEL_API_KEY"
+    provider: str = "codex"
+    base_url: str = "https://chatgpt.com/backend-api/codex"
+    model: str = "gpt-6.1-sol"
+    api_key_env: str = "CODEX_LOGIN"
     search_provider: str = "model_web"
     search_url: str = "https://api.tavily.com/search"
     scope: str = "根据输入的完整实验规程提取仪器、容器、耗材和必要配件及其要求，不把试剂作为待生成资产。不预设实验类型、结束步骤或排除的实验阶段。"
@@ -53,7 +53,11 @@ class Config:
                     raise ValidationError(f"配置 {name} 必须是有效整数")
             elif not isinstance(value, str) or not value.strip():
                 raise ValidationError(f"配置 {name} 必须是非空字符串")
-        if self.api_key_env not in {"HARNESS_MODEL_API_KEY", "HARNESS_MODEL_API_KEY2", "OPENAI_API_KEY"}:
+        if self.provider == "codex":
+            # Codex CLI 使用本机 ChatGPT 登录态，不读取 API 密钥。
+            if self.api_key_env != "CODEX_LOGIN":
+                raise ValidationError("codex 服务使用本机登录态，api_key_env 必须为 CODEX_LOGIN")
+        elif self.api_key_env not in {"HARNESS_MODEL_API_KEY", "HARNESS_MODEL_API_KEY2", "OPENAI_API_KEY"}:
             raise ValidationError("模型密钥变量必须是项目支持的凭据名称")
         if self.search_provider not in {"model_web", "tavily"}:
             raise ValidationError("检索适配器只支持 model_web 或 tavily")
@@ -83,6 +87,8 @@ class Config:
         return result
 
     def model_key(self, values):
+        if self.provider == "codex":
+            return "codex-login"
         key = values.get(self.api_key_env)
         if not key or not key.strip():
             raise ProviderError(f"缺少配置指定的 {self.api_key_env}；不会回退使用其他服务密钥")

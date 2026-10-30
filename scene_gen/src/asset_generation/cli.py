@@ -8,7 +8,7 @@ from pathlib import Path
 
 from asset_prep.config import Config, credentials
 from asset_prep.errors import PrepError, BudgetExceeded, UncertainRequest, ProviderLimitError
-from .transport import GenerationTransport as Transport
+from .transport import transport_for
 from asset_prep.storage import atomic_json, run_directory, run_lock
 from .contracts import GenerationConfig, check_profile, read_json
 from .inputs import load_package, public_bundle
@@ -66,7 +66,7 @@ def main(argv=None):
                                   "images": len(bundle["images"]), "model_calls": 0, "sandbox": backend}, ensure_ascii=False))
                 return 0
             sandbox.preflight()
-            result = execute(bundle, profile, config, generation, credentials(project), root, Transport(),
+            result = execute(bundle, profile, config, generation, credentials(project), root, transport_for(config),
                              sandbox, project, resume=args.resume, retry_uncertain=args.retry_uncertain)
             print(json.dumps({k: result[k] for k in ("status", "iterations", "latest_revision", "budget")}, ensure_ascii=False))
             return 0 if result["status"] == "candidate_ready" else 3

@@ -18,6 +18,9 @@ from .contracts import require
 from .sandbox import ExecutionBackend, SandboxUnavailable, BackendExecutionError
 from .process_tree import ProcessTree
 
+RENDER_ENVIRONMENT = ("MUJOCO_GL", "PYOPENGL_PLATFORM", "EGL_PLATFORM", "__EGL_VENDOR_LIBRARY_FILENAMES",
+                      "CUDA_VISIBLE_DEVICES", "NVIDIA_VISIBLE_DEVICES", "DISPLAY")
+
 
 def work_budget(mode, source, base_seconds):
     """Bound local scene work by staged geometry, independently of paid-call budgets."""
@@ -98,6 +101,8 @@ class LocalBackend(ExecutionBackend):
     def worker_environment(self, temp):
         # 不继承模型密钥；这不阻止程序主动读取宿主文件或访问网络。
         env = {key: os.environ[key] for key in ("SystemRoot", "WINDIR") if key in os.environ}
+        # 无显示器的 Linux 主机需要显式渲染后端（如 Mesa 软件 EGL），只透传渲染相关变量。
+        env.update({key: os.environ[key] for key in RENDER_ENVIRONMENT if key in os.environ})
         system = Path(os.environ.get("SystemRoot", "C:/Windows"))/"System32"
         env.update(PATH=os.pathsep.join((str(Path(self.executable).parent), str(system)))
                    if os.name == "nt" else os.defpath,

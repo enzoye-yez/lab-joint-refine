@@ -12,7 +12,7 @@ from asset_generation.local import LocalBackend
 from asset_generation.checks import load_model
 from asset_prep.config import Config, credentials
 from asset_prep.errors import PrepError, BudgetExceeded, UncertainRequest, ProviderLimitError
-from asset_generation.transport import GenerationTransport as Transport
+from asset_generation.transport import transport_for
 from asset_prep.storage import run_directory, run_lock, atomic_json, safe_path
 from asset_prep import implementation
 from .contracts import SceneConfig, environment, numerical_contract
@@ -105,7 +105,7 @@ def main(argv=None):
                 return 0
             sandbox.preflight()
             load_model(robot)
-            run = SceneRun(catalogue,env,contract,provider,generation,limits,credentials(project),root,Transport(),
+            run = SceneRun(catalogue,env,contract,provider,generation,limits,credentials(project),root,transport_for(provider),
                            sandbox,robot,project,args.resume,args.retry_uncertain,
                            expected_implementation=args.expected_implementation)
             result = run.run(read_json(args.feedback) if args.feedback else None)

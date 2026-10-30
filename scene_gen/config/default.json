@@ -1,6 +1,6 @@
 {
-  "provider": "tatucloud",
-  "base_url": "https://maas.tatucloud.com/deployer/CODING_TATU-default/v1",
+  "provider": "codex",
+  "base_url": "https://chatgpt.com/backend-api/codex",
   "model": "gpt-6.1-sol",
   "search_provider": "model_web",
   "scope": "根据输入的完整实验规程提取仪器、容器、耗材和必要配件及其要求，不把试剂作为待生成资产。不预设实验类型、结束步骤或排除的实验阶段。",
@@ -28,5 +28,5 @@
   "max_image_downloads": 128,
   "max_reserved_tokens": 1200000,
   "download_images": true,
-  "api_key_env": "HARNESS_MODEL_API_KEY2"
+  "api_key_env": "CODEX_LOGIN"
 }

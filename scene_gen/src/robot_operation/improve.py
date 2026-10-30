@@ -111,8 +111,8 @@ class Coordinator:
         if execute:
             from asset_prep.config import credentials
             from asset_generation.model import GenerationModel
-            from asset_generation.transport import GenerationTransport
-            online=GenerationModel(provider,generation,credentials(project),store,GenerationTransport())
+            from asset_generation.transport import transport_for
+            online=GenerationModel(provider,generation,credentials(project),store,transport_for(provider))
         self.exchange=Exchange(store,generation,online,self.guard)
         self.bridge=None
         if config["seed_run"]:

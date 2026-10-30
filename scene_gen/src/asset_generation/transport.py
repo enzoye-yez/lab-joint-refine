@@ -64,6 +64,14 @@ class GenerationTransport:
             raise ProviderError("生成网络进程返回格式无效；请求结果不明",uncertain=True) from None
 
 
+def transport_for(config):
+    """按服务配置选择传输：codex 走本机登录的 Codex CLI，其余走 HTTPS 网络进程。"""
+    if config.provider == "codex":
+        from .codex_transport import CodexTransport
+        return CodexTransport()
+    return GenerationTransport()
+
+
 def worker():
     from asset_generation.provider_diagnostics import DiagnosticTransport as Transport
     try:

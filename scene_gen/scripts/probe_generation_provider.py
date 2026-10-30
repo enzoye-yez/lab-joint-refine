@@ -7,7 +7,7 @@ from pathlib import Path
 
 from asset_generation.contracts import GenerationConfig
 from asset_generation.provider_diagnostics import safe_details
-from asset_generation.transport import GenerationTransport
+from asset_generation.transport import transport_for
 from asset_prep.config import Config, credentials
 from asset_prep.errors import PrepError, ProviderError
 from asset_prep.storage import atomic_json
@@ -43,7 +43,7 @@ def main(argv=None, transport=None):
     atomic_json(path, report)
     print("发送一次短文本服务诊断；不会重试，也不生成实验资产。", flush=True)
     try:
-        response = (transport or GenerationTransport()).post(
+        response = (transport or transport_for(config)).post(
             config.base_url.rstrip("/") + "/chat/completions", payload, key, config.timeout_seconds)
         if not isinstance(response.get("choices"), list) or not response["choices"]:
             report.update(status="invalid_response", provider_error=safe_details(response.get("error"), keys.values()))

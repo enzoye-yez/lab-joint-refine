@@ -191,8 +191,16 @@ class CodexTransport:
         # Whole-file replacement keeps the unique-match patch contract; an unchanged
         # script is rejected by author_result like any other no-op repair.
         value = {"model_py": source} if previous is None else {"edits": [{"old": previous, "new": source}]}
-        checks_run = sum(1 for line in stdout.decode("utf-8", "replace").splitlines()
-                         if '"command_execution"' in line and '"item.completed"' in line and "check" in line)
+        checks_run = 0
+        for line in stdout.decode("utf-8", "replace").splitlines():
+            try:
+                event = json.loads(line)
+            except ValueError:
+                continue
+            item = event.get("item") or {}
+            if (event.get("type") == "item.completed" and item.get("type") == "command_execution"
+                    and "./check" in str(item.get("command", ""))):
+                checks_run += 1
         response = self.response(payload, json.dumps(value, ensure_ascii=False), usage, elapsed)
         response["agent_session"] = {"workspace": str(workspace), "checks_run": checks_run,
                                      "final_message": strip_fence(message)[:2000]}

@@ -30,7 +30,7 @@ class CredentialSelectionTests(unittest.TestCase):
 
     def test_legacy_identity_preserved_and_new_slot_bound(self):
         c=Config(**HTTP); expected=asdict(c)
-        for k in ("api_key_env","max_model_calls","max_search_calls","max_image_downloads","max_reserved_tokens","max_page_fetches","timeout_seconds"):expected.pop(k)
+        for k in ("api_key_env","codex_agent_author","max_model_calls","max_search_calls","max_image_downloads","max_reserved_tokens","max_page_fetches","timeout_seconds"):expected.pop(k)
         self.assertEqual(c.identity(),expected)
         self.assertEqual(Config(**{**HTTP, "api_key_env": "HARNESS_MODEL_API_KEY2"}).identity()["api_key_env"],"HARNESS_MODEL_API_KEY2")
         with self.assertRaises(ValidationError):Config(**{**HTTP, "api_key_env": "UNRELATED_SECRET"})

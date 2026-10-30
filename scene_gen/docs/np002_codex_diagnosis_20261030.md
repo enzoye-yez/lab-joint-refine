@@ -154,3 +154,43 @@ scripts/run-scene-batch.sh --batch <新批次名> --protocols NP-002 --input-roo
 scripts/run-scene-batch.sh --batch <新批次名> --resume --execute
 python3 -I scripts/analyze_scene_quality.py <运行目录或导出包的 output 目录>
 ```
+
+## 9. 已实施的改进与验证（分支 `improve`，工作副本 `~/np002_agent_v2`）
+
+| 改动 | 位置 | 说明 |
+|---|---|---|
+| 设计咬合不算碰撞缺陷 | `asset_generation/material.py` | 已由关节或焊接连在一起的部件之间，嵌入不超过 3 mm 记入 `engagements`，不再计为 collision；更深的嵌入和无关部件间的穿透仍是缺陷 |
+| 刚性连通误报修复 | `asset_generation/material.py` | 同一刚体内的几何对原来只要在铰接层面已连通就跳过测距，导致刚性层面永远连不上，被误报为"断开构件"；现在只在刚性层面已确认连通时才跳过 |
+| 可执行修复提示 | `asset_generation/material.py` | 每条碰撞给出两侧 body、穿透深度，以及在 geom 所属 body 局部坐标下的分离方向；每个断开孤岛给出最近的同刚体几何、间隙和移动方向 |
+| 无法量测不阻断 | `asset_generation/pipeline.py`、`scene_generation/recovery.py`、`scene_first.py`、`review.py` | 只剩 partial（量测或探测能力不足）且没有 fail 时，单资产照常进入视觉审查；静态场景审查可 accept，结果为 `static_preview_ready`，缺口逐项列入 unverified，不算质量通过 |
+| 修复比较不再一票否决 | `scene_generation/progress.py` | 检查行变得不完整只做记录，不再否决其他检查上证据完整的确认改善；检查行消失或变为 skipped 仍然否决 |
+| 修复调度轮转 | `scene_generation/repair_schedule.py`、`pipeline.py` | 按资产实际被修改的次数排序，其次按尝试次数和缺陷数量；多实例任务内优先修改得少的资产 |
+| 审查输出可执行 | `asset_generation/prompts.py` | finding 必须写明部件、问题、依据和建议修改；只有阻断缺陷进 findings，次要问题写入 unverified |
+| 编码 agent 作者 | `asset_generation/codex_transport.py`、`selfcheck.py` | `codex_agent_author: true` 时，作者请求在资产专属工作目录里以 workspace-write 沙箱运行 codex，可反复 `./check` 自检；交付仍走原作者契约，框架独立复检；会话目录保留在运行目录的 `codex_agent_sessions/` |
+| 令牌记账 | `asset_prep/storage.py` | codex 调用完成后按其报告的实际用量结算，释放发送前的保守预留；其他服务仍按预留与实报取大 |
+| 不分页 | `config/experiments/np002_codex_agent_generation.json` | `review_context_bytes` 提到 3 MB，长上下文模型整包发送 |
+
+测试：全量 1080 项，只剩原代码在 Linux 上已有的失败，本轮改动不新增失败；新增 agent 模式单测。
+
+### 9.1 同一份 repair02 几何上的检查对比（只换检查代码，不调用模型）
+
+| 指标 | 原代码 | 改后 |
+|---|---|---|
+| 111 个实例的材料完整性 | fail 51 / partial 33 / pass 27 | fail 22 / partial 34 / pass 55 |
+| 碰撞对 | 2195 | 640，另有 1555 处归为设计咬合 |
+| 断开构件 | 513 | 151，其中 362 个是刚性连通 bug 造成的误报 |
+| 量测缺口 | 338 | 338，交给"无法量测不阻断"处理 |
+
+### 9.2 A15 单资产（同模型 gpt-6.1-sol）
+
+| | 原流程 | 新流程（agent 作者 + 新门槛） |
+|---|---|---|
+| 结局 | `needs_check_support`，卡住 | `candidate_ready`，未验证项逐条列出 |
+| 模型调用 | 3 | 2（1 次作者会话，内部自检 4 次；1 次视觉审查） |
+| 实报 token | 11.6 万 | 57.7 万 |
+
+agent 会话单次 token 约为普通调用的 5 倍，但轮数大幅减少。
+
+### 9.3 运行中发现、尚未修改
+
+- 场景计划校验失败只回复"场景计划字段无效"，不点名多余或缺失的字段（首次计划多了 `layout_metrics`）。应在 `scene_generation/contracts.py:80` 报出具体字段。正式批次运行中，源码已冻结，下一轮再改。

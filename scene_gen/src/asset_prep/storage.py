@@ -100,7 +100,29 @@ def run_lock(root: Path):
                 fcntl.flock(stream, fcntl.LOCK_UN)
 
 
+def _locked(method):
+    """Ledger methods run under the store lock so parallel model calls keep one consistent ledger."""
+    import functools
+    @functools.wraps(method)
+    def wrapper(self, *args, **kwargs):
+        with self.lock:
+            return method(self, *args, **kwargs)
+    return wrapper
+
+
 class Store:
+    @property
+    def lock(self):
+        # Created on first use: some migrations build a Store without __init__.
+        import threading
+        return self.__dict__.setdefault("_lock", threading.RLock())
+
+    @property
+    def inflight(self):
+        """Calls this process is waiting on right now. They are pending in the ledger but not
+        unknown: only pending calls outside this set come from an interrupted earlier run."""
+        return self.__dict__.setdefault("_inflight", set())
+
     def __init__(self, root, identity, config, *, resume=False, retry_uncertain=False):
         self.root = Path(root)
         self.config = config
@@ -144,10 +166,12 @@ class Store:
         if changed:
             self.save()
 
+    @_locked
     def save(self):
         from .state_archive import write_state
         write_state(self.path, self.state)
 
+    @_locked
     def cached(self, key):
         for call in reversed(self.state["calls"]):
             if call["key"] != key:
@@ -161,6 +185,7 @@ class Store:
                 return json.loads(path.read_text(encoding="utf-8"))
         return None
 
+    @_locked
     def reserve(self, key, kind, tokens=0, *, defer_send=False):
         calls = self.state["calls"]
         if kind not in {"model", "search", "model_search", "image", "page"} or type(tokens) is not int or tokens < 0:
@@ -188,6 +213,7 @@ class Store:
         self.save()  # 先扣预算再发送；崩溃、失败、未知结果均不退回预算。
         return call
 
+    @_locked
     def finish(self, call, payload):
         receipt = safe_path(self.root, f"responses/{call['index']:05d}.json")
         atomic_json(receipt, {"key":call["key"], "sha256":digest(payload), "payload":payload})
@@ -210,6 +236,7 @@ class Store:
         except OSError:
             pass
 
+    @_locked
     def mark_sent(self, call):
         call.update(status="pending", send_started_at=time.time())
         try:
@@ -223,10 +250,12 @@ class Store:
         if self.totals()["accounted_tokens"] > self.config.max_reserved_tokens:
             raise BudgetExceeded("服务报告的实际令牌超过预留后已达到预算上限；响应已保存，请提高预算后恢复")
 
+    @_locked
     def fail(self, call, error_type):
         call.update(status="failed", error_type=error_type, finished_at=time.time())
         self.save()
 
+    @_locked
     def record_error(self, call, error):
         # 仅允许传输层生成的结构化诊断；不保存密钥、异常原文或服务正文。
         allowed = {'phase', 'elapsed_seconds', 'timeout_seconds', 'http_status', 'received_bytes', 'failure',
@@ -235,6 +264,7 @@ class Store:
         call['error_at'] = time.time()
         self.save()
 
+    @_locked
     def record_validation(self, key, event):
         for call in reversed(self.state['calls']):
             if call['key'] == key and call['status'] == 'done':
@@ -244,6 +274,7 @@ class Store:
                     self.save()
                 break
 
+    @_locked
     def totals(self):
         calls = self.state["calls"]
         return {"model_calls": sum(c["kind"] in {"model", "model_search"} for c in calls),

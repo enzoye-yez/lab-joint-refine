@@ -1,0 +1,19 @@
+{
+  "max_iterations": 80,
+  "max_plan_attempts": 5,
+  "max_model_calls": 800,
+  "max_reserved_tokens": 240000000,
+  "max_jobs": 64,
+  "max_instances": 128,
+  "max_repairs_per_round": 3,
+  "max_artifact_bytes": 256000000,
+  "max_artifact_files": 2048,
+  "build_timeout_seconds": 300,
+  "collision_tolerance_m": 0.0005,
+  "support_tolerance_m": 0.003,
+  "settle_steps": 150,
+  "ik_iterations": 160,
+  "ik_restarts": 4,
+  "validation_mode": "static",
+  "parallel_authors": 4
+}

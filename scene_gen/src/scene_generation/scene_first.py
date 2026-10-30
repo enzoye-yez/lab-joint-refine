@@ -58,6 +58,62 @@ def record_job_blocked(run, key, reason):
     run.store.save()
 
 
+def prefetch_candidates(run, jobs, attempts):
+    """Asset jobs the sweep below will author, with every dependency already usable.
+
+    A conservative mirror of the sweep's eligibility: a job included wrongly costs one
+    cached request; a job left out is simply authored serially. Tools and fixtures are
+    excluded because layout refinement may change their request first.
+    """
+    blocked=run.state.get("blocked_jobs",{})
+    result=[]
+    for key in run.state["order"]:
+        job,old=jobs[key],run.state["jobs"].get(key)
+        if job["role"]!="asset" or key in blocked or (usable(run,old) and not old.get("regenerate")):
+            continue
+        if old and old.get("artifact") and not old.get("assembly_readiness"):
+            continue
+        if len(attempts.get(key,[]))>=run.generation.max_iterations:
+            continue
+        if any(not usable(run,run.state["jobs"].get(k)) for k in job["depends_on"]):
+            continue
+        result.append(key)
+    return result
+
+
+def prefetch(run, jobs, attempts):
+    """Send the sweep's independent author requests concurrently; responses land in the ledger cache.
+
+    The serial sweep then builds the identical request and consumes the cached response,
+    so state changes, builds, checks and commits stay sequential and unchanged.
+    """
+    workers=getattr(getattr(run,"limits",None),"parallel_authors",1)
+    keys=prefetch_candidates(run,jobs,attempts)
+    if workers<2 or len(keys)<2:
+        return
+    from concurrent.futures import ThreadPoolExecutor
+    from copy import copy
+    from datetime import datetime, timezone
+    from asset_generation.model import GenerationModel
+    requests={key:run.author_request(jobs[key],run.author_inputs(jobs[key],None,draft=True),0) for key in keys}
+    def author(key):
+        model=GenerationModel(run.provider,run.generation,run.keys,run.store,copy(run.transport))
+        model.execution_guard,model.cancel_guard=run.check_pause,run.check_cancel
+        if hasattr(model.transport,"check_cancel"):
+            model.transport.check_cancel=run.check_cancel
+        try:
+            model.ask(*requests[key])
+            return {"job":key,"outcome":"cached"}
+        except Exception as exc:  # The serial sweep meets and handles the same failure itself.
+            return {"job":key,"outcome":"failed","error":type(exc).__name__,"detail":str(exc)[:300]}
+    started=datetime.now(timezone.utc).isoformat()
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        results=list(pool.map(author,keys))
+    run.state.setdefault("prefetch",[]).append({"started_at":started,"finished_at":datetime.now(timezone.utc).isoformat(),
+        "workers":workers,"jobs":results})
+    run.store.save()
+
+
 def collect(run):
     """One attempt per eligible job per sweep; quality never consumes first-pass budget.
 
@@ -73,6 +129,7 @@ def collect(run):
         for dependency in list(waiting):
             if usable(run,run.state["jobs"].get(dependency)):
                 waiting.pop(dependency)
+        prefetch(run,jobs,attempts)
         progressed=False
         for key in run.state["order"]:
             run.check_pause()

@@ -1,6 +1,7 @@
 """复用原项目传输与账本；实际图片像素进入多模态请求。"""
 
 import json
+from contextlib import contextmanager
 import time
 
 from asset_prep.errors import ProviderError, UncertainRequest, ValidationError, ContextLimitError
@@ -72,7 +73,9 @@ class GenerationModel:
         from .request_context import RequestContext, measure
         self.execution_guard()
         # Do not let a different compacted payload bypass an unresolved paid request.
-        if not self.store.retry_uncertain and any(c["status"] == "pending" for c in self.store.state["calls"]):
+        inflight = getattr(self.store, "inflight", set())
+        if not self.store.retry_uncertain and any(c["status"] == "pending" and c.get("index") not in inflight
+                                                  for c in self.store.state["calls"]):
             raise UncertainRequest("账本存在未知请求，不能通过压缩或读取详情绕过显式恢复")
         view = RequestContext(self.store.root, self.store.state.get("identity", {}),
                               instruction, context, images, phase, self.generation)
@@ -195,6 +198,27 @@ class GenerationModel:
                 retained_pages.pop(next(iter(retained_pages)))
 
     def _ask_once(self, instruction, context, images, phase):
+        # The ledger lock is held for every ledger step and released only while waiting
+        # on the provider, so parallel authors (scene prefetch) share one consistent ledger.
+        lock = getattr(self.store, "lock", None)
+        if lock is None:
+            return self._ask_locked(instruction, context, images, phase)
+        with lock:
+            return self._ask_locked(instruction, context, images, phase)
+
+    @contextmanager
+    def _unlocked(self):
+        lock = getattr(self.store, "lock", None)
+        if lock is None:
+            yield
+            return
+        lock.release()
+        try:
+            yield
+        finally:
+            lock.acquire()
+
+    def _ask_locked(self, instruction, context, images, phase):
         from .request_context import messages_for, measure
         self.execution_guard()
         key = self.config.model_key(self.credentials)
@@ -250,8 +274,16 @@ class GenerationModel:
             try:
                 # Transports that act differently per phase (codex agent author) read this.
                 self.transport.phase = phase
-                response = self.transport.post(self.config.base_url.rstrip("/")+"/chat/completions",
-                                               payload, key, self.config.timeout_seconds)
+                inflight = getattr(self.store, "inflight", None)
+                if inflight is not None:
+                    inflight.add(call["index"])
+                try:
+                    with self._unlocked():
+                        response = self.transport.post(self.config.base_url.rstrip("/")+"/chat/completions",
+                                                       payload, key, self.config.timeout_seconds)
+                finally:
+                    if inflight is not None:
+                        inflight.discard(call["index"])
                 response = redact(response, self.credentials.values())
                 self.store.finish(call, response)
                 self.progress(phase, "response_saved")
@@ -291,7 +323,8 @@ class GenerationModel:
                         # 长冷却保持可中断；每分钟有进度消息。
                         self.cancel_guard()
                         interval = min(remaining, 1)
-                        time.sleep(interval)
+                        with self._unlocked():
+                            time.sleep(interval)
                         self.cancel_guard()
                         remaining -= interval
                         if remaining and remaining % 60 == 0:

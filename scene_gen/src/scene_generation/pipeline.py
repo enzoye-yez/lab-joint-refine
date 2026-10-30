@@ -100,6 +100,7 @@ class SceneRun:
                 raise StaleEvidence("场景已归档版本发生变化，禁止复用")
         if self.state.get("pending") and (not self.state["pending"].get("awaiting_exchange") or self.state["pending"].get("review_checkpoint")):
             recover_review_checkpoint(self)
+        self.provider, self.keys, self.transport = provider, keys, transport
         self.model = shared_model or GenerationModel(provider,generation,keys,self.store,transport)
         self.model.execution_guard = self.check_pause
         self.model.cancel_guard = self.check_cancel
@@ -310,12 +311,9 @@ class SceneRun:
         history[-1]["latest"]=True
         return history
 
-    def generate_job(self, job, feedback=None, *, draft=False):
-        key = job["id"]
-        current = self.state["jobs"].get(key)
-        recheck_required = bool(current and current.get('needs_implementation_recheck'))
-        review_again = current and (recheck_required or current["status"] == "review_pending" or
-                                    feedback is None and current["status"] == "needs_review")
+    def author_inputs(self, job, feedback=None, *, draft=False):
+        """Inputs shared by every author request of this job version; no side effects."""
+        current = self.state["jobs"].get(job["id"])
         previous_source = (current or {}).get("source")
         previous = safe_path(self.root,previous_source).read_text(encoding="utf-8") if previous_source else None
         if feedback is None and current:
@@ -334,9 +332,60 @@ class SceneRun:
             bundle["images"] = dependency_images
             reference_policy = ("操作装置设计使用已生成依赖的实际渲染及接口；原图用于前序资产生成，质量将在场景保存后审查；缺图不代表质量通过"
                                 if draft else "操作装置设计使用每项已生成依赖的首个实际渲染视角及实测接口；原图由前序资产阶段完整审查，完整多视角证据保留在各版本")
-        profile = check_profile({**self.contract["jobs"].get(key,{}), "validation_mode":self.limits.validation_mode})
+        profile = check_profile({**self.contract["jobs"].get(job["id"],{}), "validation_mode":self.limits.validation_mode})
         previews = [image_record(safe_path(self.root,path),self.root,self.generation)
                     for path in (current or {}).get("preview_paths",[])]
+        return dict(current=current, previous_source=previous_source, previous=previous, feedback=feedback,
+                    bundle=bundle, references=references, reference_policy=reference_policy, profile=profile,
+                    previews=previews)
+
+    def author_request(self, job, inputs, attempt):
+        """The exact author request (instruction, context, images, phase); shared by prefetch and generation."""
+        key = job["id"]
+        bundle, previous, feedback = inputs["bundle"], inputs["previous"], inputs["feedback"]
+        profile, reference_policy, previews = inputs["profile"], inputs["reference_policy"], inputs["previews"]
+        from asset_generation.authoring import capabilities
+        context = {"authoring_capabilities":capabilities(self.generation,self.store.state.get("joint_backend",self.store.state["identity"].get("backend"))),"input":public_bundle(bundle),"job":job,"dependencies":self.dependency_context(job),
+                   "environment":self.env,"profile":profile,"current_model_py":previous,"feedback":feedback,
+                   "table_edit_policy":table_policy(self.env),"table_modifications":self.state["plan"].get("table_modifications", []),
+                   "edge_mount_policy":EDGE_MOUNT_POLICY,"edge_mounts":self.state['plan'].get('edge_mounts',[]),
+                   "fixed_contract":self.contract["jobs"].get(key,{}),
+                   "instance_contract":self.instance_contract(job),
+                   "scene_layout":self.layout_context(),
+                   "repair_directive":self.state.get("repair_directive"),
+                   "repair_tasks":self.state.get("repair_tasks",{}).get(key,[]),
+                   "rejected_attempts":self.failure_history(key),
+                   "task_recovery":self.state.get("task_recovery",{}).get(key),
+                   "reference_policy":reference_policy,"scene_round":len(self.state["rounds"]),"attempt":attempt}
+        if context["task_recovery"]:
+            context["rejected_attempts"]=context["rejected_attempts"][-1:]
+        instruction = AUTHOR+REQUIREMENTS_POLICY
+        instruction += "\n遵守instance_contract：只生成一个可复制单元，场景实例数由框架负责。repair_directive是本轮修复决策，必须结合具体失败证据落实；依赖变化时验证实际新接口，不能只修改声明。scene_layout是实际装配布局，必须按其中坐标变换设计夹具与目标的配合，不能在局部模型中直接使用世界坐标。"
+        instruction += ("\nrejected_attempts列出本任务此前被拒绝的设计及原因，occurrences表示同一拒绝重复次数。"
+                        "修复当前错误时不能重新引入已被拒绝的另一表示；若两种表示分别触发不同约束，"
+                        "说明该部件需要的表达方式尚未声明正确，应按检查器给出的合法类别与约束类型重新声明，"
+                        "而不是在两种已知被拒方案之间切换。")
+        if self.limits.validation_mode == "static":
+            instruction += "\n当前仅验收静态场景外观和几何。仍按资料建立运动关节、按钮、连接及接口；本轮跳过操作验证并不允许把可动仪器简化为不可动外壳。"
+        if job["role"] != "asset":
+            instruction += "\n本次只生成job.role指定的操作装置，不重复生成所服务仪器。asset_ids表示服务范围。依据实际dependencies接口完成配合设计。"
+            from .layout import author_layout_policy
+            instruction += "\n" + author_layout_policy(self.env)
+        if job["role"] == "tool":
+            from .tool_contract import TOOL_POLICY
+            instruction += "\n" + TOOL_POLICY
+        return instruction, context, bundle["images"]+previews, "asset:"+key
+
+    def generate_job(self, job, feedback=None, *, draft=False):
+        key = job["id"]
+        inputs = self.author_inputs(job, feedback, draft=draft)
+        current, previous_source, previous = inputs["current"], inputs["previous_source"], inputs["previous"]
+        recheck_required = bool(current and current.get('needs_implementation_recheck'))
+        # Decided on the caller's feedback, before falling back to the stored one.
+        review_again = current and (recheck_required or current["status"] == "review_pending" or
+                                    feedback is None and current["status"] == "needs_review")
+        feedback, bundle, references = inputs["feedback"], inputs["bundle"], inputs["references"]
+        reference_policy, profile, previews = inputs["reference_policy"], inputs["profile"], inputs["previews"]
         if not draft and current and current["status"] in {"needs_check_support","needs_environment"}:
             from asset_generation.check_recovery import recover_checks
             destination=self.begin("asset_review")
@@ -406,41 +455,13 @@ class SceneRun:
         consumed=sum(s["kind"]=="asset" and s.get("job")==key for s in self.state["stages"])
         attempts=range(1) if draft else range(consumed,self.generation.max_iterations)
         for attempt in attempts:
-            from asset_generation.authoring import capabilities
-            context = {"authoring_capabilities":capabilities(self.generation,self.store.state.get("joint_backend",self.store.state["identity"].get("backend"))),"input":public_bundle(bundle),"job":job,"dependencies":self.dependency_context(job),
-                       "environment":self.env,"profile":profile,"current_model_py":previous,"feedback":feedback,
-                       "table_edit_policy":table_policy(self.env),"table_modifications":self.state["plan"].get("table_modifications", []),
-                       "edge_mount_policy":EDGE_MOUNT_POLICY,"edge_mounts":self.state['plan'].get('edge_mounts',[]),
-                       "fixed_contract":self.contract["jobs"].get(key,{}),
-                       "instance_contract":self.instance_contract(job),
-                       "scene_layout":self.layout_context(),
-                       "repair_directive":self.state.get("repair_directive"),
-                       "repair_tasks":self.state.get("repair_tasks",{}).get(key,[]),
-                       "rejected_attempts":self.failure_history(key),
-                       "task_recovery":self.state.get("task_recovery",{}).get(key),
-                       "reference_policy":reference_policy,"scene_round":len(self.state["rounds"]),"attempt":attempt}
-            if context["task_recovery"]:
-                context["rejected_attempts"]=context["rejected_attempts"][-1:]
-            instruction = AUTHOR+REQUIREMENTS_POLICY
-            instruction += "\n遵守instance_contract：只生成一个可复制单元，场景实例数由框架负责。repair_directive是本轮修复决策，必须结合具体失败证据落实；依赖变化时验证实际新接口，不能只修改声明。scene_layout是实际装配布局，必须按其中坐标变换设计夹具与目标的配合，不能在局部模型中直接使用世界坐标。"
-            instruction += ("\nrejected_attempts列出本任务此前被拒绝的设计及原因，occurrences表示同一拒绝重复次数。"
-                            "修复当前错误时不能重新引入已被拒绝的另一表示；若两种表示分别触发不同约束，"
-                            "说明该部件需要的表达方式尚未声明正确，应按检查器给出的合法类别与约束类型重新声明，"
-                            "而不是在两种已知被拒方案之间切换。")
-            if self.limits.validation_mode == "static":
-                instruction += "\n当前仅验收静态场景外观和几何。仍按资料建立运动关节、按钮、连接及接口；本轮跳过操作验证并不允许把可动仪器简化为不可动外壳。"
-            if job["role"] != "asset":
-                instruction += "\n本次只生成job.role指定的操作装置，不重复生成所服务仪器。asset_ids表示服务范围。依据实际dependencies接口完成配合设计。"
-                from .layout import author_layout_policy
-                instruction += "\n" + author_layout_policy(self.env)
-            if job["role"] == "tool":
-                from .tool_contract import TOOL_POLICY
-                instruction += "\n" + TOOL_POLICY
+            instruction, context, images, phase = self.author_request(job, {**inputs, "previous":previous,
+                                                                            "feedback":feedback, "previews":previews}, attempt)
             destination = self.begin("asset")
             report = {}
             record = {"job":key,"source":previous_source,"status":"failed","reference_policy":reference_policy,"preview_paths":[]}
             try:
-                value, call = self.model.ask(instruction,context,bundle["images"]+previews,"asset:"+key)
+                value, call = self.model.ask(instruction,context,images,phase)
                 source = author_result(value,previous,self.generation.max_script_bytes)
                 self.before_candidate(key,str(destination.relative_to(self.root)))
                 script = destination/"model.py"

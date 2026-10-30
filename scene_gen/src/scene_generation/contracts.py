@@ -43,6 +43,8 @@ class SceneConfig:
     settle_steps: int = 150
     ik_iterations: int = 160
     ik_restarts: int = 4
+    # Author requests of independent assets sent concurrently; throughput only, not identity.
+    parallel_authors: int = 1
 
     def __post_init__(self):
         for k, v in asdict(self).items():
@@ -56,10 +58,11 @@ class SceneConfig:
                 require(type(v) is int and v > 0, "场景限制必须为正整数")
         require(self.settle_steps <= 5000 and self.ik_iterations <= 1000 and self.ik_restarts <= 32,
                 "场景检查预算过大")
+        require(self.parallel_authors <= 8, "并行作者数不超过 8")
 
     def identity(self):
         return {k: v for k, v in asdict(self).items()
-                if k not in {"max_iterations", "max_model_calls", "max_reserved_tokens", "max_plan_attempts", "max_repair_plan_attempts", "max_evidence_rounds", "max_evidence_plan_attempts", "max_check_actions", "max_check_retries"}}
+                if k not in {"parallel_authors", "max_iterations", "max_model_calls", "max_reserved_tokens", "max_plan_attempts", "max_repair_plan_attempts", "max_evidence_rounds", "max_evidence_plan_attempts", "max_check_actions", "max_check_retries"}}
 
 
 def environment(value):

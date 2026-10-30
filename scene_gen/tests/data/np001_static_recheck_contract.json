@@ -1,0 +1,1203 @@
+{
+  "provenance": {
+    "source": "real NP-001 archived tool receipt, reduced fields only; not a new experiment",
+    "path": "runs\\np001_recovery_20261016_1745\\stages\\00017_scene\\main_check_recovery\\6471471377632b1e1642a4369e1b44c515424ab09710aae774343daed937b4b5_1\\receipt.json",
+    "sha256": "a873f17dfa5477c91fb42141cc4fbb8d93f9563ab9b1e3ddd5bd6555c7cc5853"
+  },
+  "input_key": "6675bea92546f57a4be5592b55343d0d3db180145103e0b4ab407aeba96cfe67",
+  "request": {
+    "checks": [
+      "payload",
+      "robot_reachability",
+      "scene_collisions",
+      "scene_joint_sweeps",
+      "settling",
+      "support:dipstick_01",
+      "support:instrument",
+      "support:instrument_fixture",
+      "support:microtube_fixture",
+      "support:microtube_rack",
+      "support:reaction_empty_05",
+      "support:reaction_empty_09",
+      "support:reaction_empty_13",
+      "support:reaction_fixture",
+      "support:reaction_rack",
+      "support:reaction_sample",
+      "support:sample_tube",
+      "support:wash_tube",
+      "table_boundary:dipstick_01",
+      "table_boundary:instrument",
+      "table_boundary:instrument_fixture",
+      "table_boundary:microtube_fixture",
+      "table_boundary:microtube_rack",
+      "table_boundary:reaction_empty_05",
+      "table_boundary:reaction_empty_09",
+      "table_boundary:reaction_empty_13",
+      "table_boundary:reaction_fixture",
+      "table_boundary:reaction_rack",
+      "table_boundary:reaction_sample",
+      "table_boundary:sample_tube",
+      "table_boundary:wash_tube"
+    ]
+  },
+  "result": {
+    "checks": [
+      {
+        "collision_count": 5,
+        "collisions": [
+          {
+            "consistency_checked": true,
+            "distance_m": -0.0010099786783015078,
+            "geom1": "microtube_rack__A20_deck_sector_1_012",
+            "geom2": "sample_tube__A12_flange_08",
+            "instances": [
+              "microtube_rack",
+              "sample_tube"
+            ],
+            "lower_bound_m": null,
+            "method": "native",
+            "normal": [
+              0.6593465676800427,
+              -0.7518391474833874,
+              1.0992539233523652e-13
+            ],
+            "outcome": "measured",
+            "points": [
+              -0.4254008301692675,
+              -0.2159666813092539,
+              0.8564999991357327,
+              -0.4260667561442356,
+              -0.2152073398007833,
+              0.8564999991357326
+            ],
+            "surface_errors_m": [
+              1.1709383462843448e-17,
+              1.179141517440804e-17
+            ]
+          },
+          {
+            "consistency_checked": true,
+            "distance_m": -0.0010099425935404687,
+            "geom1": "microtube_rack__A20_deck_sector_1_033",
+            "geom2": "sample_tube__A12_flange_22",
+            "instances": [
+              "microtube_rack",
+              "sample_tube"
+            ],
+            "lower_bound_m": null,
+            "method": "native",
+            "normal": [
+              0.8660247140630798,
+              0.5000011946305336,
+              -0.0
+            ],
+            "outcome": "measured",
+            "points": [
+              -0.4330585996456951,
+              -0.21470235994070838,
+              0.8564999991357327,
+              -0.4339332348914861,
+              -0.21520733244398688,
+              0.8564999991357327
+            ],
+            "surface_errors_m": [
+              9.616873269946424e-17,
+              6.17764326688179e-17
+            ]
+          },
+          {
+            "consistency_checked": true,
+            "distance_m": -0.0010099464948110479,
+            "geom1": "microtube_rack__A20_deck_sector_1_066",
+            "geom2": "sample_tube__A12_flange_41",
+            "instances": [
+              "microtube_rack",
+              "sample_tube"
+            ],
+            "lower_bound_m": null,
+            "method": "native",
+            "normal": [
+              0.8660247140630754,
+              -0.5000011946305414,
+              -2.19857790552149e-13
+            ],
+            "outcome": "measured",
+            "points": [
+              -0.43305859944930064,
+              -0.22529763971912756,
+              0.8564999991357326,
+              -0.43393323807368833,
+              -0.22479266526520914,
+              0.8564999991357328
+            ],
+            "surface_errors_m": [
+              4.038653092508504e-16,
+              3.6053464168812375e-16
+            ]
+          },
+          {
+            "consistency_checked": true,
+            "distance_m": -0.0010099429957663795,
+            "geom1": "microtube_rack__A20_deck_sector_2_033",
+            "geom2": "wash_tube__A12_flange_22",
+            "instances": [
+              "microtube_rack",
+              "wash_tube"
+            ],
+            "lower_bound_m": null,
+            "method": "native",
+            "normal": [
+              0.8660246841179942,
+              0.5000012464967744,
+              1.099292761353051e-13
+            ],
+            "outcome": "measured",
+            "points": [
+              -0.3730585993276003,
+              -0.214702359687213,
+              0.8564999991357327,
+              -0.37393323489148605,
+              -0.21520733244398685,
+              0.8564999991357326
+            ],
+            "surface_errors_m": [
+              4.3259666682171627e-17,
+              2.406757884072884e-17
+            ]
+          },
+          {
+            "consistency_checked": true,
+            "distance_m": -0.0010099425935405167,
+            "geom1": "microtube_rack__A20_deck_sector_2_083",
+            "geom2": "wash_tube__A12_flange_54",
+            "instances": [
+              "microtube_rack",
+              "wash_tube"
+            ],
+            "lower_bound_m": null,
+            "method": "native",
+            "normal": [
+              -0.8660247140630423,
+              -0.5000011946305987,
+              -0.0
+            ],
+            "outcome": "measured",
+            "points": [
+              -0.36694140035430495,
+              -0.22529764005929168,
+              0.8564999991357326,
+              -0.366066765108514,
+              -0.22479266755601313,
+              0.8564999991357326
+            ],
+            "surface_errors_m": [
+              6.808789643208968e-16,
+              4.967802641523953e-17
+            ]
+          }
+        ],
+        "coverage_gaps": [
+          {
+            "distance_m": null,
+            "error": "距离证据不可靠：reaction_rack__A21_beveled_plinth / reaction_sample__A13_bottom_collision；[{'method': 'native', 'error': '无法核对最近点、接触法向与实际碰撞形状支撑面'}, {'method': 'legacy_checked', 'error': '无法核对最近点、接触法向与实际碰撞形状支撑面'}]",
+            "error_kind": "measurement_error",
+            "geom1": "reaction_rack__A21_beveled_plinth",
+            "geom2": "reaction_sample__A13_bottom_collision",
+            "instances": [
+              "reaction_rack",
+              "reaction_sample"
+            ],
+            "lower_bound_m": null,
+            "normal": null,
+            "outcome": "unknown",
+            "points": null
+          },
+          {
+            "distance_m": null,
+            "error": "距离证据不可靠：reaction_rack__A21_beveled_plinth / reaction_empty_09__A13_bottom_collision；[{'method': 'native', 'error': '无法核对最近点、接触法向与实际碰撞形状支撑面'}, {'method': 'legacy_checked', 'error': '无法核对最近点、接触法向与实际碰撞形状支撑面'}]",
+            "error_kind": "measurement_error",
+            "geom1": "reaction_rack__A21_beveled_plinth",
+            "geom2": "reaction_empty_09__A13_bottom_collision",
+            "instances": [
+              "reaction_rack",
+              "reaction_empty_09"
+            ],
+            "lower_bound_m": null,
+            "normal": null,
+            "outcome": "unknown",
+            "points": null
+          },
+          {
+            "distance_m": null,
+            "error": "距离证据不可靠：reaction_rack__A21_beveled_plinth / reaction_empty_13__A13_bottom_collision；[{'method': 'native', 'error': '无法核对最近点、接触法向与实际碰撞形状支撑面'}, {'method': 'legacy_checked', 'error': '无法核对最近点、接触法向与实际碰撞形状支撑面'}]",
+            "error_kind": "measurement_error",
+            "geom1": "reaction_rack__A21_beveled_plinth",
+            "geom2": "reaction_empty_13__A13_bottom_collision",
+            "instances": [
+              "reaction_rack",
+              "reaction_empty_13"
+            ],
+            "lower_bound_m": null,
+            "normal": null,
+            "outcome": "unknown",
+            "points": null
+          }
+        ],
+        "examined_pairs": 15555,
+        "id": "scene_collisions",
+        "instances": [
+          "microtube_rack",
+          "sample_tube",
+          "wash_tube"
+        ],
+        "status": "fail"
+      },
+      {
+        "complete": true,
+        "id": "support:dipstick_01",
+        "instances": [
+          "dipstick_01"
+        ],
+        "measurement_error_count": 0,
+        "measurement_errors": [],
+        "status": "pass",
+        "unexamined_pairs": 0
+      },
+      {
+        "id": "table_boundary:dipstick_01",
+        "instances": [
+          "dipstick_01"
+        ],
+        "status": "pass"
+      },
+      {
+        "complete": true,
+        "id": "support:microtube_fixture",
+        "instances": [
+          "microtube_fixture"
+        ],
+        "measurement_error_count": 0,
+        "measurement_errors": [],
+        "status": "pass",
+        "unexamined_pairs": 0
+      },
+      {
+        "id": "table_boundary:microtube_fixture",
+        "instances": [
+          "microtube_fixture"
+        ],
+        "status": "pass"
+      },
+      {
+        "complete": true,
+        "id": "support:microtube_rack",
+        "instances": [
+          "microtube_rack",
+          "microtube_fixture"
+        ],
+        "measurement_error_count": 0,
+        "measurement_errors": [],
+        "status": "pass",
+        "unexamined_pairs": 0
+      },
+      {
+        "id": "table_boundary:microtube_rack",
+        "instances": [
+          "microtube_rack"
+        ],
+        "status": "pass"
+      },
+      {
+        "complete": true,
+        "id": "support:sample_tube",
+        "instances": [
+          "sample_tube",
+          "microtube_rack"
+        ],
+        "measurement_error_count": 0,
+        "measurement_errors": [],
+        "status": "pass",
+        "unexamined_pairs": 0
+      },
+      {
+        "id": "table_boundary:sample_tube",
+        "instances": [
+          "sample_tube"
+        ],
+        "status": "pass"
+      },
+      {
+        "complete": true,
+        "id": "support:wash_tube",
+        "instances": [
+          "wash_tube",
+          "microtube_rack"
+        ],
+        "measurement_error_count": 0,
+        "measurement_errors": [],
+        "status": "pass",
+        "unexamined_pairs": 0
+      },
+      {
+        "id": "table_boundary:wash_tube",
+        "instances": [
+          "wash_tube"
+        ],
+        "status": "pass"
+      },
+      {
+        "complete": true,
+        "id": "support:reaction_fixture",
+        "instances": [
+          "reaction_fixture"
+        ],
+        "measurement_error_count": 0,
+        "measurement_errors": [],
+        "status": "pass",
+        "unexamined_pairs": 0
+      },
+      {
+        "id": "table_boundary:reaction_fixture",
+        "instances": [
+          "reaction_fixture"
+        ],
+        "status": "pass"
+      },
+      {
+        "complete": true,
+        "id": "support:reaction_rack",
+        "instances": [
+          "reaction_rack",
+          "reaction_fixture"
+        ],
+        "measurement_error_count": 0,
+        "measurement_errors": [],
+        "status": "pass",
+        "unexamined_pairs": 0
+      },
+      {
+        "id": "table_boundary:reaction_rack",
+        "instances": [
+          "reaction_rack"
+        ],
+        "status": "pass"
+      },
+      {
+        "complete": false,
+        "coverage_gaps": [
+          {
+            "distance_m": null,
+            "error": "距离证据不可靠：reaction_rack__A21_beveled_plinth / reaction_sample__A13_bottom_collision；[{'method': 'native', 'error': '无法核对最近点、接触法向与实际碰撞形状支撑面'}, {'method': 'legacy_checked', 'error': '无法核对最近点、接触法向与实际碰撞形状支撑面'}]",
+            "error_kind": "measurement_error",
+            "geom1": "reaction_rack__A21_beveled_plinth",
+            "geom2": "reaction_sample__A13_bottom_collision",
+            "instances": [
+              "reaction_sample",
+              "reaction_rack"
+            ],
+            "lower_bound_m": null,
+            "normal": null,
+            "outcome": "unknown",
+            "points": null
+          }
+        ],
+        "id": "support:reaction_sample",
+        "instances": [
+          "reaction_sample",
+          "reaction_rack"
+        ],
+        "measurement_error_count": 1,
+        "measurement_errors": [
+          {
+            "distance_m": null,
+            "error": "距离证据不可靠：reaction_rack__A21_beveled_plinth / reaction_sample__A13_bottom_collision；[{'method': 'native', 'error': '无法核对最近点、接触法向与实际碰撞形状支撑面'}, {'method': 'legacy_checked', 'error': '无法核对最近点、接触法向与实际碰撞形状支撑面'}]",
+            "error_kind": "measurement_error",
+            "geom1": "reaction_rack__A21_beveled_plinth",
+            "geom2": "reaction_sample__A13_bottom_collision",
+            "instances": [
+              "reaction_sample",
+              "reaction_rack"
+            ],
+            "lower_bound_m": null,
+            "normal": null,
+            "outcome": "unknown",
+            "points": null
+          }
+        ],
+        "status": "partial",
+        "unexamined_pairs": 0
+      },
+      {
+        "id": "table_boundary:reaction_sample",
+        "instances": [
+          "reaction_sample"
+        ],
+        "status": "pass"
+      },
+      {
+        "complete": true,
+        "id": "support:reaction_empty_05",
+        "instances": [
+          "reaction_empty_05",
+          "reaction_rack"
+        ],
+        "measurement_error_count": 0,
+        "measurement_errors": [],
+        "status": "pass",
+        "unexamined_pairs": 0
+      },
+      {
+        "id": "table_boundary:reaction_empty_05",
+        "instances": [
+          "reaction_empty_05"
+        ],
+        "status": "pass"
+      },
+      {
+        "complete": false,
+        "coverage_gaps": [
+          {
+            "distance_m": null,
+            "error": "距离证据不可靠：reaction_rack__A21_beveled_plinth / reaction_empty_09__A13_bottom_collision；[{'method': 'native', 'error': '无法核对最近点、接触法向与实际碰撞形状支撑面'}, {'method': 'legacy_checked', 'error': '无法核对最近点、接触法向与实际碰撞形状支撑面'}]",
+            "error_kind": "measurement_error",
+            "geom1": "reaction_rack__A21_beveled_plinth",
+            "geom2": "reaction_empty_09__A13_bottom_collision",
+            "instances": [
+              "reaction_empty_09",
+              "reaction_rack"
+            ],
+            "lower_bound_m": null,
+            "normal": null,
+            "outcome": "unknown",
+            "points": null
+          }
+        ],
+        "id": "support:reaction_empty_09",
+        "instances": [
+          "reaction_empty_09",
+          "reaction_rack"
+        ],
+        "measurement_error_count": 1,
+        "measurement_errors": [
+          {
+            "distance_m": null,
+            "error": "距离证据不可靠：reaction_rack__A21_beveled_plinth / reaction_empty_09__A13_bottom_collision；[{'method': 'native', 'error': '无法核对最近点、接触法向与实际碰撞形状支撑面'}, {'method': 'legacy_checked', 'error': '无法核对最近点、接触法向与实际碰撞形状支撑面'}]",
+            "error_kind": "measurement_error",
+            "geom1": "reaction_rack__A21_beveled_plinth",
+            "geom2": "reaction_empty_09__A13_bottom_collision",
+            "instances": [
+              "reaction_empty_09",
+              "reaction_rack"
+            ],
+            "lower_bound_m": null,
+            "normal": null,
+            "outcome": "unknown",
+            "points": null
+          }
+        ],
+        "status": "partial",
+        "unexamined_pairs": 0
+      },
+      {
+        "id": "table_boundary:reaction_empty_09",
+        "instances": [
+          "reaction_empty_09"
+        ],
+        "status": "pass"
+      },
+      {
+        "complete": false,
+        "coverage_gaps": [
+          {
+            "distance_m": null,
+            "error": "距离证据不可靠：reaction_rack__A21_beveled_plinth / reaction_empty_13__A13_bottom_collision；[{'method': 'native', 'error': '无法核对最近点、接触法向与实际碰撞形状支撑面'}, {'method': 'legacy_checked', 'error': '无法核对最近点、接触法向与实际碰撞形状支撑面'}]",
+            "error_kind": "measurement_error",
+            "geom1": "reaction_rack__A21_beveled_plinth",
+            "geom2": "reaction_empty_13__A13_bottom_collision",
+            "instances": [
+              "reaction_empty_13",
+              "reaction_rack"
+            ],
+            "lower_bound_m": null,
+            "normal": null,
+            "outcome": "unknown",
+            "points": null
+          }
+        ],
+        "id": "support:reaction_empty_13",
+        "instances": [
+          "reaction_empty_13",
+          "reaction_rack"
+        ],
+        "measurement_error_count": 1,
+        "measurement_errors": [
+          {
+            "distance_m": null,
+            "error": "距离证据不可靠：reaction_rack__A21_beveled_plinth / reaction_empty_13__A13_bottom_collision；[{'method': 'native', 'error': '无法核对最近点、接触法向与实际碰撞形状支撑面'}, {'method': 'legacy_checked', 'error': '无法核对最近点、接触法向与实际碰撞形状支撑面'}]",
+            "error_kind": "measurement_error",
+            "geom1": "reaction_rack__A21_beveled_plinth",
+            "geom2": "reaction_empty_13__A13_bottom_collision",
+            "instances": [
+              "reaction_empty_13",
+              "reaction_rack"
+            ],
+            "lower_bound_m": null,
+            "normal": null,
+            "outcome": "unknown",
+            "points": null
+          }
+        ],
+        "status": "partial",
+        "unexamined_pairs": 0
+      },
+      {
+        "id": "table_boundary:reaction_empty_13",
+        "instances": [
+          "reaction_empty_13"
+        ],
+        "status": "pass"
+      },
+      {
+        "complete": true,
+        "id": "support:instrument_fixture",
+        "instances": [
+          "instrument_fixture"
+        ],
+        "measurement_error_count": 0,
+        "measurement_errors": [],
+        "status": "pass",
+        "unexamined_pairs": 0
+      },
+      {
+        "id": "table_boundary:instrument_fixture",
+        "instances": [
+          "instrument_fixture"
+        ],
+        "status": "pass"
+      },
+      {
+        "complete": true,
+        "id": "support:instrument",
+        "instances": [
+          "instrument",
+          "instrument_fixture"
+        ],
+        "measurement_error_count": 0,
+        "measurement_errors": [],
+        "status": "pass",
+        "unexamined_pairs": 0
+      },
+      {
+        "id": "table_boundary:instrument",
+        "instances": [
+          "instrument"
+        ],
+        "status": "pass"
+      },
+      {
+        "id": "payload",
+        "instances": [
+          "robot_tool"
+        ],
+        "status": "pass"
+      },
+      {
+        "id": "scene_joint_sweeps",
+        "instances": [],
+        "status": "skipped"
+      },
+      {
+        "id": "settling",
+        "instances": [],
+        "status": "skipped"
+      },
+      {
+        "id": "robot_reachability",
+        "instances": [],
+        "status": "skipped"
+      }
+    ],
+    "input_key": "6675bea92546f57a4be5592b55343d0d3db180145103e0b4ab407aeba96cfe67",
+    "scope": "checks"
+  },
+  "report": {
+    "status": "fail",
+    "validation_mode": "static",
+    "checks": [
+      {
+        "collision_count": 5,
+        "collisions": [
+          {
+            "consistency_checked": true,
+            "distance_m": -0.0010099786783015078,
+            "geom1": "microtube_rack__A20_deck_sector_1_012",
+            "geom2": "sample_tube__A12_flange_08",
+            "instances": [
+              "microtube_rack",
+              "sample_tube"
+            ],
+            "lower_bound_m": null,
+            "method": "native",
+            "normal": [
+              0.6593465676800427,
+              -0.7518391474833874,
+              1.0992539233523652e-13
+            ],
+            "outcome": "measured",
+            "points": [
+              -0.4254008301692675,
+              -0.2159666813092539,
+              0.8564999991357327,
+              -0.4260667561442356,
+              -0.2152073398007833,
+              0.8564999991357326
+            ],
+            "surface_errors_m": [
+              1.1709383462843448e-17,
+              1.179141517440804e-17
+            ]
+          },
+          {
+            "consistency_checked": true,
+            "distance_m": -0.0010099425935404687,
+            "geom1": "microtube_rack__A20_deck_sector_1_033",
+            "geom2": "sample_tube__A12_flange_22",
+            "instances": [
+              "microtube_rack",
+              "sample_tube"
+            ],
+            "lower_bound_m": null,
+            "method": "native",
+            "normal": [
+              0.8660247140630798,
+              0.5000011946305336,
+              -0.0
+            ],
+            "outcome": "measured",
+            "points": [
+              -0.4330585996456951,
+              -0.21470235994070838,
+              0.8564999991357327,
+              -0.4339332348914861,
+              -0.21520733244398688,
+              0.8564999991357327
+            ],
+            "surface_errors_m": [
+              9.616873269946424e-17,
+              6.17764326688179e-17
+            ]
+          },
+          {
+            "consistency_checked": true,
+            "distance_m": -0.0010099464948110479,
+            "geom1": "microtube_rack__A20_deck_sector_1_066",
+            "geom2": "sample_tube__A12_flange_41",
+            "instances": [
+              "microtube_rack",
+              "sample_tube"
+            ],
+            "lower_bound_m": null,
+            "method": "native",
+            "normal": [
+              0.8660247140630754,
+              -0.5000011946305414,
+              -2.19857790552149e-13
+            ],
+            "outcome": "measured",
+            "points": [
+              -0.43305859944930064,
+              -0.22529763971912756,
+              0.8564999991357326,
+              -0.43393323807368833,
+              -0.22479266526520914,
+              0.8564999991357328
+            ],
+            "surface_errors_m": [
+              4.038653092508504e-16,
+              3.6053464168812375e-16
+            ]
+          },
+          {
+            "consistency_checked": true,
+            "distance_m": -0.0010099429957663795,
+            "geom1": "microtube_rack__A20_deck_sector_2_033",
+            "geom2": "wash_tube__A12_flange_22",
+            "instances": [
+              "microtube_rack",
+              "wash_tube"
+            ],
+            "lower_bound_m": null,
+            "method": "native",
+            "normal": [
+              0.8660246841179942,
+              0.5000012464967744,
+              1.099292761353051e-13
+            ],
+            "outcome": "measured",
+            "points": [
+              -0.3730585993276003,
+              -0.214702359687213,
+              0.8564999991357327,
+              -0.37393323489148605,
+              -0.21520733244398685,
+              0.8564999991357326
+            ],
+            "surface_errors_m": [
+              4.3259666682171627e-17,
+              2.406757884072884e-17
+            ]
+          },
+          {
+            "consistency_checked": true,
+            "distance_m": -0.0010099425935405167,
+            "geom1": "microtube_rack__A20_deck_sector_2_083",
+            "geom2": "wash_tube__A12_flange_54",
+            "instances": [
+              "microtube_rack",
+              "wash_tube"
+            ],
+            "lower_bound_m": null,
+            "method": "native",
+            "normal": [
+              -0.8660247140630423,
+              -0.5000011946305987,
+              -0.0
+            ],
+            "outcome": "measured",
+            "points": [
+              -0.36694140035430495,
+              -0.22529764005929168,
+              0.8564999991357326,
+              -0.366066765108514,
+              -0.22479266755601313,
+              0.8564999991357326
+            ],
+            "surface_errors_m": [
+              6.808789643208968e-16,
+              4.967802641523953e-17
+            ]
+          }
+        ],
+        "coverage_gaps": [
+          {
+            "distance_m": null,
+            "error": "距离证据不可靠：reaction_rack__A21_beveled_plinth / reaction_sample__A13_bottom_collision；[{'method': 'native', 'error': '无法核对最近点、接触法向与实际碰撞形状支撑面'}, {'method': 'legacy_checked', 'error': '无法核对最近点、接触法向与实际碰撞形状支撑面'}]",
+            "error_kind": "measurement_error",
+            "geom1": "reaction_rack__A21_beveled_plinth",
+            "geom2": "reaction_sample__A13_bottom_collision",
+            "instances": [
+              "reaction_rack",
+              "reaction_sample"
+            ],
+            "lower_bound_m": null,
+            "normal": null,
+            "outcome": "unknown",
+            "points": null
+          },
+          {
+            "distance_m": null,
+            "error": "距离证据不可靠：reaction_rack__A21_beveled_plinth / reaction_empty_09__A13_bottom_collision；[{'method': 'native', 'error': '无法核对最近点、接触法向与实际碰撞形状支撑面'}, {'method': 'legacy_checked', 'error': '无法核对最近点、接触法向与实际碰撞形状支撑面'}]",
+            "error_kind": "measurement_error",
+            "geom1": "reaction_rack__A21_beveled_plinth",
+            "geom2": "reaction_empty_09__A13_bottom_collision",
+            "instances": [
+              "reaction_rack",
+              "reaction_empty_09"
+            ],
+            "lower_bound_m": null,
+            "normal": null,
+            "outcome": "unknown",
+            "points": null
+          },
+          {
+            "distance_m": null,
+            "error": "距离证据不可靠：reaction_rack__A21_beveled_plinth / reaction_empty_13__A13_bottom_collision；[{'method': 'native', 'error': '无法核对最近点、接触法向与实际碰撞形状支撑面'}, {'method': 'legacy_checked', 'error': '无法核对最近点、接触法向与实际碰撞形状支撑面'}]",
+            "error_kind": "measurement_error",
+            "geom1": "reaction_rack__A21_beveled_plinth",
+            "geom2": "reaction_empty_13__A13_bottom_collision",
+            "instances": [
+              "reaction_rack",
+              "reaction_empty_13"
+            ],
+            "lower_bound_m": null,
+            "normal": null,
+            "outcome": "unknown",
+            "points": null
+          }
+        ],
+        "examined_pairs": 15555,
+        "id": "scene_collisions",
+        "instances": [
+          "microtube_rack",
+          "sample_tube",
+          "wash_tube"
+        ],
+        "status": "fail"
+      },
+      {
+        "complete": true,
+        "id": "support:dipstick_01",
+        "instances": [
+          "dipstick_01"
+        ],
+        "measurement_error_count": 0,
+        "measurement_errors": [],
+        "status": "pass",
+        "unexamined_pairs": 0
+      },
+      {
+        "id": "table_boundary:dipstick_01",
+        "instances": [
+          "dipstick_01"
+        ],
+        "status": "pass"
+      },
+      {
+        "complete": true,
+        "id": "support:microtube_fixture",
+        "instances": [
+          "microtube_fixture"
+        ],
+        "measurement_error_count": 0,
+        "measurement_errors": [],
+        "status": "pass",
+        "unexamined_pairs": 0
+      },
+      {
+        "id": "table_boundary:microtube_fixture",
+        "instances": [
+          "microtube_fixture"
+        ],
+        "status": "pass"
+      },
+      {
+        "complete": true,
+        "id": "support:microtube_rack",
+        "instances": [
+          "microtube_rack",
+          "microtube_fixture"
+        ],
+        "measurement_error_count": 0,
+        "measurement_errors": [],
+        "status": "pass",
+        "unexamined_pairs": 0
+      },
+      {
+        "id": "table_boundary:microtube_rack",
+        "instances": [
+          "microtube_rack"
+        ],
+        "status": "pass"
+      },
+      {
+        "complete": true,
+        "id": "support:sample_tube",
+        "instances": [
+          "sample_tube",
+          "microtube_rack"
+        ],
+        "measurement_error_count": 0,
+        "measurement_errors": [],
+        "status": "pass",
+        "unexamined_pairs": 0
+      },
+      {
+        "id": "table_boundary:sample_tube",
+        "instances": [
+          "sample_tube"
+        ],
+        "status": "pass"
+      },
+      {
+        "complete": true,
+        "id": "support:wash_tube",
+        "instances": [
+          "wash_tube",
+          "microtube_rack"
+        ],
+        "measurement_error_count": 0,
+        "measurement_errors": [],
+        "status": "pass",
+        "unexamined_pairs": 0
+      },
+      {
+        "id": "table_boundary:wash_tube",
+        "instances": [
+          "wash_tube"
+        ],
+        "status": "pass"
+      },
+      {
+        "complete": true,
+        "id": "support:reaction_fixture",
+        "instances": [
+          "reaction_fixture"
+        ],
+        "measurement_error_count": 0,
+        "measurement_errors": [],
+        "status": "pass",
+        "unexamined_pairs": 0
+      },
+      {
+        "id": "table_boundary:reaction_fixture",
+        "instances": [
+          "reaction_fixture"
+        ],
+        "status": "pass"
+      },
+      {
+        "complete": true,
+        "id": "support:reaction_rack",
+        "instances": [
+          "reaction_rack",
+          "reaction_fixture"
+        ],
+        "measurement_error_count": 0,
+        "measurement_errors": [],
+        "status": "pass",
+        "unexamined_pairs": 0
+      },
+      {
+        "id": "table_boundary:reaction_rack",
+        "instances": [
+          "reaction_rack"
+        ],
+        "status": "pass"
+      },
+      {
+        "complete": false,
+        "coverage_gaps": [
+          {
+            "distance_m": null,
+            "error": "距离证据不可靠：reaction_rack__A21_beveled_plinth / reaction_sample__A13_bottom_collision；[{'method': 'native', 'error': '无法核对最近点、接触法向与实际碰撞形状支撑面'}, {'method': 'legacy_checked', 'error': '无法核对最近点、接触法向与实际碰撞形状支撑面'}]",
+            "error_kind": "measurement_error",
+            "geom1": "reaction_rack__A21_beveled_plinth",
+            "geom2": "reaction_sample__A13_bottom_collision",
+            "instances": [
+              "reaction_sample",
+              "reaction_rack"
+            ],
+            "lower_bound_m": null,
+            "normal": null,
+            "outcome": "unknown",
+            "points": null
+          }
+        ],
+        "id": "support:reaction_sample",
+        "instances": [
+          "reaction_sample",
+          "reaction_rack"
+        ],
+        "measurement_error_count": 1,
+        "measurement_errors": [
+          {
+            "distance_m": null,
+            "error": "距离证据不可靠：reaction_rack__A21_beveled_plinth / reaction_sample__A13_bottom_collision；[{'method': 'native', 'error': '无法核对最近点、接触法向与实际碰撞形状支撑面'}, {'method': 'legacy_checked', 'error': '无法核对最近点、接触法向与实际碰撞形状支撑面'}]",
+            "error_kind": "measurement_error",
+            "geom1": "reaction_rack__A21_beveled_plinth",
+            "geom2": "reaction_sample__A13_bottom_collision",
+            "instances": [
+              "reaction_sample",
+              "reaction_rack"
+            ],
+            "lower_bound_m": null,
+            "normal": null,
+            "outcome": "unknown",
+            "points": null
+          }
+        ],
+        "status": "partial",
+        "unexamined_pairs": 0
+      },
+      {
+        "id": "table_boundary:reaction_sample",
+        "instances": [
+          "reaction_sample"
+        ],
+        "status": "pass"
+      },
+      {
+        "complete": true,
+        "id": "support:reaction_empty_05",
+        "instances": [
+          "reaction_empty_05",
+          "reaction_rack"
+        ],
+        "measurement_error_count": 0,
+        "measurement_errors": [],
+        "status": "pass",
+        "unexamined_pairs": 0
+      },
+      {
+        "id": "table_boundary:reaction_empty_05",
+        "instances": [
+          "reaction_empty_05"
+        ],
+        "status": "pass"
+      },
+      {
+        "complete": false,
+        "coverage_gaps": [
+          {
+            "distance_m": null,
+            "error": "距离证据不可靠：reaction_rack__A21_beveled_plinth / reaction_empty_09__A13_bottom_collision；[{'method': 'native', 'error': '无法核对最近点、接触法向与实际碰撞形状支撑面'}, {'method': 'legacy_checked', 'error': '无法核对最近点、接触法向与实际碰撞形状支撑面'}]",
+            "error_kind": "measurement_error",
+            "geom1": "reaction_rack__A21_beveled_plinth",
+            "geom2": "reaction_empty_09__A13_bottom_collision",
+            "instances": [
+              "reaction_empty_09",
+              "reaction_rack"
+            ],
+            "lower_bound_m": null,
+            "normal": null,
+            "outcome": "unknown",
+            "points": null
+          }
+        ],
+        "id": "support:reaction_empty_09",
+        "instances": [
+          "reaction_empty_09",
+          "reaction_rack"
+        ],
+        "measurement_error_count": 1,
+        "measurement_errors": [
+          {
+            "distance_m": null,
+            "error": "距离证据不可靠：reaction_rack__A21_beveled_plinth / reaction_empty_09__A13_bottom_collision；[{'method': 'native', 'error': '无法核对最近点、接触法向与实际碰撞形状支撑面'}, {'method': 'legacy_checked', 'error': '无法核对最近点、接触法向与实际碰撞形状支撑面'}]",
+            "error_kind": "measurement_error",
+            "geom1": "reaction_rack__A21_beveled_plinth",
+            "geom2": "reaction_empty_09__A13_bottom_collision",
+            "instances": [
+              "reaction_empty_09",
+              "reaction_rack"
+            ],
+            "lower_bound_m": null,
+            "normal": null,
+            "outcome": "unknown",
+            "points": null
+          }
+        ],
+        "status": "partial",
+        "unexamined_pairs": 0
+      },
+      {
+        "id": "table_boundary:reaction_empty_09",
+        "instances": [
+          "reaction_empty_09"
+        ],
+        "status": "pass"
+      },
+      {
+        "complete": false,
+        "coverage_gaps": [
+          {
+            "distance_m": null,
+            "error": "距离证据不可靠：reaction_rack__A21_beveled_plinth / reaction_empty_13__A13_bottom_collision；[{'method': 'native', 'error': '无法核对最近点、接触法向与实际碰撞形状支撑面'}, {'method': 'legacy_checked', 'error': '无法核对最近点、接触法向与实际碰撞形状支撑面'}]",
+            "error_kind": "measurement_error",
+            "geom1": "reaction_rack__A21_beveled_plinth",
+            "geom2": "reaction_empty_13__A13_bottom_collision",
+            "instances": [
+              "reaction_empty_13",
+              "reaction_rack"
+            ],
+            "lower_bound_m": null,
+            "normal": null,
+            "outcome": "unknown",
+            "points": null
+          }
+        ],
+        "id": "support:reaction_empty_13",
+        "instances": [
+          "reaction_empty_13",
+          "reaction_rack"
+        ],
+        "measurement_error_count": 1,
+        "measurement_errors": [
+          {
+            "distance_m": null,
+            "error": "距离证据不可靠：reaction_rack__A21_beveled_plinth / reaction_empty_13__A13_bottom_collision；[{'method': 'native', 'error': '无法核对最近点、接触法向与实际碰撞形状支撑面'}, {'method': 'legacy_checked', 'error': '无法核对最近点、接触法向与实际碰撞形状支撑面'}]",
+            "error_kind": "measurement_error",
+            "geom1": "reaction_rack__A21_beveled_plinth",
+            "geom2": "reaction_empty_13__A13_bottom_collision",
+            "instances": [
+              "reaction_empty_13",
+              "reaction_rack"
+            ],
+            "lower_bound_m": null,
+            "normal": null,
+            "outcome": "unknown",
+            "points": null
+          }
+        ],
+        "status": "partial",
+        "unexamined_pairs": 0
+      },
+      {
+        "id": "table_boundary:reaction_empty_13",
+        "instances": [
+          "reaction_empty_13"
+        ],
+        "status": "pass"
+      },
+      {
+        "complete": true,
+        "id": "support:instrument_fixture",
+        "instances": [
+          "instrument_fixture"
+        ],
+        "measurement_error_count": 0,
+        "measurement_errors": [],
+        "status": "pass",
+        "unexamined_pairs": 0
+      },
+      {
+        "id": "table_boundary:instrument_fixture",
+        "instances": [
+          "instrument_fixture"
+        ],
+        "status": "pass"
+      },
+      {
+        "complete": true,
+        "id": "support:instrument",
+        "instances": [
+          "instrument",
+          "instrument_fixture"
+        ],
+        "measurement_error_count": 0,
+        "measurement_errors": [],
+        "status": "pass",
+        "unexamined_pairs": 0
+      },
+      {
+        "id": "table_boundary:instrument",
+        "instances": [
+          "instrument"
+        ],
+        "status": "pass"
+      },
+      {
+        "id": "payload",
+        "instances": [
+          "robot_tool"
+        ],
+        "status": "pass"
+      },
+      {
+        "id": "scene_joint_sweeps",
+        "instances": [],
+        "status": "skipped"
+      },
+      {
+        "id": "settling",
+        "instances": [],
+        "status": "skipped"
+      },
+      {
+        "id": "robot_reachability",
+        "instances": [],
+        "status": "skipped"
+      }
+    ]
+  }
+}

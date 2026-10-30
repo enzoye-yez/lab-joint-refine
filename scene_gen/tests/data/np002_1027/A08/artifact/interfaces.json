@@ -1,0 +1,202 @@
+{
+  "schema_version": "1.0",
+  "asset_ids": [
+    "A08"
+  ],
+  "parts": [
+    {
+      "id": "A08_sample_grinding_tube",
+      "body": "A08_sample_tube"
+    },
+    {
+      "id": "A08_sample_screw_cap",
+      "body": "A08_sample_cap"
+    },
+    {
+      "id": "A08_balance_tube",
+      "body": "A08_balance_tube"
+    },
+    {
+      "id": "A08_balance_screw_cap",
+      "body": "A08_balance_cap"
+    },
+    {
+      "id": "A08_support_plate",
+      "body": "A08_support_plate"
+    }
+  ],
+  "interfaces": [
+    {
+      "id": "A08_sample_grasp",
+      "asset_id": "A08",
+      "kind": "grasp",
+      "body": "A08_sample_tube",
+      "site": "A08_sample_tube_grasp",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "A08_sample_cap_rotate",
+      "asset_id": "A08",
+      "kind": "rotate",
+      "body": "A08_sample_cap",
+      "site": "A08_sample_cap_grasp",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ],
+      "operation": {
+        "status": "declared",
+        "axis": [
+          0,
+          0,
+          1
+        ],
+        "joint": "A08_sample_cap_free",
+        "range": [
+          -6.2832,
+          6.2832
+        ],
+        "clearance_m": 0.001,
+        "grasp_geoms": [
+          "A08_sample_cap_body"
+        ],
+        "basis": {
+          "axis": {
+            "kind": "assumption",
+            "reference": "螺旋盖旋拧轴线按管体中心轴建模"
+          }
+        }
+      }
+    },
+    {
+      "id": "A08_balance_grasp",
+      "asset_id": "A08",
+      "kind": "grasp",
+      "body": "A08_balance_tube",
+      "site": "A08_balance_tube_grasp",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "A08_balance_cap_rotate",
+      "asset_id": "A08",
+      "kind": "rotate",
+      "body": "A08_balance_cap",
+      "site": "A08_balance_cap_grasp",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ],
+      "operation": {
+        "status": "declared",
+        "axis": [
+          0,
+          0,
+          1
+        ],
+        "joint": "A08_balance_cap_free",
+        "range": [
+          -6.2832,
+          6.2832
+        ],
+        "clearance_m": 0.001,
+        "grasp_geoms": [
+          "A08_balance_cap_body"
+        ],
+        "basis": {
+          "axis": {
+            "kind": "assumption",
+            "reference": "螺旋盖旋拧轴线按管体中心轴建模"
+          }
+        }
+      }
+    },
+    {
+      "id": "A08_sample_insert",
+      "asset_id": "A08",
+      "kind": "insert",
+      "body": "A08_sample_tube",
+      "site": "A08_sample_tube_mouth",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "A08_balance_insert",
+      "asset_id": "A08",
+      "kind": "insert",
+      "body": "A08_balance_tube",
+      "site": "A08_balance_tube_mouth",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    }
+  ],
+  "assumptions": [
+    "未公开的管体尺寸按外径约12 mm、有效长度50 mm、内径约9.5 mm建模。",
+    "配平管采用与研磨管相同的外形和螺旋盖尺寸；其内部不生成研磨珠。",
+    "螺纹用多道环形凸台近似，未模拟真实螺旋牙型和密封压缩。",
+    "底部支撑环为本地建模的水平固定托架，用于表达离心前后承托关系。"
+  ],
+  "approximations": [
+    "研磨珠以12个独立球体表示，不模拟颗粒间碰撞或生化过程。",
+    "管盖以自由转动/平移刚体加weld装配约束近似旋紧状态；运行时操作释放尚未验证。",
+    "透明塑料仅用于视觉表达，管壁碰撞采用同一封闭环形网格。"
+  ],
+  "buttons": [],
+  "connections": [
+    {
+      "id": "A08_sample_cap_connection",
+      "kind": "detachable",
+      "equality": "A08_sample_cap_weld",
+      "release_event": "A08_sample_cap_rotate",
+      "irreversible": false,
+      "attach_event": "A08_sample_cap_rotate",
+      "capture_sites": [
+        "A08_sample_tube_mouth",
+        "A08_sample_cap_axis"
+      ],
+      "position_tolerance_m": 0.005,
+      "angle_tolerance_rad": 0.2
+    },
+    {
+      "id": "A08_balance_cap_connection",
+      "kind": "detachable",
+      "equality": "A08_balance_cap_weld",
+      "release_event": "A08_balance_cap_rotate",
+      "irreversible": false,
+      "attach_event": "A08_balance_cap_rotate",
+      "capture_sites": [
+        "A08_balance_tube_mouth",
+        "A08_balance_cap_axis"
+      ],
+      "position_tolerance_m": 0.005,
+      "angle_tolerance_rad": 0.2
+    }
+  ],
+  "mechanical_events": [
+    {
+      "id": "A08_sample_cap_rotate",
+      "interface": "A08_sample_cap_rotate",
+      "action": "release"
+    },
+    {
+      "id": "A08_balance_cap_rotate",
+      "interface": "A08_balance_cap_rotate",
+      "action": "release"
+    }
+  ]
+}

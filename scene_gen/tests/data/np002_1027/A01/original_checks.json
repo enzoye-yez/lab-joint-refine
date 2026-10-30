@@ -1,0 +1,1 @@
+{"checks": [], "coverage": ["检查工具或报告契约错误，不能作为资产缺陷", "报告总状态与检查条目矛盾"], "detail": "报告总状态与检查条目矛盾", "error_kind": "check_execution", "execution_failure": {"components": ["asset_generation.check_report"], "detail": "报告总状态与检查条目矛盾", "error_kind": "check_execution", "error_type": "CheckContractError", "kind": "program", "retryable": false}, "renders": [], "status": "error"}

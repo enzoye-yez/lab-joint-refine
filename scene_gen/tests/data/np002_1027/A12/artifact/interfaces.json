@@ -1,0 +1,121 @@
+{
+  "schema_version": "1.0",
+  "asset_ids": [
+    "A12"
+  ],
+  "parts": [
+    {
+      "id": "refrigerator_body",
+      "body": "refrigerator_cabinet"
+    },
+    {
+      "id": "hinged_glass_door",
+      "body": "refrigerator_door"
+    },
+    {
+      "id": "internal_2ml_tube_rack",
+      "body": "tube_rack_2ml"
+    },
+    {
+      "id": "2ml_collection_tube",
+      "body": "collection_tube_2ml"
+    }
+  ],
+  "interfaces": [
+    {
+      "id": "A12_door_grasp",
+      "asset_id": "A12",
+      "kind": "rotate",
+      "body": "refrigerator_door",
+      "site": "door_handle_grasp_site",
+      "approach_axis": [
+        0,
+        -1,
+        0
+      ],
+      "operation": {
+        "status": "declared",
+        "axis": [
+          0,
+          0,
+          1
+        ],
+        "joint": "door_hinge",
+        "range": [
+          0,
+          1.75
+        ],
+        "clearance_m": 0.02,
+        "grasp_geoms": [
+          "door_handle"
+        ],
+        "basis": {
+          "joint": {
+            "kind": "assumption",
+            "reference": "hinge axis chosen from front-door construction"
+          },
+          "range": {
+            "kind": "assumption",
+            "reference": "opening clearance for undercounter door"
+          }
+        }
+      }
+    },
+    {
+      "id": "A12_tube_grasp",
+      "asset_id": "A12",
+      "kind": "grasp",
+      "body": "collection_tube_2ml",
+      "site": "collection_tube_grasp_site",
+      "approach_axis": [
+        0,
+        -1,
+        0
+      ]
+    },
+    {
+      "id": "A12_tube_insert",
+      "asset_id": "A12",
+      "kind": "insert",
+      "body": "collection_tube_2ml",
+      "site": "collection_tube_grasp_site",
+      "approach_axis": [
+        0,
+        0,
+        -1
+      ]
+    },
+    {
+      "id": "A12_internal_mount",
+      "asset_id": "A12",
+      "kind": "mount",
+      "body": "tube_rack_2ml",
+      "site": "tube_rack_grasp_site"
+    }
+  ],
+  "assumptions": [
+    "TSX505GA outer dimensions are taken directly from the supplied specification: 0.600 x 0.661 x 0.813 m; handle depth is represented by the front door geometry.",
+    "Interior shelf elevations and the 2 ml rack hole layout are modeling assumptions because exact shelf and rack drawings were not supplied.",
+    "The refrigerator is modeled at its local origin with its lower cabinet surface at z=0; the scene table provides the external support.",
+    "Door hinge axis and opening limit are modeling values selected to preserve front access and avoid cabinet collision.",
+    "The tube is visually distinguished from the rack and remains capped during the initial state."
+  ],
+  "approximations": [
+    "Wire shelves are represented by thin collision-bearing panels and rails rather than individual wire rods.",
+    "The refrigerator compressor, seals, sensor, refrigeration circuit and temperature dynamics are not simulated.",
+    "The 2 ml tube rack is a rigid support approximation with a single representative capped tube.",
+    "Door latch operation is represented by an equality lock on the hinge; runtime operation is not verified in this static delivery."
+  ],
+  "buttons": [],
+  "connections": [
+    {
+      "id": "A12_door_latch",
+      "kind": "latch",
+      "equality": "door_closed_latch",
+      "release_event": "A12_door_grasp",
+      "irreversible": false
+    }
+  ],
+  "mechanical_events": [],
+  "construction_records": []
+}

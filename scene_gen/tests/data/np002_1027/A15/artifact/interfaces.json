@@ -1,0 +1,1279 @@
+{
+  "schema_version": "1.0",
+  "asset_ids": [
+    "A15"
+  ],
+  "parts": [
+    {
+      "id": "A15.magnet_base",
+      "body": "A15_magnet_base"
+    },
+    {
+      "id": "A15.removable_upper_rack",
+      "body": "A15_upper_rack"
+    }
+  ],
+  "interfaces": [
+    {
+      "id": "A15.base.grasp",
+      "asset_id": "A15",
+      "kind": "grasp",
+      "body": "A15_magnet_base",
+      "site": "A15_base_grasp_site",
+      "approach_axis": [
+        0,
+        -1,
+        0
+      ]
+    },
+    {
+      "id": "A15.rack.grasp.left",
+      "asset_id": "A15",
+      "kind": "grasp",
+      "body": "A15_upper_rack",
+      "site": "A15_rack_left_grasp_site",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "A15.rack.grasp.right",
+      "asset_id": "A15",
+      "kind": "grasp",
+      "body": "A15_upper_rack",
+      "site": "A15_rack_right_grasp_site",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "A15.base.mount",
+      "asset_id": "A15",
+      "kind": "mount",
+      "body": "A15_magnet_base",
+      "site": "A15_base_mount_site",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "A15.rack.mount",
+      "asset_id": "A15",
+      "kind": "mount",
+      "body": "A15_upper_rack",
+      "site": "A15_rack_mount_site"
+    },
+    {
+      "id": "A15.socket.01.insert",
+      "asset_id": "A15",
+      "kind": "insert",
+      "body": "A15_upper_rack",
+      "site": "A15_socket_01_site",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "A15.socket.01.rotate",
+      "asset_id": "A15",
+      "kind": "rotate",
+      "body": "A15_upper_rack",
+      "site": "A15_socket_01_site",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ],
+      "operation": {
+        "status": "declared",
+        "axis": [
+          0,
+          0,
+          1
+        ],
+        "range": [
+          -3.141592653589793,
+          3.141592653589793
+        ],
+        "basis": {
+          "axis": {
+            "kind": "assumption",
+            "reference": "Circular vertical tube bore; external tube rotates about its own axis."
+          },
+          "range": {
+            "kind": "source_specification",
+            "reference": "Protocol pdf:p7 step 21 requires repeated 90-degree tube turns; no axial antirotation feature is modeled."
+          }
+        }
+      }
+    },
+    {
+      "id": "A15.socket.02.insert",
+      "asset_id": "A15",
+      "kind": "insert",
+      "body": "A15_upper_rack",
+      "site": "A15_socket_02_site",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "A15.socket.02.rotate",
+      "asset_id": "A15",
+      "kind": "rotate",
+      "body": "A15_upper_rack",
+      "site": "A15_socket_02_site",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ],
+      "operation": {
+        "status": "declared",
+        "axis": [
+          0,
+          0,
+          1
+        ],
+        "range": [
+          -3.141592653589793,
+          3.141592653589793
+        ],
+        "basis": {
+          "axis": {
+            "kind": "assumption",
+            "reference": "Circular vertical tube bore; external tube rotates about its own axis."
+          },
+          "range": {
+            "kind": "source_specification",
+            "reference": "Protocol pdf:p7 step 21 requires repeated 90-degree tube turns; no axial antirotation feature is modeled."
+          }
+        }
+      }
+    },
+    {
+      "id": "A15.socket.03.insert",
+      "asset_id": "A15",
+      "kind": "insert",
+      "body": "A15_upper_rack",
+      "site": "A15_socket_03_site",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "A15.socket.03.rotate",
+      "asset_id": "A15",
+      "kind": "rotate",
+      "body": "A15_upper_rack",
+      "site": "A15_socket_03_site",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ],
+      "operation": {
+        "status": "declared",
+        "axis": [
+          0,
+          0,
+          1
+        ],
+        "range": [
+          -3.141592653589793,
+          3.141592653589793
+        ],
+        "basis": {
+          "axis": {
+            "kind": "assumption",
+            "reference": "Circular vertical tube bore; external tube rotates about its own axis."
+          },
+          "range": {
+            "kind": "source_specification",
+            "reference": "Protocol pdf:p7 step 21 requires repeated 90-degree tube turns; no axial antirotation feature is modeled."
+          }
+        }
+      }
+    },
+    {
+      "id": "A15.socket.04.insert",
+      "asset_id": "A15",
+      "kind": "insert",
+      "body": "A15_upper_rack",
+      "site": "A15_socket_04_site",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "A15.socket.04.rotate",
+      "asset_id": "A15",
+      "kind": "rotate",
+      "body": "A15_upper_rack",
+      "site": "A15_socket_04_site",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ],
+      "operation": {
+        "status": "declared",
+        "axis": [
+          0,
+          0,
+          1
+        ],
+        "range": [
+          -3.141592653589793,
+          3.141592653589793
+        ],
+        "basis": {
+          "axis": {
+            "kind": "assumption",
+            "reference": "Circular vertical tube bore; external tube rotates about its own axis."
+          },
+          "range": {
+            "kind": "source_specification",
+            "reference": "Protocol pdf:p7 step 21 requires repeated 90-degree tube turns; no axial antirotation feature is modeled."
+          }
+        }
+      }
+    },
+    {
+      "id": "A15.socket.05.insert",
+      "asset_id": "A15",
+      "kind": "insert",
+      "body": "A15_upper_rack",
+      "site": "A15_socket_05_site",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "A15.socket.05.rotate",
+      "asset_id": "A15",
+      "kind": "rotate",
+      "body": "A15_upper_rack",
+      "site": "A15_socket_05_site",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ],
+      "operation": {
+        "status": "declared",
+        "axis": [
+          0,
+          0,
+          1
+        ],
+        "range": [
+          -3.141592653589793,
+          3.141592653589793
+        ],
+        "basis": {
+          "axis": {
+            "kind": "assumption",
+            "reference": "Circular vertical tube bore; external tube rotates about its own axis."
+          },
+          "range": {
+            "kind": "source_specification",
+            "reference": "Protocol pdf:p7 step 21 requires repeated 90-degree tube turns; no axial antirotation feature is modeled."
+          }
+        }
+      }
+    },
+    {
+      "id": "A15.socket.06.insert",
+      "asset_id": "A15",
+      "kind": "insert",
+      "body": "A15_upper_rack",
+      "site": "A15_socket_06_site",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "A15.socket.06.rotate",
+      "asset_id": "A15",
+      "kind": "rotate",
+      "body": "A15_upper_rack",
+      "site": "A15_socket_06_site",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ],
+      "operation": {
+        "status": "declared",
+        "axis": [
+          0,
+          0,
+          1
+        ],
+        "range": [
+          -3.141592653589793,
+          3.141592653589793
+        ],
+        "basis": {
+          "axis": {
+            "kind": "assumption",
+            "reference": "Circular vertical tube bore; external tube rotates about its own axis."
+          },
+          "range": {
+            "kind": "source_specification",
+            "reference": "Protocol pdf:p7 step 21 requires repeated 90-degree tube turns; no axial antirotation feature is modeled."
+          }
+        }
+      }
+    },
+    {
+      "id": "A15.socket.07.insert",
+      "asset_id": "A15",
+      "kind": "insert",
+      "body": "A15_upper_rack",
+      "site": "A15_socket_07_site",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "A15.socket.07.rotate",
+      "asset_id": "A15",
+      "kind": "rotate",
+      "body": "A15_upper_rack",
+      "site": "A15_socket_07_site",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ],
+      "operation": {
+        "status": "declared",
+        "axis": [
+          0,
+          0,
+          1
+        ],
+        "range": [
+          -3.141592653589793,
+          3.141592653589793
+        ],
+        "basis": {
+          "axis": {
+            "kind": "assumption",
+            "reference": "Circular vertical tube bore; external tube rotates about its own axis."
+          },
+          "range": {
+            "kind": "source_specification",
+            "reference": "Protocol pdf:p7 step 21 requires repeated 90-degree tube turns; no axial antirotation feature is modeled."
+          }
+        }
+      }
+    },
+    {
+      "id": "A15.socket.08.insert",
+      "asset_id": "A15",
+      "kind": "insert",
+      "body": "A15_upper_rack",
+      "site": "A15_socket_08_site",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "A15.socket.08.rotate",
+      "asset_id": "A15",
+      "kind": "rotate",
+      "body": "A15_upper_rack",
+      "site": "A15_socket_08_site",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ],
+      "operation": {
+        "status": "declared",
+        "axis": [
+          0,
+          0,
+          1
+        ],
+        "range": [
+          -3.141592653589793,
+          3.141592653589793
+        ],
+        "basis": {
+          "axis": {
+            "kind": "assumption",
+            "reference": "Circular vertical tube bore; external tube rotates about its own axis."
+          },
+          "range": {
+            "kind": "source_specification",
+            "reference": "Protocol pdf:p7 step 21 requires repeated 90-degree tube turns; no axial antirotation feature is modeled."
+          }
+        }
+      }
+    },
+    {
+      "id": "A15.socket.09.insert",
+      "asset_id": "A15",
+      "kind": "insert",
+      "body": "A15_upper_rack",
+      "site": "A15_socket_09_site",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "A15.socket.09.rotate",
+      "asset_id": "A15",
+      "kind": "rotate",
+      "body": "A15_upper_rack",
+      "site": "A15_socket_09_site",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ],
+      "operation": {
+        "status": "declared",
+        "axis": [
+          0,
+          0,
+          1
+        ],
+        "range": [
+          -3.141592653589793,
+          3.141592653589793
+        ],
+        "basis": {
+          "axis": {
+            "kind": "assumption",
+            "reference": "Circular vertical tube bore; external tube rotates about its own axis."
+          },
+          "range": {
+            "kind": "source_specification",
+            "reference": "Protocol pdf:p7 step 21 requires repeated 90-degree tube turns; no axial antirotation feature is modeled."
+          }
+        }
+      }
+    },
+    {
+      "id": "A15.socket.10.insert",
+      "asset_id": "A15",
+      "kind": "insert",
+      "body": "A15_upper_rack",
+      "site": "A15_socket_10_site",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "A15.socket.10.rotate",
+      "asset_id": "A15",
+      "kind": "rotate",
+      "body": "A15_upper_rack",
+      "site": "A15_socket_10_site",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ],
+      "operation": {
+        "status": "declared",
+        "axis": [
+          0,
+          0,
+          1
+        ],
+        "range": [
+          -3.141592653589793,
+          3.141592653589793
+        ],
+        "basis": {
+          "axis": {
+            "kind": "assumption",
+            "reference": "Circular vertical tube bore; external tube rotates about its own axis."
+          },
+          "range": {
+            "kind": "source_specification",
+            "reference": "Protocol pdf:p7 step 21 requires repeated 90-degree tube turns; no axial antirotation feature is modeled."
+          }
+        }
+      }
+    },
+    {
+      "id": "A15.socket.11.insert",
+      "asset_id": "A15",
+      "kind": "insert",
+      "body": "A15_upper_rack",
+      "site": "A15_socket_11_site",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "A15.socket.11.rotate",
+      "asset_id": "A15",
+      "kind": "rotate",
+      "body": "A15_upper_rack",
+      "site": "A15_socket_11_site",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ],
+      "operation": {
+        "status": "declared",
+        "axis": [
+          0,
+          0,
+          1
+        ],
+        "range": [
+          -3.141592653589793,
+          3.141592653589793
+        ],
+        "basis": {
+          "axis": {
+            "kind": "assumption",
+            "reference": "Circular vertical tube bore; external tube rotates about its own axis."
+          },
+          "range": {
+            "kind": "source_specification",
+            "reference": "Protocol pdf:p7 step 21 requires repeated 90-degree tube turns; no axial antirotation feature is modeled."
+          }
+        }
+      }
+    },
+    {
+      "id": "A15.socket.12.insert",
+      "asset_id": "A15",
+      "kind": "insert",
+      "body": "A15_upper_rack",
+      "site": "A15_socket_12_site",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "A15.socket.12.rotate",
+      "asset_id": "A15",
+      "kind": "rotate",
+      "body": "A15_upper_rack",
+      "site": "A15_socket_12_site",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ],
+      "operation": {
+        "status": "declared",
+        "axis": [
+          0,
+          0,
+          1
+        ],
+        "range": [
+          -3.141592653589793,
+          3.141592653589793
+        ],
+        "basis": {
+          "axis": {
+            "kind": "assumption",
+            "reference": "Circular vertical tube bore; external tube rotates about its own axis."
+          },
+          "range": {
+            "kind": "source_specification",
+            "reference": "Protocol pdf:p7 step 21 requires repeated 90-degree tube turns; no axial antirotation feature is modeled."
+          }
+        }
+      }
+    },
+    {
+      "id": "A15.socket.13.insert",
+      "asset_id": "A15",
+      "kind": "insert",
+      "body": "A15_upper_rack",
+      "site": "A15_socket_13_site",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "A15.socket.13.rotate",
+      "asset_id": "A15",
+      "kind": "rotate",
+      "body": "A15_upper_rack",
+      "site": "A15_socket_13_site",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ],
+      "operation": {
+        "status": "declared",
+        "axis": [
+          0,
+          0,
+          1
+        ],
+        "range": [
+          -3.141592653589793,
+          3.141592653589793
+        ],
+        "basis": {
+          "axis": {
+            "kind": "assumption",
+            "reference": "Circular vertical tube bore; external tube rotates about its own axis."
+          },
+          "range": {
+            "kind": "source_specification",
+            "reference": "Protocol pdf:p7 step 21 requires repeated 90-degree tube turns; no axial antirotation feature is modeled."
+          }
+        }
+      }
+    },
+    {
+      "id": "A15.socket.14.insert",
+      "asset_id": "A15",
+      "kind": "insert",
+      "body": "A15_upper_rack",
+      "site": "A15_socket_14_site",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "A15.socket.14.rotate",
+      "asset_id": "A15",
+      "kind": "rotate",
+      "body": "A15_upper_rack",
+      "site": "A15_socket_14_site",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ],
+      "operation": {
+        "status": "declared",
+        "axis": [
+          0,
+          0,
+          1
+        ],
+        "range": [
+          -3.141592653589793,
+          3.141592653589793
+        ],
+        "basis": {
+          "axis": {
+            "kind": "assumption",
+            "reference": "Circular vertical tube bore; external tube rotates about its own axis."
+          },
+          "range": {
+            "kind": "source_specification",
+            "reference": "Protocol pdf:p7 step 21 requires repeated 90-degree tube turns; no axial antirotation feature is modeled."
+          }
+        }
+      }
+    },
+    {
+      "id": "A15.socket.15.insert",
+      "asset_id": "A15",
+      "kind": "insert",
+      "body": "A15_upper_rack",
+      "site": "A15_socket_15_site",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "A15.socket.15.rotate",
+      "asset_id": "A15",
+      "kind": "rotate",
+      "body": "A15_upper_rack",
+      "site": "A15_socket_15_site",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ],
+      "operation": {
+        "status": "declared",
+        "axis": [
+          0,
+          0,
+          1
+        ],
+        "range": [
+          -3.141592653589793,
+          3.141592653589793
+        ],
+        "basis": {
+          "axis": {
+            "kind": "assumption",
+            "reference": "Circular vertical tube bore; external tube rotates about its own axis."
+          },
+          "range": {
+            "kind": "source_specification",
+            "reference": "Protocol pdf:p7 step 21 requires repeated 90-degree tube turns; no axial antirotation feature is modeled."
+          }
+        }
+      }
+    },
+    {
+      "id": "A15.socket.16.insert",
+      "asset_id": "A15",
+      "kind": "insert",
+      "body": "A15_upper_rack",
+      "site": "A15_socket_16_site",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "A15.socket.16.rotate",
+      "asset_id": "A15",
+      "kind": "rotate",
+      "body": "A15_upper_rack",
+      "site": "A15_socket_16_site",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ],
+      "operation": {
+        "status": "declared",
+        "axis": [
+          0,
+          0,
+          1
+        ],
+        "range": [
+          -3.141592653589793,
+          3.141592653589793
+        ],
+        "basis": {
+          "axis": {
+            "kind": "assumption",
+            "reference": "Circular vertical tube bore; external tube rotates about its own axis."
+          },
+          "range": {
+            "kind": "source_specification",
+            "reference": "Protocol pdf:p7 step 21 requires repeated 90-degree tube turns; no axial antirotation feature is modeled."
+          }
+        }
+      }
+    }
+  ],
+  "buttons": [],
+  "connections": [
+    {
+      "id": "A15.rack_base_connection",
+      "kind": "detachable",
+      "equality": "A15_rack_base_weld",
+      "release_event": "A15.rack.remove",
+      "attach_event": "A15.rack.replace",
+      "irreversible": false,
+      "capture_sites": [
+        "A15_base_mount_site",
+        "A15_rack_mount_site"
+      ],
+      "position_tolerance_m": 0.0015,
+      "angle_tolerance_rad": 0.05
+    }
+  ],
+  "mechanical_events": [
+    {
+      "id": "A15.rack.remove",
+      "interface": "A15.rack.mount",
+      "action": "release"
+    },
+    {
+      "id": "A15.rack.replace",
+      "interface": "A15.rack.mount",
+      "action": "attach"
+    }
+  ],
+  "assumptions": [
+    "Source identity: DynaMag-2, Cat. No. 12321D; source selected_sections specifies sixteen numbered positions, eight per side, 1.5–2 ml microtubes and 10–2000 microlitre working volume.",
+    "Reference appearance follows supplied dynamag2.png: a long gray magnetic center, ivory end housings, and a translucent detachable upper rack. No undisclosed source files are read.",
+    "No manufacturer overall dimensions, bore pitch, removal force, masses or exact mating dimensions were supplied. All geometric dimensions below are engineering modeling assumptions, not manufacturer measurements.",
+    "Modeled overall envelope is 0.178 x 0.0486 x 0.056 m; longitudinal tube pitch 0.018 m; row centers y=+/-0.0108 m; nominal bore 0.0116 m; support collar surface z=0.054 m.",
+    "External 1.5–2 ml microtubes are assumed to have body diameter at most 0.011 m, collar diameter 0.0122–0.0145 m and depth below collar at most 0.043 m. Actual A13 mating and cap clearance remain unverified because no dependency geometry was supplied. 0.2 ml reaction tubes are not supported.",
+    "The modeled magnet enclosure has half-thickness 0.0043 m. A centered 0.011 m diameter tube has 0.001 m minimum lateral clearance from its face. The two tube corridors have no bottom plate.",
+    "Upper rack mass is assumed 0.055 kg; its diagonal inertia is the positive box-envelope approximation. Contact friction and solver parameters are modeling values.",
+    "Initial state contains the empty upper rack installed on the magnet base. No tubes, liquid, robot, table, global floor, camera or other inventory assets are generated.",
+    "Local support plane is z=0. The static base must be placed on the scene worktable by the assembler. The free rack is independently supported by two visible horizontal end shoulders at z=0.053 m.",
+    "Mechanical events declare manual rack removal/replacement only. Runtime must implement event handling and enforce capture tolerances; declaration alone does not trigger an action.",
+    "All operation interfaces, grasp access, tube insertion/rotation and reattachment remain unverified in this static candidate."
+  ],
+  "approximations": [
+    "Magnetic separation is represented solely by rack-on-base versus rack-removed operating status. No magnetic forces, tube adsorption, beads, liquids or biochemical reactions are simulated.",
+    "The detachable assembly weld is a releasable assembly approximation, not a measured snap fit or removal-force model; no invented latch, button or lid is added.",
+    "Each real open bore is built from 32 shared convex annular sectors. The minimum polygonal opening is recorded per socket; collision and visible socket geometry use the same sectors.",
+    "Translucent molded parts, end housings and magnet encapsulation use finite-thickness rigid geometry. Cosmetic numbers and warning decals alone are noncolliding.",
+    "Tube washing rotation is an external tube motion in a circular, unkeyed bore, not a fictitious rack motor or built-in rotary joint. A13 tubes remain separate objects and are not welded or magnetically attached to this asset.",
+    "Source tube transfer, aspiration, washing and resuspension remain external workflow actions, enabled by open upper access and removable rack; this asset does not assert their execution."
+  ],
+  "socket_geometry": [
+    {
+      "number": 1,
+      "row": "front",
+      "site": "A15_socket_01_site",
+      "center_local_m": [
+        -0.063,
+        -0.0108,
+        0.054
+      ],
+      "nominal_bore_diameter_m": 0.0116,
+      "minimum_polygon_bore_diameter_m": 0.011544142829397483,
+      "support_surface_z_m": 0.054,
+      "tube_support": "External microtube upper collar on annular top; tube bottom remains unobstructed.",
+      "compatible_tube_envelope_assumption": {
+        "body_max_diameter_m": 0.011,
+        "collar_diameter_range_m": [
+          0.0122,
+          0.0145
+        ],
+        "maximum_depth_below_collar_m": 0.043,
+        "maximum_tip_radius_m_at_bottom": 0.002
+      },
+      "interaction_status": "unverified"
+    },
+    {
+      "number": 2,
+      "row": "front",
+      "site": "A15_socket_02_site",
+      "center_local_m": [
+        -0.045,
+        -0.0108,
+        0.054
+      ],
+      "nominal_bore_diameter_m": 0.0116,
+      "minimum_polygon_bore_diameter_m": 0.011544142829397483,
+      "support_surface_z_m": 0.054,
+      "tube_support": "External microtube upper collar on annular top; tube bottom remains unobstructed.",
+      "compatible_tube_envelope_assumption": {
+        "body_max_diameter_m": 0.011,
+        "collar_diameter_range_m": [
+          0.0122,
+          0.0145
+        ],
+        "maximum_depth_below_collar_m": 0.043,
+        "maximum_tip_radius_m_at_bottom": 0.002
+      },
+      "interaction_status": "unverified"
+    },
+    {
+      "number": 3,
+      "row": "front",
+      "site": "A15_socket_03_site",
+      "center_local_m": [
+        -0.026999999999999996,
+        -0.0108,
+        0.054
+      ],
+      "nominal_bore_diameter_m": 0.0116,
+      "minimum_polygon_bore_diameter_m": 0.011544142829397483,
+      "support_surface_z_m": 0.054,
+      "tube_support": "External microtube upper collar on annular top; tube bottom remains unobstructed.",
+      "compatible_tube_envelope_assumption": {
+        "body_max_diameter_m": 0.011,
+        "collar_diameter_range_m": [
+          0.0122,
+          0.0145
+        ],
+        "maximum_depth_below_collar_m": 0.043,
+        "maximum_tip_radius_m_at_bottom": 0.002
+      },
+      "interaction_status": "unverified"
+    },
+    {
+      "number": 4,
+      "row": "front",
+      "site": "A15_socket_04_site",
+      "center_local_m": [
+        -0.009,
+        -0.0108,
+        0.054
+      ],
+      "nominal_bore_diameter_m": 0.0116,
+      "minimum_polygon_bore_diameter_m": 0.011544142829397483,
+      "support_surface_z_m": 0.054,
+      "tube_support": "External microtube upper collar on annular top; tube bottom remains unobstructed.",
+      "compatible_tube_envelope_assumption": {
+        "body_max_diameter_m": 0.011,
+        "collar_diameter_range_m": [
+          0.0122,
+          0.0145
+        ],
+        "maximum_depth_below_collar_m": 0.043,
+        "maximum_tip_radius_m_at_bottom": 0.002
+      },
+      "interaction_status": "unverified"
+    },
+    {
+      "number": 5,
+      "row": "front",
+      "site": "A15_socket_05_site",
+      "center_local_m": [
+        0.009,
+        -0.0108,
+        0.054
+      ],
+      "nominal_bore_diameter_m": 0.0116,
+      "minimum_polygon_bore_diameter_m": 0.011544142829397483,
+      "support_surface_z_m": 0.054,
+      "tube_support": "External microtube upper collar on annular top; tube bottom remains unobstructed.",
+      "compatible_tube_envelope_assumption": {
+        "body_max_diameter_m": 0.011,
+        "collar_diameter_range_m": [
+          0.0122,
+          0.0145
+        ],
+        "maximum_depth_below_collar_m": 0.043,
+        "maximum_tip_radius_m_at_bottom": 0.002
+      },
+      "interaction_status": "unverified"
+    },
+    {
+      "number": 6,
+      "row": "front",
+      "site": "A15_socket_06_site",
+      "center_local_m": [
+        0.026999999999999996,
+        -0.0108,
+        0.054
+      ],
+      "nominal_bore_diameter_m": 0.0116,
+      "minimum_polygon_bore_diameter_m": 0.011544142829397483,
+      "support_surface_z_m": 0.054,
+      "tube_support": "External microtube upper collar on annular top; tube bottom remains unobstructed.",
+      "compatible_tube_envelope_assumption": {
+        "body_max_diameter_m": 0.011,
+        "collar_diameter_range_m": [
+          0.0122,
+          0.0145
+        ],
+        "maximum_depth_below_collar_m": 0.043,
+        "maximum_tip_radius_m_at_bottom": 0.002
+      },
+      "interaction_status": "unverified"
+    },
+    {
+      "number": 7,
+      "row": "front",
+      "site": "A15_socket_07_site",
+      "center_local_m": [
+        0.045,
+        -0.0108,
+        0.054
+      ],
+      "nominal_bore_diameter_m": 0.0116,
+      "minimum_polygon_bore_diameter_m": 0.011544142829397483,
+      "support_surface_z_m": 0.054,
+      "tube_support": "External microtube upper collar on annular top; tube bottom remains unobstructed.",
+      "compatible_tube_envelope_assumption": {
+        "body_max_diameter_m": 0.011,
+        "collar_diameter_range_m": [
+          0.0122,
+          0.0145
+        ],
+        "maximum_depth_below_collar_m": 0.043,
+        "maximum_tip_radius_m_at_bottom": 0.002
+      },
+      "interaction_status": "unverified"
+    },
+    {
+      "number": 8,
+      "row": "front",
+      "site": "A15_socket_08_site",
+      "center_local_m": [
+        0.063,
+        -0.0108,
+        0.054
+      ],
+      "nominal_bore_diameter_m": 0.0116,
+      "minimum_polygon_bore_diameter_m": 0.011544142829397483,
+      "support_surface_z_m": 0.054,
+      "tube_support": "External microtube upper collar on annular top; tube bottom remains unobstructed.",
+      "compatible_tube_envelope_assumption": {
+        "body_max_diameter_m": 0.011,
+        "collar_diameter_range_m": [
+          0.0122,
+          0.0145
+        ],
+        "maximum_depth_below_collar_m": 0.043,
+        "maximum_tip_radius_m_at_bottom": 0.002
+      },
+      "interaction_status": "unverified"
+    },
+    {
+      "number": 9,
+      "row": "rear",
+      "site": "A15_socket_09_site",
+      "center_local_m": [
+        -0.063,
+        0.0108,
+        0.054
+      ],
+      "nominal_bore_diameter_m": 0.0116,
+      "minimum_polygon_bore_diameter_m": 0.011544142829397483,
+      "support_surface_z_m": 0.054,
+      "tube_support": "External microtube upper collar on annular top; tube bottom remains unobstructed.",
+      "compatible_tube_envelope_assumption": {
+        "body_max_diameter_m": 0.011,
+        "collar_diameter_range_m": [
+          0.0122,
+          0.0145
+        ],
+        "maximum_depth_below_collar_m": 0.043,
+        "maximum_tip_radius_m_at_bottom": 0.002
+      },
+      "interaction_status": "unverified"
+    },
+    {
+      "number": 10,
+      "row": "rear",
+      "site": "A15_socket_10_site",
+      "center_local_m": [
+        -0.045,
+        0.0108,
+        0.054
+      ],
+      "nominal_bore_diameter_m": 0.0116,
+      "minimum_polygon_bore_diameter_m": 0.011544142829397483,
+      "support_surface_z_m": 0.054,
+      "tube_support": "External microtube upper collar on annular top; tube bottom remains unobstructed.",
+      "compatible_tube_envelope_assumption": {
+        "body_max_diameter_m": 0.011,
+        "collar_diameter_range_m": [
+          0.0122,
+          0.0145
+        ],
+        "maximum_depth_below_collar_m": 0.043,
+        "maximum_tip_radius_m_at_bottom": 0.002
+      },
+      "interaction_status": "unverified"
+    },
+    {
+      "number": 11,
+      "row": "rear",
+      "site": "A15_socket_11_site",
+      "center_local_m": [
+        -0.026999999999999996,
+        0.0108,
+        0.054
+      ],
+      "nominal_bore_diameter_m": 0.0116,
+      "minimum_polygon_bore_diameter_m": 0.011544142829397483,
+      "support_surface_z_m": 0.054,
+      "tube_support": "External microtube upper collar on annular top; tube bottom remains unobstructed.",
+      "compatible_tube_envelope_assumption": {
+        "body_max_diameter_m": 0.011,
+        "collar_diameter_range_m": [
+          0.0122,
+          0.0145
+        ],
+        "maximum_depth_below_collar_m": 0.043,
+        "maximum_tip_radius_m_at_bottom": 0.002
+      },
+      "interaction_status": "unverified"
+    },
+    {
+      "number": 12,
+      "row": "rear",
+      "site": "A15_socket_12_site",
+      "center_local_m": [
+        -0.009,
+        0.0108,
+        0.054
+      ],
+      "nominal_bore_diameter_m": 0.0116,
+      "minimum_polygon_bore_diameter_m": 0.011544142829397483,
+      "support_surface_z_m": 0.054,
+      "tube_support": "External microtube upper collar on annular top; tube bottom remains unobstructed.",
+      "compatible_tube_envelope_assumption": {
+        "body_max_diameter_m": 0.011,
+        "collar_diameter_range_m": [
+          0.0122,
+          0.0145
+        ],
+        "maximum_depth_below_collar_m": 0.043,
+        "maximum_tip_radius_m_at_bottom": 0.002
+      },
+      "interaction_status": "unverified"
+    },
+    {
+      "number": 13,
+      "row": "rear",
+      "site": "A15_socket_13_site",
+      "center_local_m": [
+        0.009,
+        0.0108,
+        0.054
+      ],
+      "nominal_bore_diameter_m": 0.0116,
+      "minimum_polygon_bore_diameter_m": 0.011544142829397483,
+      "support_surface_z_m": 0.054,
+      "tube_support": "External microtube upper collar on annular top; tube bottom remains unobstructed.",
+      "compatible_tube_envelope_assumption": {
+        "body_max_diameter_m": 0.011,
+        "collar_diameter_range_m": [
+          0.0122,
+          0.0145
+        ],
+        "maximum_depth_below_collar_m": 0.043,
+        "maximum_tip_radius_m_at_bottom": 0.002
+      },
+      "interaction_status": "unverified"
+    },
+    {
+      "number": 14,
+      "row": "rear",
+      "site": "A15_socket_14_site",
+      "center_local_m": [
+        0.026999999999999996,
+        0.0108,
+        0.054
+      ],
+      "nominal_bore_diameter_m": 0.0116,
+      "minimum_polygon_bore_diameter_m": 0.011544142829397483,
+      "support_surface_z_m": 0.054,
+      "tube_support": "External microtube upper collar on annular top; tube bottom remains unobstructed.",
+      "compatible_tube_envelope_assumption": {
+        "body_max_diameter_m": 0.011,
+        "collar_diameter_range_m": [
+          0.0122,
+          0.0145
+        ],
+        "maximum_depth_below_collar_m": 0.043,
+        "maximum_tip_radius_m_at_bottom": 0.002
+      },
+      "interaction_status": "unverified"
+    },
+    {
+      "number": 15,
+      "row": "rear",
+      "site": "A15_socket_15_site",
+      "center_local_m": [
+        0.045,
+        0.0108,
+        0.054
+      ],
+      "nominal_bore_diameter_m": 0.0116,
+      "minimum_polygon_bore_diameter_m": 0.011544142829397483,
+      "support_surface_z_m": 0.054,
+      "tube_support": "External microtube upper collar on annular top; tube bottom remains unobstructed.",
+      "compatible_tube_envelope_assumption": {
+        "body_max_diameter_m": 0.011,
+        "collar_diameter_range_m": [
+          0.0122,
+          0.0145
+        ],
+        "maximum_depth_below_collar_m": 0.043,
+        "maximum_tip_radius_m_at_bottom": 0.002
+      },
+      "interaction_status": "unverified"
+    },
+    {
+      "number": 16,
+      "row": "rear",
+      "site": "A15_socket_16_site",
+      "center_local_m": [
+        0.063,
+        0.0108,
+        0.054
+      ],
+      "nominal_bore_diameter_m": 0.0116,
+      "minimum_polygon_bore_diameter_m": 0.011544142829397483,
+      "support_surface_z_m": 0.054,
+      "tube_support": "External microtube upper collar on annular top; tube bottom remains unobstructed.",
+      "compatible_tube_envelope_assumption": {
+        "body_max_diameter_m": 0.011,
+        "collar_diameter_range_m": [
+          0.0122,
+          0.0145
+        ],
+        "maximum_depth_below_collar_m": 0.043,
+        "maximum_tip_radius_m_at_bottom": 0.002
+      },
+      "interaction_status": "unverified"
+    }
+  ],
+  "operating_states": [
+    {
+      "id": "A15.magnetic_separation_position",
+      "condition": "Upper rack seated on magnet base with assembly weld enabled.",
+      "representation": "status_only",
+      "interaction_status": "unverified"
+    },
+    {
+      "id": "A15.off_magnet_resuspension_position",
+      "condition": "Assembly weld disabled and rack physically lifted clear by an external grasp.",
+      "representation": "status_only",
+      "interaction_status": "unverified"
+    }
+  ],
+  "initial_state": {
+    "rack_connection": "assembled",
+    "tube_count": 0,
+    "support_plane_z_m": 0,
+    "rack_support": [
+      "A15_left_end_housing",
+      "A15_right_end_housing"
+    ]
+  },
+  "source_references": [
+    "input.source.selected_sections:A15",
+    "input.protocol:pdf:p5",
+    "input.protocol:pdf:p7:steps19-24",
+    "input.images:images/dynamag2.png"
+  ],
+  "backend": {
+    "name": "mujoco",
+    "target_version": "3.3.7"
+  },
+  "validation_scope": "Static candidate; interactions not verified."
+}

@@ -1,0 +1,4 @@
+# 固定本次本地测试使用的解析依赖；安装缓存请放在项目 .cache/pip。
+pypdf==6.20.0
+defusedxml==0.7.1
+fonttools==4.66.1

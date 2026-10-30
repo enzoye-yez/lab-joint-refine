@@ -1,0 +1,60 @@
+{
+  "table": {
+    "size": [
+      2.0,
+      1.6,
+      0.06
+    ],
+    "height": 0.8
+  },
+  "robot": {
+    "name": "PAL Robotics TIAGo OMNI（单臂全向移动整机，腕部待装专用末端）",
+    "directory": "data/robots/tiago_omni",
+    "attachment_site": "attachment_site",
+    "joints": [
+      "torso_lift_joint",
+      "arm_1_joint",
+      "arm_2_joint",
+      "arm_3_joint",
+      "arm_4_joint",
+      "arm_5_joint",
+      "arm_6_joint",
+      "arm_7_joint",
+      "head_1_joint",
+      "head_2_joint"
+    ],
+    "home": [
+      0.2,
+      0.2,
+      -1,
+      -0.2,
+      1.94,
+      -1.57,
+      1.37,
+      0,
+      0,
+      0
+    ],
+    "payload_kg": 3,
+    "reach_m": 0.87,
+    "mobile": {
+      "integrated": true,
+      "base_size": [
+        0.72,
+        0.5,
+        0.31
+      ],
+      "mount_height": 0.9372,
+      "mass_kg": 73.18608604112003,
+      "source": "PAL Robotics 官方 tiago_robot 与 omni_base_robot 固定版本整机描述；base_type=omni_base。版本、许可、资源摘要见 data/robots/tiago_omni/provenance.json。",
+      "approximations": [
+        "底盘720×500×310毫米参考官方全向底盘文档；73.1860860411千克是所选无末端模型的惯性质量总和，不是底盘实测质量。",
+        "原厂四轮结构保留；平面X/Y移动和偏航用于布局坐标，没有模拟麦克纳姆滚子接触、轮速控制或定位误差。",
+        "升降范围0至0.35米，默认0.20米；mount_height为该姿态实际肩部高度0.9372米。距离建议暂不搜索升降姿态和逆运动学。",
+        "保留厂家关节限位和惯性参数；力限位置伺服为工程近似，不等于原厂控制器。网格碰撞采用MuJoCo凸包接触。",
+        "默认腕部不带原厂夹爪，沿用现有专用末端生成及装配流程，避免夹爪叠加。stock_gripper.xml为带原厂平行夹爪的整机展示配置。",
+        "厂家臂展0.87米及全伸展负载3千克不含末端装置；专用末端质量计入现有负载检查。"
+      ]
+    }
+  }
+}

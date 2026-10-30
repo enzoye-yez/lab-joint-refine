@@ -1,0 +1,129 @@
+{
+  "schema_version": "1.0",
+  "asset_ids": [
+    "A03"
+  ],
+  "parts": [
+    {
+      "id": "cabinet_enclosure",
+      "body": "A03_cabinet_root"
+    },
+    {
+      "id": "fixed_support_bracket",
+      "body": "A03_cabinet_root"
+    },
+    {
+      "id": "front_window",
+      "body": "front_window_carriage"
+    },
+    {
+      "id": "rear_exhaust_grille",
+      "body": "A03_cabinet_root"
+    },
+    {
+      "id": "internal_work_surface",
+      "body": "A03_cabinet_root"
+    }
+  ],
+  "interfaces": [
+    {
+      "id": "A03_mount_to_table",
+      "asset_id": "A03",
+      "kind": "mount",
+      "body": "A03_cabinet_root",
+      "site": "cabinet_mount_site",
+      "approach_axis": [
+        0,
+        0,
+        -1
+      ],
+      "operation": {
+        "status": "declared",
+        "axis": [
+          0,
+          0,
+          1
+        ],
+        "clearance_m": 0.01,
+        "basis": {
+          "clearance_m": {
+            "kind": "assumption",
+            "reference": "建模间隙值"
+          }
+        }
+      }
+    },
+    {
+      "id": "A03_window_grasp",
+      "asset_id": "A03",
+      "kind": "grasp",
+      "body": "front_window_carriage",
+      "site": "front_window_grasp_site",
+      "approach_axis": [
+        0,
+        -1,
+        0
+      ],
+      "operation": {
+        "status": "declared",
+        "axis": [
+          0,
+          0,
+          1
+        ],
+        "joint": "front_window_lift_joint",
+        "range": [
+          0.2,
+          0.533
+        ],
+        "clearance_m": 0.01,
+        "grasp_geoms": [
+          "front_window_handle"
+        ],
+        "basis": {
+          "range": {
+            "kind": "source_specification",
+            "reference": "MSC-Advantage资料：正常开窗0.2 m，最大开窗0.533 m"
+          }
+        }
+      }
+    },
+    {
+      "id": "A03_front_access",
+      "asset_id": "A03",
+      "kind": "insert",
+      "body": "A03_cabinet_root",
+      "site": "cabinet_front_access_site",
+      "approach_axis": [
+        0,
+        -1,
+        0
+      ]
+    },
+    {
+      "id": "A03_work_surface",
+      "asset_id": "A03",
+      "kind": "mount",
+      "body": "A03_cabinet_root",
+      "site": "cabinet_work_surface_site",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    }
+  ],
+  "assumptions": [
+    "外壳宽1.300 m、深0.802 m、高1.522 m按资料规格建模；固定支架另建于外壳下方，工作面局部高度0.750 m。",
+    "资料未给出支架截面、板厚、窗框截面、后格栅具体孔距和质量，采用工程建模假设。",
+    "局部坐标约定为X左右、Y前后（前方为负Y）、Z向上；资产支撑面为z=0。"
+  ],
+  "approximations": [
+    "前窗采用带导轨的刚体垂直滑动近似，保留0.2 m正常开窗位置和0.533 m最大开窗位置；未模拟配重、气弹簧和真实开闭力。",
+    "后部排风格栅采用带真实间隙的水平与竖向条栅近似，未模拟风机和气流。",
+    "内部滤膜夹与抽滤设备空间采用固定夹点、导轨和排液口几何近似，不模拟生化过程或空气洁净性能。"
+  ],
+  "buttons": [],
+  "connections": [],
+  "construction_records": []
+}

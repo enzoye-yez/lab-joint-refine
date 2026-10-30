@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mujoco model="MSC_Advantage_1p2_biosafety_cabinet">
+  <compiler angle="radian" coordinate="local" inertiafromgeom="true"/>
+  <option gravity="0 0 -9.81" integrator="implicitfast"/>
+  <default>
+    <joint damping="3" armature="0.001"/>
+    <geom friction="0.7 0.1 0.1" solref="0.01 1" solimp="0.85 0.95 0.01"/>
+  </default>
+  <asset>
+    <material name="mat_0.72_0.76_0.78_1" rgba="0.72 0.76 0.78 1"/>
+    <material name="mat_0.16_0.18_0.19_1" rgba="0.16 0.18 0.19 1"/>
+    <material name="mat_0.05_0.06_0.07_1" rgba="0.05 0.06 0.07 1"/>
+    <material name="mat_0.82_0.84_0.84_1" rgba="0.82 0.84 0.84 1"/>
+    <material name="mat_0.30_0.65_0.78_0.28" rgba="0.30 0.65 0.78 0.28" specular="0.8"/>
+    <material name="mat_0.88_0.89_0.88_1" rgba="0.88 0.89 0.88 1"/>
+    <material name="mat_0.40_0.43_0.44_1" rgba="0.40 0.43 0.44 1"/>
+    </asset>
+  <worldbody>
+    <body name="A03_cabinet_root" pos="0 0 0">
+      <geom type="box" name="support_leg_0_0" pos="-0.57 -0.31 0.375" size="0.0275 0.0275 0.375" material="mat_0.40_0.43_0.44_1" contype="1" conaffinity="1" mass="8"/>
+<geom type="box" name="support_leg_0_1" pos="-0.57 0.31 0.375" size="0.0275 0.0275 0.375" material="mat_0.40_0.43_0.44_1" contype="1" conaffinity="1" mass="8"/>
+<geom type="box" name="support_leg_1_0" pos="0.57 -0.31 0.375" size="0.0275 0.0275 0.375" material="mat_0.40_0.43_0.44_1" contype="1" conaffinity="1" mass="8"/>
+<geom type="box" name="support_leg_1_1" pos="0.57 0.31 0.375" size="0.0275 0.0275 0.375" material="mat_0.40_0.43_0.44_1" contype="1" conaffinity="1" mass="8"/>
+<geom type="box" name="front_support_rail" pos="0 -0.31 0.69" size="0.61 0.0275 0.04" material="mat_0.40_0.43_0.44_1" contype="1" conaffinity="1" mass="4"/>
+<geom type="box" name="rear_support_rail" pos="0 0.31 0.69" size="0.61 0.0275 0.04" material="mat_0.40_0.43_0.44_1" contype="1" conaffinity="1" mass="4"/>
+<geom type="box" name="left_support_rail" pos="-0.57 0 0.69" size="0.0275 0.31 0.04" material="mat_0.40_0.43_0.44_1" contype="1" conaffinity="1" mass="3"/>
+<geom type="box" name="right_support_rail" pos="0.57 0 0.69" size="0.0275 0.31 0.04" material="mat_0.40_0.43_0.44_1" contype="1" conaffinity="1" mass="3"/>
+<geom type="box" name="lower_front_brace" pos="0 -0.31 0.25" size="0.55 0.0175 0.0175" material="mat_0.16_0.18_0.19_1" contype="1" conaffinity="1" mass="1"/>
+<geom type="box" name="lower_rear_brace" pos="0 0.31 0.25" size="0.55 0.0175 0.0175" material="mat_0.16_0.18_0.19_1" contype="1" conaffinity="1" mass="1"/>
+<geom type="box" name="left_side_panel" pos="-0.625 0.0 1.511" size="0.025 0.401 0.761" material="mat_0.72_0.76_0.78_1" contype="1" conaffinity="1" mass="18"/>
+<geom type="box" name="right_side_panel" pos="0.625 0.0 1.511" size="0.025 0.401 0.761" material="mat_0.72_0.76_0.78_1" contype="1" conaffinity="1" mass="18"/>
+<geom type="box" name="top_panel" pos="0 0.0 2.247" size="0.65 0.401 0.035" material="mat_0.72_0.76_0.78_1" contype="1" conaffinity="1" mass="10"/>
+<geom type="box" name="rear_upper_panel" pos="0 0.365 1.94" size="0.6 0.0275 0.29" material="mat_0.72_0.76_0.78_1" contype="1" conaffinity="1" mass="8"/>
+<geom type="box" name="rear_lower_panel" pos="0 0.365 1.0" size="0.6 0.0275 0.13" material="mat_0.72_0.76_0.78_1" contype="1" conaffinity="1" mass="5"/>
+<geom type="box" name="work_surface" pos="0 0.015 0.785" size="0.6 0.315 0.035" material="mat_0.88_0.89_0.88_1" contype="1" conaffinity="1" mass="12"/>
+<geom type="box" name="front_edge" pos="0 -0.355 0.845" size="0.65 0.0375 0.08" material="mat_0.16_0.18_0.19_1" contype="1" conaffinity="1" mass="5"/>
+<geom type="box" name="front_upper_header" pos="0 -0.365 2.04" size="0.6 0.03 0.17" material="mat_0.72_0.76_0.78_1" contype="1" conaffinity="1" mass="5"/>
+<geom type="box" name="left_front_post" pos="-0.59 -0.365 1.43" size="0.04 0.035 0.775" material="mat_0.72_0.76_0.78_1" contype="1" conaffinity="1" mass="5"/>
+<geom type="box" name="right_front_post" pos="0.59 -0.365 1.43" size="0.04 0.035 0.775" material="mat_0.72_0.76_0.78_1" contype="1" conaffinity="1" mass="5"/>
+<geom type="box" name="rear_grille_vertical_0" pos="-0.48 0.333 1.55" size="0.0275 0.0125 0.14" material="mat_0.05_0.06_0.07_1" contype="1" conaffinity="1" mass="0.25"/>
+<geom type="box" name="rear_grille_vertical_1" pos="-0.32 0.333 1.55" size="0.0275 0.0125 0.14" material="mat_0.05_0.06_0.07_1" contype="1" conaffinity="1" mass="0.25"/>
+<geom type="box" name="rear_grille_vertical_2" pos="-0.16 0.333 1.55" size="0.0275 0.0125 0.14" material="mat_0.05_0.06_0.07_1" contype="1" conaffinity="1" mass="0.25"/>
+<geom type="box" name="rear_grille_vertical_3" pos="0.0 0.333 1.55" size="0.0275 0.0125 0.14" material="mat_0.05_0.06_0.07_1" contype="1" conaffinity="1" mass="0.25"/>
+<geom type="box" name="rear_grille_vertical_4" pos="0.16 0.333 1.55" size="0.0275 0.0125 0.14" material="mat_0.05_0.06_0.07_1" contype="1" conaffinity="1" mass="0.25"/>
+<geom type="box" name="rear_grille_vertical_5" pos="0.32 0.333 1.55" size="0.0275 0.0125 0.14" material="mat_0.05_0.06_0.07_1" contype="1" conaffinity="1" mass="0.25"/>
+<geom type="box" name="rear_grille_vertical_6" pos="0.48 0.333 1.55" size="0.0275 0.0125 0.14" material="mat_0.05_0.06_0.07_1" contype="1" conaffinity="1" mass="0.25"/>
+<geom type="box" name="rear_grille_horizontal_0" pos="0 0.325 1.42" size="0.54 0.0125 0.0175" material="mat_0.05_0.06_0.07_1" contype="1" conaffinity="1" mass="0.3"/>
+<geom type="box" name="rear_grille_horizontal_1" pos="0 0.325 1.5" size="0.54 0.0125 0.0175" material="mat_0.05_0.06_0.07_1" contype="1" conaffinity="1" mass="0.3"/>
+<geom type="box" name="rear_grille_horizontal_2" pos="0 0.325 1.58" size="0.54 0.0125 0.0175" material="mat_0.05_0.06_0.07_1" contype="1" conaffinity="1" mass="0.3"/>
+<geom type="box" name="rear_grille_horizontal_3" pos="0 0.325 1.66" size="0.54 0.0125 0.0175" material="mat_0.05_0.06_0.07_1" contype="1" conaffinity="1" mass="0.3"/>
+<geom type="box" name="rear_grille_horizontal_4" pos="0 0.325 1.74" size="0.54 0.0125 0.0175" material="mat_0.05_0.06_0.07_1" contype="1" conaffinity="1" mass="0.3"/>
+<geom type="box" name="filter_clip_left" pos="-0.45 -0.06 0.835" size="0.08 0.0175 0.0125" material="mat_0.16_0.18_0.19_1" contype="1" conaffinity="1" mass="0.12"/>
+<geom type="box" name="filter_clip_right" pos="0.45 -0.06 0.835" size="0.08 0.0175 0.0125" material="mat_0.16_0.18_0.19_1" contype="1" conaffinity="1" mass="0.12"/>
+<geom type="box" name="rear_funnel_clearance_rail" pos="0 0.27 0.84" size="0.4 0.0175 0.0175" material="mat_0.16_0.18_0.19_1" contype="1" conaffinity="1" mass="0.25"/>
+<geom type="cylinder" name="internal_drain_port" pos="0.0 0.28 0.86" size="0.045 0.02" axis="z" material="mat_0.16_0.18_0.19_1" contype="1" conaffinity="1" mass="0.2"/>
+      <body name="front_window_carriage" pos="0 -0.405 0.75">
+        <joint name="front_window_lift_joint" type="slide" axis="0 0 1" range="0 0.333" limited="true" damping="8"/>
+        <geom name="front_window_glass" type="box" pos="0 0 0.25" size="0.575 0.018 0.225" material="mat_0.30_0.65_0.78_0.28" contype="1" conaffinity="1" mass="7"/>
+        <geom name="front_window_lower_rail" type="box" pos="0 0.025 0.025" size="0.60 0.035 0.035" material="mat_0.16_0.18_0.19_1" contype="1" conaffinity="1" mass="1"/>
+        <geom name="front_window_left_rail" type="box" pos="-0.59 0 0.25" size="0.025 0.035 0.25" material="mat_0.16_0.18_0.19_1" contype="1" conaffinity="1" mass="0.7"/>
+        <geom name="front_window_right_rail" type="box" pos="0.59 0 0.25" size="0.025 0.035 0.25" material="mat_0.16_0.18_0.19_1" contype="1" conaffinity="1" mass="0.7"/>
+        <geom name="front_window_handle" type="box" pos="0 -0.045 0.08" size="0.14 0.025 0.025" material="mat_0.05_0.06_0.07_1" contype="1" conaffinity="1" mass="0.25"/>
+        <site name="front_window_grasp_site" pos="0 -0.075 0.08" size="0.025" rgba="0.9 0.4 0.1 1"/>
+      </body>
+      <site name="cabinet_work_surface_site" pos="0 -0.05 0.84" size="0.025" rgba="0.1 0.8 0.3 1"/>
+      <site name="cabinet_front_access_site" pos="0 -0.43 1.05" size="0.03" rgba="0.1 0.5 0.9 1"/>
+      <site name="cabinet_mount_site" pos="0 0 0.04" size="0.025" rgba="0.8 0.2 0.1 1"/>
+    </body>
+  </worldbody>
+</mujoco>

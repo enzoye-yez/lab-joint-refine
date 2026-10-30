@@ -1,0 +1,178 @@
+{
+  "table": {
+    "size": [
+      2.0,
+      1.6,
+      0.06
+    ],
+    "height": 0.8
+  },
+  "robot": {
+    "name": "ROBOTIS AI Worker FFW-SG2（双臂移动整机，原厂双夹爪）",
+    "directory": "data/robots/ffw_sg2",
+    "joints": [
+      "left_wheel_steer_joint",
+      "left_wheel_drive_joint",
+      "right_wheel_steer_joint",
+      "right_wheel_drive_joint",
+      "rear_wheel_steer_joint",
+      "rear_wheel_drive_joint",
+      "lift_joint",
+      "head_joint1",
+      "head_joint2",
+      "arm_l_joint1",
+      "arm_l_joint2",
+      "arm_l_joint3",
+      "arm_l_joint4",
+      "arm_l_joint5",
+      "arm_l_joint6",
+      "arm_l_joint7",
+      "gripper_l_joint1",
+      "gripper_l_joint2",
+      "gripper_l_joint3",
+      "gripper_l_joint4",
+      "arm_r_joint1",
+      "arm_r_joint2",
+      "arm_r_joint3",
+      "arm_r_joint4",
+      "arm_r_joint5",
+      "arm_r_joint6",
+      "arm_r_joint7",
+      "gripper_r_joint1",
+      "gripper_r_joint2",
+      "gripper_r_joint3",
+      "gripper_r_joint4"
+    ],
+    "home": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      -0.25,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      -1.1,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      -1.1,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "shared_joints": [
+      "left_wheel_steer_joint",
+      "left_wheel_drive_joint",
+      "right_wheel_steer_joint",
+      "right_wheel_drive_joint",
+      "rear_wheel_steer_joint",
+      "rear_wheel_drive_joint",
+      "lift_joint",
+      "head_joint1",
+      "head_joint2"
+    ],
+    "arms": [
+      {
+        "id": "left",
+        "joints": [
+          "arm_l_joint1",
+          "arm_l_joint2",
+          "arm_l_joint3",
+          "arm_l_joint4",
+          "arm_l_joint5",
+          "arm_l_joint6",
+          "arm_l_joint7"
+        ],
+        "wrist_site": "left_wrist",
+        "tcp_site": "left_tcp",
+        "shoulder_site": "left_shoulder",
+        "reach_m": 0.641,
+        "payload_kg": 3,
+        "stock": {
+          "name": "ROBOTIS RH-P12-RN 原厂夹爪",
+          "joints": [
+            "gripper_l_joint1",
+            "gripper_l_joint2",
+            "gripper_l_joint3",
+            "gripper_l_joint4"
+          ],
+          "adapter_site": "left_adapter",
+          "mass_kg": 0.5,
+          "mass_source": "厂商夹爪名义质量约0.5千克；腕部合并惯性不重复当作额外夹爪质量"
+        }
+      },
+      {
+        "id": "right",
+        "joints": [
+          "arm_r_joint1",
+          "arm_r_joint2",
+          "arm_r_joint3",
+          "arm_r_joint4",
+          "arm_r_joint5",
+          "arm_r_joint6",
+          "arm_r_joint7"
+        ],
+        "wrist_site": "right_wrist",
+        "tcp_site": "right_tcp",
+        "shoulder_site": "right_shoulder",
+        "reach_m": 0.641,
+        "payload_kg": 3,
+        "stock": {
+          "name": "ROBOTIS RH-P12-RN 原厂夹爪",
+          "joints": [
+            "gripper_r_joint1",
+            "gripper_r_joint2",
+            "gripper_r_joint3",
+            "gripper_r_joint4"
+          ],
+          "adapter_site": "right_adapter",
+          "mass_kg": 0.5,
+          "mass_source": "厂商夹爪名义质量约0.5千克；腕部合并惯性不重复当作额外夹爪质量"
+        }
+      }
+    ],
+    "model_variants": {
+      "": "model.xml",
+      "left": "without_left.xml",
+      "right": "without_right.xml",
+      "left,right": "without_both.xml"
+    },
+    "mobile": {
+      "integrated": true,
+      "base_size": [
+        0.63,
+        0.602,
+        0.6835
+      ],
+      "mount_height": 1.1851,
+      "mass_kg": 98.26207603809391,
+      "source": "ROBOTIS 官方 robotis_mujoco_menagerie 固定提交 d8344c0dbe7a00208d0301111523dde65efc174a；资源和参数以 provenance.json 及所选 MJCF 为准。",
+      "approximations": [
+        "底盘尺寸来自固定模型底盘及轮组的轴对齐包围盒；肩高为默认升降姿态落地后的参考值，检查使用实际几何和左右肩位置。",
+        "保留厂商轮组、升降、双臂、限位和夹爪联动；自由根转换为平面X/Y/偏航用于静态布局，不认证轮式导航。",
+        "每臂额定负载3千克，采用腕部641毫米距离作为保守建议；未将双臂总负载或峰值负载用于单臂验收。",
+        "夹爪外壳安装点只用于固定适配件，不随夹指运动；工具中心为工程参考，非实测抓取标定。",
+        "上游腕部合并了部分夹爪惯性；换装变体保留该腕部惯性，不能据此认证换装后的精确动力学。",
+        "网页规格与固定模型如有差异保留模型限位；升降模型坐标为-0.5至0米。",
+        "原始自由根初始位置使轮底高于零平面0.1465米；派生模型保留原始坐标，场景装配统一下移0.1465米并记录该偏移。"
+      ],
+      "ground_offset_m": -0.1465
+    }
+  }
+}

@@ -1,0 +1,316 @@
+{
+  "policy_id": "mechanical-rubric-policy-v0.3-mobile",
+  "version": "0.3.1-mobile-evidence-review",
+  "language": "en",
+  "authority": {
+    "canonical_task_file": "rubric.json",
+    "delivery_format": "JSON only",
+    "precedence": "rubric.json is the published authority; edit the immutable-baseline semantic overlay and regenerate, then audit. Do not hand-edit generated rubrics.",
+    "shared_files": [
+      "evaluation_profile.json",
+      "evaluation_policy.json",
+      "calibration_cases.json",
+      "review_guide.json"
+    ],
+    "hashes": "A separate manifest hashes canonical JSON and shared JSON; no reciprocal embedded hashes.",
+    "legacy_scripts": "Historical generators are guarded; mobile_revision.py is the current authoring entry."
+  },
+  "non_gating": {
+    "stop_on_failure": false,
+    "global_zero_or_cap": false,
+    "root_cause_penalty": false,
+    "diagnostics": "Record one issue ID and all evidenced consequences. Do not claim correlated consequences are independent causes."
+  },
+  "status_decision_order": [
+    "NOT_APPLICABLE only for an evaluator-approved exclusion frozen for every system on that task/profile.",
+    "An independently decisive evidenced violation is VERIFIED_FAIL even if unrelated rules or settings are pending.",
+    "For a workflow outcome/transition, a complete integrated trace showing noncompletion within its required opportunity is VERIFIED_FAIL, including an observed abort; do not relabel it BLOCKED.",
+    "If the predicate lacks a necessary task-specific definition, temporal boundary or admissibility rule and no independent decisive verdict exists, use SPECIFICATION_PENDING.",
+    "If a necessary shared profile setting is unresolved and no independent decisive verdict exists, use PROFILE_PENDING.",
+    "A required but unobserved component capability may be BLOCKED with an evidenced prerequisite issue ID; this does not erase independent local-test evidence.",
+    "If the rule is defined but decisive submitted evidence is absent or ambiguous, use EVIDENCE_MISSING.",
+    "Use VERIFIED_PASS/FAIL for binary atoms; normalize ordinal_0_4 by 4 and compactness ordinal_0_2 by 2. Interior ratings use VERIFIED_PARTIAL; missing evidence is unverified."
+  ],
+  "secondary_reasons": "Preserve all contributing pending/missing/blocking reasons even when one primary status is selected.",
+  "overlap_ownership": {
+    "S3": "Source equipment geometry and mating; generated fixture interfaces belong to K1/K3.",
+    "S4": "Local mechanism capability, not proof of integrated operation.",
+    "T": "Limits, contact causality and stability of observed handling episodes.",
+    "K": "Fixture solution adequacy, interface access, function and justified burden.",
+    "P1": "Attained source-stage outcomes.",
+    "P2": "Occurrence of required physical/device transitions.",
+    "P3": "Object roles, lineage and necessary temporal dependencies.",
+    "counterexample": "A correct receiver position can pass an outcome while a teleport fails physical transition and causal-contact checks; an unexecuted cap mechanism remains unknown, not automatically defective."
+  },
+  "weights": {
+    "dimension_points": 25,
+    "task_points": 100,
+    "versioned_not_empirically_calibrated": true,
+    "hierarchy": "Use the authoritative fixed atom weights. Registered geometry/mechanism/layout/identity rows are weighted equally within their criterion, then their atoms; S1/S2 use asset families. P1/P2 use registered workflow_stages and their declared relative weights, not necessarily equal input operation sections. T1-T3 distribute the declared stage allocations across physical episodes and fixed subchecks. Splitting a source section into several registered stages can change its aggregate share; this is fixed by the released rubric, never selected by a submission.",
+    "repeated_occurrences": "A listed atom referring to repeated prescribed occurrences requires all those occurrences; report completed/required counts diagnostically. Do not add weight per retry or let submissions choose the required occurrence count.",
+    "allocation": "Resolve input minimums/ranges before comparison. Extra objects above a fixed requirement earn no added weight.",
+    "S1_count": "A count/allocation atom is satisfied only when the frozen requirement is met. Report observed and required counts; distinguish deficit from uncertain inventory.",
+    "source_section_diagnostics": "Report aggregate weights by source_stage_number to expose the effect of author-selected stage splitting. A change to atomization or stage allocation requires a new scoring revision and comparisons on the same revision.",
+    "mobile_S5": "Existing S5 atoms retain relative weights scaled to 3 points; MOB.C1-C3 each carry 1/3 point. New design choice, not empirically calibrated."
+  },
+  "aggregation": {
+    "per_dimension": {
+      "W": "sum(max_points of evaluator-approved applicable atoms)",
+      "L": "25 * sum(max_points * verified_score) / W",
+      "U": "25 * sum(max_points of unverified atoms) / W",
+      "coverage": "sum(max_points of verified atoms) / W",
+      "interval": "[L, L+U]; incomplete evidence bounds, not confidence intervals",
+      "N_A": "Only predeclared evaluator exclusions may change W; preserve original weights and exclusion log.",
+      "empty_dimension": "Report dimension as not applicable; no comparable 100-point total."
+    },
+    "across_tasks": "Macro-average each dimension and the auxiliary total over the fixed task set with equal task weight. Report lower/upper bounds and coverage, never an average over only verified tasks.",
+    "missing_submission": "Keep the scheduled task in the task-set denominator with unknown [0,100] unless an observed complete failure warrants known failure. Report submitted/expected task counts.",
+    "ranking": "Do not publish a single definitive ranking from overlapping incomplete-evidence intervals. Publish dimensional results and coverage.",
+    "groups": "Use nonexclusive operation tags and objective task descriptors. Report group sizes; never sum overlapping group scores.",
+    "difficulty": "No asset-count or stage-count difficulty weighting. Descriptors are not validated difficulty labels.",
+    "configuration_comparability": "Aggregate only the same frozen task set, profile, rubric and policy content hashes, exclusion set and attempt-selection rule. Equal version labels alone do not establish identical scoring content. Disclose exceptions separately.",
+    "attempt_selection": "Predeclare the number of attempts, seed list, timeout and which attempt statistic is reported. Do not silently select the best run or treat retries as additional completed required occurrences."
+  },
+  "submission_contract": {
+    "model_input": "Only each input_manifest.json allowlist and the adopted public generation constraints are model-facing.",
+    "evaluator_material": "Rubrics, policy, calibration cases and source-history records are separate from asset input.",
+    "visibility_policy": "Whether evaluation rubrics are public or withheld is a benchmark release decision; report it consistently for all systems.",
+    "required_evidence": [
+      "complete scene and ID mapping",
+      "initial state and controls/replay entry point",
+      "state/contact trace",
+      "stage and identity ledger",
+      "synchronized views",
+      "fixture BOM and purpose mapping"
+    ],
+    "replay": "Video/state playback is not controller re-execution. Neither is performed by this refinement.",
+    "optional_authoring_history": "History snapshots, source-code provenance and development tools are not required scoring dependencies. Required task and shared specification references remain inside selected50_protocols.",
+    "evidence_origin": "Distinguish generator-authored declarations from evaluator-observed facts. Bind logs, scene, controls and views to the same artifact/run identifiers. A self-reported success flag is not independent verification; a hash establishes consistency, not truth."
+  },
+  "result_atom_fields": [
+    "task_id",
+    "rubric_version",
+    "profile_hash",
+    "atom_id",
+    "max_points",
+    "status",
+    "score",
+    "raw_observations",
+    "source_target",
+    "units",
+    "evidence_locators",
+    "reason",
+    "issue_ids",
+    "blocked_by",
+    "test_scope"
+  ],
+  "open_validation": [
+    "Human rating agreement",
+    "Empirical tolerance/anchor calibration",
+    "Simulation/control replay",
+    "Automated observation extraction and checker implementation"
+  ],
+  "methods": {
+    "nominal_measurement": {
+      "instructions": "Measure each referenced property in the declared coordinate frame and units. Record source nominal, measurement, signed deviation, provenance and the frozen per-property allowance. Do not substitute a whole-scene collision tolerance for an instrument dimension allowance."
+    },
+    "categorical_inspection": {
+      "instructions": "Inspect the complete asset/scene and cited input clauses. For counts, identity, topology and explicit source bounds, compare directly; no global robot or nominal-dimension tolerance is needed. Where inspection resolution cannot establish the predicate, report missing evidence."
+    },
+    "local_geometric_fit": {
+      "instructions": "Inspect the full required insertion/assembly or swept-volume geometry. Record the objects, poses, minimum signed clearance and witness configuration. Static swept-volume analysis or a labeled local test is acceptable. A clearly missing opening/component is an independently established failure; a small positive nominal gap alone does not prove usable fit."
+    },
+    "declaration_audit": {
+      "instructions": "Inspect the submitted declaration and its source attribution. Check that modeling choices, units and source limitations are explicit and not presented as measured manufacturer facts. Do not score an unpublished value against a hidden reference."
+    },
+    "local_function_test": {
+      "instructions": "Require actual labeled local operation evidence with time-indexed states or events. For order predicates, witness each required event in the declared order; static geometry is not an execution trace."
+    },
+    "stability_test": {
+      "instructions": "Require declared loads, boundary conditions, tolerances, observation window and results, from a qualified load analysis or labeled local test. A contact picture or represented force path is insufficient. Undefined parameters remain unknown; do not invent manufacturer tolerances."
+    },
+    "robot_access_test": {
+      "instructions": "Use the pinned mobile dual-arm robot, selected arm, declared base pose, shared lift and installed tool. Supply a collision-valid pose or motion witness through the actual interface, checking the other arm and whole robot/tools. Coarse distance/grid advice is not pose proof. A planner timeout is not proof of geometric impossibility. Multiple docks are allowed."
+    },
+    "identity_or_order_trace": {
+      "instructions": "Join stable instance IDs, source/destination records and timestamped state observations. Verify the specified identity, allocation or partial-order predicate. Events alone are claims: cross-check physical transitions against state/contact evidence. Independent actions need no arbitrary total ordering."
+    },
+    "anchored_quality_rating": {
+      "instructions": "Apply the referenced 0-4 anchors with a concrete evidence locator and rationale. Missing comparable evidence is unverified, not an automatic high or low rating. Preserve raw counts/measurements separately."
+    },
+    "workflow_outcome": {
+      "instructions": "Verify this stage outcome in the integrated run using instance IDs, states and the cited source scope. A complete trace showing noncompletion gives zero; absent trace gives missing evidence. No reaction yield or biochemical validity is inferred."
+    },
+    "physical_transition_witness": {
+      "instructions": "Verify each source-required physical occurrence against poses, contacts and object IDs in the integrated run. Record occurrence counts and event intervals. A state label or correct final pose alone does not prove the transition. Repeated attempts create no extra credit."
+    },
+    "device_or_ledger_witness": {
+      "instructions": "Verify the scoped device state, event ordering or abstract content ledger against the relevant physical witnesses. The declared virtual clock may compress internal dwell, but cannot replace external handling."
+    },
+    "compactness_review": {
+      "implementation_status": "manual_review_not_empirically_calibrated",
+      "instructions": "Review table allocation, table dimensions and room organization separately. Cite objects, dimensions, actual envelopes and necessary clearances. No universal table limit, occupancy cutoff or smallest-area reward. Do not deduct a collision/support defect again as compactness. Never infer optimality from failure to find an alternative.",
+      "anchors": {
+        "0": "Clear avoidable redundancy with concrete evidence.",
+        "1": "Localized avoidable redundancy with otherwise supported allocation.",
+        "2": "Allocation is supported by affirmative equipment/clearance/separation evidence; not a global-optimality claim."
+      },
+      "score": "raw rating / 2; missing evidence is unknown, not rating 1."
+    }
+  },
+  "assessment_unit_contract": {
+    "evidence_logic": "Use the method-appropriate evidence; every listed category is not mandatory for every verdict. A video alone does not establish unobservable limits or dynamics.",
+    "record_fields": [
+      "status",
+      "score",
+      "raw_observations",
+      "source_target",
+      "units",
+      "evidence_locators",
+      "reason",
+      "issue_ids",
+      "blocked_by",
+      "test_scope",
+      "evidence_identity",
+      "evidence_level",
+      "reviewer",
+      "decisive_dependencies",
+      "dependency_rationale"
+    ],
+    "pass_condition": "The stated predicate is established by the specified evidence and applicable frozen settings.",
+    "fail_condition": "Evidence establishes the stated predicate is not satisfied; record the specific violated clause.",
+    "unverified_condition": "Evidence or a necessary setting is insufficient to decide this predicate. Unrelated pending settings do not block it.",
+    "predicate_ownership": "Evidence for adjacent predicates may be reused, but failure of one does not automatically establish another. Record each independently violated clause and link shared root causes without an extra root-cause penalty.",
+    "result_kinds": {
+      "binary": [
+        0,
+        1
+      ],
+      "ordinal_0_4": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "ordinal_0_2": [
+        0,
+        1,
+        2
+      ]
+    },
+    "test_scopes": {
+      "static_or_labeled_local_test": "Geometric/inventory predicate; no executed transition inferred.",
+      "labeled_local_test": "Actual local operation, selected-arm pose or qualified load validation as required by the atom.",
+      "integrated_run": "Required workflow occurrence or invariant over its declared interval.",
+      "evidence_appropriate_to_quality_aspect": "Reviewed evidence adequate for the stated quality aspect."
+    }
+  },
+  "aggregation_examples": {
+    "status": "synthetic_explanatory_examples_not_observed_scores",
+    "examples": [
+      {
+        "case": "One of two equal-weight dimension units passes and the other is unverified.",
+        "confirmed": 12.5,
+        "unverified_allowance": 12.5,
+        "coverage": 0.5
+      },
+      {
+        "case": "One of two equal-weight dimension units passes and the other demonstrably fails.",
+        "confirmed": 12.5,
+        "unverified_allowance": 0,
+        "coverage": 1
+      },
+      {
+        "case": "All dimension units have observed failures.",
+        "confirmed": 0,
+        "unverified_allowance": 0,
+        "coverage": 1
+      },
+      {
+        "case": "All dimension units lack decisive evidence.",
+        "confirmed": 0,
+        "unverified_allowance": 25,
+        "coverage": 0
+      },
+      {
+        "case": "One fully verified dimension scores zero and the other three score 25.",
+        "auxiliary_total_confirmed": 75,
+        "auxiliary_total_unverified_allowance": 0,
+        "note": "No global gate or extra penalty."
+      },
+      {
+        "case": "Two scheduled tasks: one fully verified at 100 and one wholly unverified.",
+        "macro_total_confirmed": 50,
+        "macro_total_unverified_allowance": 50,
+        "note": "Do not drop the unverified task and report 100."
+      }
+    ]
+  },
+  "revision_note": "Clarifies status, temporal scope, registered-stage weighting and comparison provenance; preserves all existing atom predicates and weights.",
+  "specification_pending": {
+    "verified": false,
+    "score": null,
+    "aggregation": "Unverified weight contributes to U exactly like other unresolved statuses; no global gate or additional penalty.",
+    "boundary": "Missing rules are not failures of the submitted system. Record the missing definition and its owner. Do not infer absence of a rule solely from an empty profile_dependencies array.",
+    "resolution": "Define the rule with a versioned task/profile amendment and apply the same rule to every compared submission; preserve prior reports and do not tune the rule to a preferred result."
+  },
+  "temporal_scope": {
+    "stage_outcomes": "Assess at the source-required stage boundary or declared event/window in the integrated run. A later required operation may legitimately undo an earlier attained state; do not evaluate every P1 state only at the final scene.",
+    "persistent_conditions": "Require persistence only for an explicitly scoped invariant and its declared interval. A temporary valid state cannot satisfy a required sustained condition.",
+    "required_occurrences": "Required occurrences need separate identified witnesses. An outcome that was already true initially does not prove a required transition occurred.",
+    "selection": "Observation boundaries and permitted alternatives are fixed before inspecting competing results. Do not choose a convenient instant post hoc.",
+    "undefined_boundary": "Use SPECIFICATION_PENDING if a missing temporal definition can change the verdict; otherwise retain independently decisive evidence."
+  },
+  "stage_reporting": {
+    "selection": "Use rubric stage unit lists fixed before submission; no submission-selected exclusions.",
+    "static_arithmetic": "Report sum(w*s), unknown weight, [sum(w*s),sum(w*s)+unknown], and verified weight / applicable static weight in original benchmark points. Never rescale to 100.",
+    "full_arithmetic": "Keep all four dimensions and existing incomplete-evidence aggregation. Unexecuted predicates stay unknown, not zero/pass/N_A.",
+    "local_tests": "Separate from static and integrated reports; cite actual local test witnesses.",
+    "required_context": [
+      "published_scene_identity",
+      "robot_resource_identity",
+      "end_effector_configuration",
+      "base_lift_arm_state",
+      "layout_identity",
+      "missing_instances",
+      "scene_loadability",
+      "mechanism_evidence",
+      "support_collision_installation_payload_evidence",
+      "coarse_access_advice",
+      "table_count",
+      "table_area",
+      "room_area",
+      "clearance_evidence",
+      "not_yet_executed_units"
+    ],
+    "evidence_identity": "Reject stale evidence after relevant robot/tool/pose/layout changes. Manual results require reviewer and evidence references.",
+    "comparability": "Compare identical content hashes, task set, design permissions, attempts and budget. Different designed layouts are outputs, not automatically different comparison groups.",
+    "review_register": "../_dev/mobile_stage_register.json; reviewed requirement and contract digests, no static fallback"
+  },
+  "fixture_solution_policy": "Stock grippers, custom fixtures and evidenced dual-arm support are alternative solutions to the same task demand. Preserve reaction support, real interfaces, timing and identity. No custom-tool-count reward. Missing necessary capability fails only with evidence; applicability is evaluator-predeclared.",
+  "method_implementation_register": {
+    "nominal_measurement": "benchmark_checker_not_implemented",
+    "categorical_inspection": "manual_review",
+    "local_geometric_fit": "benchmark_checker_not_implemented",
+    "declaration_audit": "manual_review",
+    "local_function_test": "benchmark_checker_not_implemented",
+    "stability_test": "benchmark_checker_not_implemented",
+    "robot_access_test": "benchmark_checker_not_implemented",
+    "identity_or_order_trace": "benchmark_checker_not_implemented",
+    "anchored_quality_rating": "manual_review",
+    "workflow_outcome": "benchmark_checker_not_implemented",
+    "physical_transition_witness": "benchmark_checker_not_implemented",
+    "device_or_ledger_witness": "benchmark_checker_not_implemented",
+    "compactness_review": "manual_review"
+  },
+  "file_bound_reporting": {
+    "entry": "../_dev/score_mobile.py",
+    "authority": "Evaluator-owned conditions and reviews; submission evidence is not its own scoring authority.",
+    "rules": "Hash and parse the same bytes. Bind actual rubric, policy, public environment, profile and stage register. Hashes prove content identity, not physical correctness.",
+    "unit_errors": "Invalid, stale or missing evidence leaves only affected atoms unknown.",
+    "rule_errors": "Invalid rule bundle produces a diagnostic with no comparable score.",
+    "legacy": "Reports without verified file binding are historical/unbound and not eligible for comparison.",
+    "known_framework_limit": "Extra environment obstacles omitted from mobile coarse-screen obstacles remain unresolved; no navigation or full execution checker is added."
+  }
+}

@@ -1,0 +1,1062 @@
+"""共享账本的场景调度：资产、装置、装配、检查、定向修复。"""
+
+from dataclasses import replace
+from pathlib import Path
+
+from asset_generation.contracts import author_result, check_profile, require
+from asset_generation.inputs import public_bundle, image_record
+from asset_generation.model import GenerationModel, request_summary
+from asset_generation.pipeline import snapshot
+from asset_generation.prompts import AUTHOR, REVIEW
+from asset_prep.storage import Store, atomic_json, digest, file_hash, safe_path
+from asset_prep import implementation
+from asset_prep.errors import PrepError, StaleEvidence, UncertainRequest, ValidationError, ProviderError, ContextLimitError
+from .contracts import validate_plan, repair_action
+from .feedback import planning_feedback
+from .inputs import task_bundle
+from .prompts import PLAN, REPAIR, SCENE_REVIEW, for_environment
+from .layout import revision as layout_revision, validate_layout, table_policy
+from .layout import review_targets
+from .review import ASSEMBLABLE, ASSET_SCOPE, SCENE_SCOPE, REQUIREMENTS_POLICY, scoped_review, deferred_records
+from .evidence import review_with_evidence
+from .checkpoint import save_review_checkpoint, recover_review_checkpoint
+from .table import validate_cuts
+from .recovery import decide, gaps as check_gaps
+from asset_generation.check_report import checked_report, checked_previews, incomplete
+from .edge_mounts import POLICY as EDGE_MOUNT_POLICY
+from .dispatch import recover
+from .capabilities import semantic, problem_identity, repair_signature, repair_mechanism, repeated_repair
+from .robot_contract import mount_for, joint_catalogue, validate_model_posture
+
+
+def code_identity(project):
+    return implementation.implementation_digest(implementation.source_manifest(project))
+
+
+def evidence_stop_status(outcome):
+    reason=(outcome or {}).get('reason')
+    if reason in {'capability_blocked','inspection_unavailable'}:
+        return 'needs_check_support'
+    if reason in {'evidence_planning_exhausted','evidence_rounds_exhausted','evidence_no_progress'}:
+        return reason
+    return 'needs_review'
+
+
+class SceneRun:
+    def __init__(self, catalogue, env, contract, provider, generation, limits, keys, root, transport,
+                 sandbox, robot_root, project, resume=False, retry_uncertain=False, provenance="model_generated",
+                 expected_implementation=None, shared_store=None, shared_model=None, before_candidate=None, before_repair=None):
+        self.catalogue, self.env, self.contract = catalogue, env, contract
+        self.generation, self.limits = generation, limits
+        self.root, self.robot_root = Path(root), Path(robot_root)
+        from .benchmark_input import bind_environment
+        bind_environment(catalogue, env, self.robot_root)
+        self.robot_joints = joint_catalogue(self.robot_root,env)
+        self.sandbox = sandbox
+        binding = implementation.runtime_record(
+            project,
+            inputs={"catalogue": catalogue["identity"], "environment": env, "contract": contract,
+                    "robot_files": snapshot(robot_root)},
+            configuration={"generation": generation.identity(), "limits": limits.identity(),
+                           "provider": provider.provider, "model": provider.model,
+                           "base_url": provider.base_url,
+                           "output_token_parameter": provider.output_token_parameter})
+        if provenance == 'model_generated':
+            import sys
+            active = getattr(sys, '_harness_runtime', None)
+            if (not active or Path(active['base']) != (Path(project)/'src').resolve()
+                    or expected_implementation != binding['implementation']):
+                raise implementation.ImplementationDrift('正式场景必须从固定源码启动，并绑定指定的已验证版本')
+        identity = {"catalogue":catalogue["identity"],"environment":env,"contract":contract,
+                    "provider":provider.provider,"model":provider.model,"base_url":provider.base_url,
+                    "output_token_parameter":provider.output_token_parameter,"generation":generation.identity(),
+                    "limits":limits.identity(),"robot_files":snapshot(robot_root),"backend":sandbox.preflight(),
+                    "implementation":binding["implementation"],"binding":binding,"provenance":provenance}
+        # 工作进程与补查必须运行同一份源码；启动即核对，避免运行中途混入新代码。
+        if hasattr(sandbox, 'bind_implementation'):
+            sandbox.bind_implementation(binding["implementation"])
+        implementation.verify(identity["implementation"], project=project, where="主进程启动")
+        self.implementation_guard = implementation.Guard(project, identity['implementation'])
+        self.store = shared_store or Store(root,identity,replace(provider,max_model_calls=limits.max_model_calls,
+                           max_reserved_tokens=limits.max_reserved_tokens),resume=resume,retry_uncertain=retry_uncertain)
+        if shared_store is not None:
+            require(Path(shared_store.root).resolve()==self.root.resolve(), "共享账本与场景根目录必须一致")
+            previous_binding=self.store.state.setdefault("joint_scene_binding",identity)
+            require(previous_binding==identity,"联合场景输入或固定配置发生变化")
+        self.before_candidate=before_candidate or (lambda job,stage: None)
+        if shared_store is None:
+            from asset_prep.phase_budget import enter
+            enter(self.store,'scene')
+        self.before_repair=before_repair or (lambda action: None)
+        if not retry_uncertain and any(c["status"] == "pending" for c in self.store.state["calls"]):
+            raise UncertainRequest("场景请求结果不明；核对账单后才可显式重试")
+        self.state = self.store.state.setdefault("scene",{"status":"running","stages":[],"jobs":{},"rounds":[],"feedback_receipts":[]})
+        if "plan" in self.state:
+            validate_plan(self.state["plan"], self.catalogue["asset_ids"], self.limits, self.env)
+            self.validate_prepared_plan(self.state['plan'])
+            validate_model_posture(self.state["plan"],self.robot_joints)
+        for stage in self.state["stages"]:
+            if snapshot(safe_path(self.root,stage["directory"])) != stage["files"]:
+                raise StaleEvidence("场景已归档版本发生变化，禁止复用")
+        if self.state.get("pending") and (not self.state["pending"].get("awaiting_exchange") or self.state["pending"].get("review_checkpoint")):
+            recover_review_checkpoint(self)
+        self.model = shared_model or GenerationModel(provider,generation,keys,self.store,transport)
+        self.model.execution_guard = self.check_pause
+        self.model.cancel_guard = self.check_cancel
+        self.sandbox.cancel_guard = self.check_cancel
+        self.model.progress = self.progress
+        implementation.archive_sources(project, root, identity['implementation'])
+        self.store.save()
+
+    def progress(self, phase, event):
+        from datetime import datetime, timezone
+        self.state["activity"] = {"phase":phase,"event":event,"updated_at":datetime.now(timezone.utc).isoformat()}
+        self.store.save()
+        if self.state.get("plan"):
+            self.result()
+
+    def begin(self, kind):
+        self.check_pause()
+        pending=self.state.get("pending")
+        if pending and pending.get("awaiting_exchange"):
+            require(pending["kind"]==kind,"等待响应的阶段不能跨类型恢复")
+            return safe_path(self.root,pending["directory"])
+        relative = f"stages/{len(self.state['stages'])+1:05d}_{kind}"
+        destination = safe_path(self.root,relative)
+        require(not destination.exists(), "工作区目录冲突，保留现场并停止")
+        self.state["pending"] = {"directory":relative,"kind":kind}
+        self.progress(kind, "stage_started")
+        self.store.save()
+        destination.mkdir(parents=True)
+        return destination
+
+    def check_pause(self):
+        self.implementation_guard.check()
+        self.check_cancel()
+
+    def check_cancel(self):
+        if (self.root / "pause.request").exists():
+            raise PrepError("已请求暂停；保留现场与未知请求账本，本地网络进程将终止，远端请求结果可能仍不明")
+
+    def commit(self, kind, record):
+        self.implementation_guard.check()
+        pending = self.state["pending"]
+        destination = safe_path(self.root,pending["directory"])
+        atomic_json(destination/"record.json", {"kind":kind,**record})
+        stage = {"directory":pending["directory"],"kind":kind,"files":snapshot(destination),**record}
+        self.state["stages"].append(stage)
+        if kind in {"asset","asset_review"}:
+            self.state["jobs"][record["job"]] = {**record,"stage":stage["directory"],
+                "artifact_stage":record.get("artifact_stage",stage["directory"]),
+                "artifact":record.get("artifact",stage["directory"]+"/artifact"),
+                "dirty":record["status"] not in ASSEMBLABLE}
+        elif kind == "scene":
+            self.state["rounds"].append(stage["directory"])
+            self.state["latest"] = {**record,"directory":stage["directory"]}
+            self.state["feedback"] = record["report"]
+            self.state.pop("scene_review_resume",None)
+            self.finish_repair(record['report'],record.get('review'))
+        elif kind == "repair":
+            self.state["repair_pending"] = False
+        self.state.pop("pending")
+        self.store.save()
+        return stage
+
+    def images(self, directory, report):
+        return [image_record(safe_path(directory,name),self.root,self.generation) for name in report.get("renders",[])]
+
+    def validate_prepared_plan(self, plan):
+        if self.catalogue.get('prepared_task'):
+            from asset_prep.task_delivery import validate_role_bindings
+            validate_role_bindings(plan, self.catalogue['prepared_task'])
+
+    def initialize(self):
+        self.check_pause()
+        if "plan" in self.state:
+            return
+        feedback = None
+        for attempt in range(self.limits.max_plan_attempts):
+            try:
+                instruction=for_environment(PLAN,self.env)
+                if self.catalogue.get('prepared_task'):
+                    instruction+='\n这是已定义的任务资料。保持所选流程、初态、终态和实例数量。额外返回 role_bindings，每项为 {role_id:上游角色id,instances:[实际场景实例id]}，覆盖所有角色且数量一致。各实例的生成任务须包含角色对应资产。不同用途共享几何类型，不共享应独立的物体。'
+                value, call = self.model.ask(instruction,{"source":self.catalogue["source"],"asset_ids":self.catalogue["asset_ids"],
+                    "protocol":self.catalogue.get("protocol"),
+                    "environment":self.env,"robot_joint_contract":self.robot_joints,"limits":{"max_jobs":self.limits.max_jobs,"max_instances":self.limits.max_instances},
+                    "table_edit_policy":table_policy(self.env),
+                    "edge_mount_policy":EDGE_MOUNT_POLICY,
+                    "contract":self.contract,"validation_feedback":feedback,"attempt":attempt},[],"scene_plan")
+                plan, order = validate_plan(value,self.catalogue["asset_ids"],self.limits,self.env)
+                self.validate_prepared_plan(plan)
+                validate_model_posture(plan,self.robot_joints)
+                validate_layout(plan,self.env)
+                validate_cuts(plan.get("table_modifications", []), plan, self.env)
+                require(set(self.contract["jobs"]) <= {j["id"] for j in plan["jobs"]}, "数值验收引用的任务不在计划中")
+                break
+            except ValidationError as exc:
+                feedback = str(exc)
+        else:
+            raise ValidationError("场景计划格式修复次数耗尽："+feedback)
+        destination = self.begin("plan")
+        atomic_json(destination/"plan.json",plan)
+        atomic_json(destination/"input.json",{"source":self.catalogue["source"],"protocol":self.catalogue.get("protocol"),
+                    "identity":self.catalogue["identity"],"contract":self.contract,"environment":self.env})
+        self.state.update(plan=plan,order=order)
+        self.commit("plan",{"call":call})
+
+    def dependency_context(self, job):
+        return {key:{"manifest":self.state["jobs"][key]["manifest"],
+                     "assembly_readiness":self.state["jobs"][key].get("assembly_readiness",{}),
+                     "interface_checks":self.state["jobs"][key].get("feedback",{}).get("numerical",{}).get("checks",[]),
+                     "geometry":self.state["jobs"][key].get("geometry_summary",{}),
+                     "status":self.state["jobs"][key]["status"],
+                     "deferred_checks":self.state["jobs"][key].get("deferred_checks",[]),
+                     "instances":[i for i in self.state['plan']['instances'] if i['job']==key],
+                     "version":self.state["jobs"][key]["stage"],"source_requirements":next(j["requirements"] for j in self.state["plan"]["jobs"] if j["id"] == key)}
+                for key in job["depends_on"] if key in self.state["jobs"] and self.state["jobs"][key].get("source")}
+
+    def layout_context(self):
+        return {"revision":layout_revision(self.state['plan']),
+                "layout":self.state['plan'].get("layout"),
+                "robot":self.env["robot"],
+                "end_effectors":self.state["plan"].get("end_effectors"),
+                "robot_posture":self.state["plan"].get("robot_posture",{}),
+                "instances":self.state['plan']['instances'],
+                "rule":"非robot实例采用世界坐标米和绕世界Z轴的yaw弧度。装配公式为world=position+Rz(yaw)@local。"
+                       "依赖接口和几何为各资产局部坐标；必须按其实际实例变换到世界坐标，"
+                       "再变换到本装置局部坐标。robot工具局部坐标相对于固定法兰。"
+                       "此布局是唯一权威来源；不得自行假定或替换依赖位置。"}
+
+    def instance_contract(self, job):
+        instances = [i for i in self.state["plan"]["instances"] if i["job"] == job["id"]]
+        return {"instances":instances,
+                "delivery_role":job["role"], "manifest_asset_ids":job["asset_ids"],
+                "reference_only_jobs":job["depends_on"],
+                "robot_mounts":[mount_for(self.state["plan"],self.env,i["id"]) for i in instances if i["placement"]=="robot"],
+                "scope_rule":"asset角色交付指定资产；tool/fixture角色只交付该装置，asset_ids为服务范围且必须原样写入清单。dependencies仅供读取接口和配合参考，不能据此增加交付对象。",
+                "expected_model_units":1 if job["role"] == "asset" and len(job["asset_ids"]) == 1 and len(instances) > 1 else None,
+                "rule":"每个场景实例复制一次本模型；不要在单模型中按场景总数量重复生成完整资产"}
+
+    def review_asset(self, job, bundle, references, previews, report, destination, record):
+        self.check_pause()
+        scene_images=[image_record(safe_path(self.root,path),self.root,self.generation)
+                      for path in self.state.get("published_scene",{}).get("preview_paths",[])[:3]]
+        images = list({im["sha256"]:im for im in references + bundle["images"] + previews + scene_images}.values())
+        context = {"input":public_bundle(bundle),"job":job,"checks":report,
+                   "dependencies":self.dependency_context(job),"reference_policy":record["reference_policy"],
+                   "fixed_contract":self.contract["jobs"].get(job["id"],{}),
+                   "instance_contract":self.instance_contract(job),
+                   "scene_layout":self.layout_context(),
+                   "layout_revalidation":record.get('layout_revalidation'),
+                   "repair_directive":self.state.get("repair_directive"),
+                   "review_scope":{"stage":"asset","validation_mode":self.limits.validation_mode},
+                   "evidence":{"original_reference_images":[im["path"] for im in references],
+                               "design_reference_images":[im["path"] for im in bundle["images"]],
+                               "current_asset_images":[im["path"] for im in previews],
+                               "assembled_scene_available":bool(self.state.get("published_scene")),
+                               "assembled_scene_artifact":self.state.get("published_scene",{}).get("artifact"),
+                               "assembled_scene_images":[im["path"] for im in scene_images]}}
+        if record.get("reviewed_from"):
+            context["previous_review"] = record.get("feedback",{}).get("visual")
+            context["review_retry_from"] = record["reviewed_from"]
+        if record.get('layout_revalidation'):
+            context['current_model_py']=safe_path(self.root,record['source']).read_text(encoding='utf-8')
+            context['current_geometry']=record.get('geometry_summary',{})
+        artifact = safe_path(self.root,record["artifact"]) if record.get("artifact") else destination/"artifact"
+        review, call = review_with_evidence(self,REVIEW+REQUIREMENTS_POLICY+ASSET_SCOPE,context,images,"asset_review:"+job["id"],
+                                  destination,validator=lambda value: scoped_review(value,"asset",expected_units=context["instance_contract"]["expected_model_units"]),
+                                  artifact=artifact,scope="asset")
+        atomic_json(destination/"review.json",review)
+        record["review_call"] = call
+        record['evidence_outcome']=self.state.get('evidence_outcomes',{}).get('asset_review:'+job['id'])
+        record["deferred_checks"] = deferred_records(review,job["id"],destination.name)
+        record["feedback"] = {"numerical":report,"visual":review}
+        record['layout_revision'] = self.layout_context()['revision']
+        record["status"] = {"accept":"candidate_ready","defer":"assembly_ready",
+                            "uncertain":"needs_review","repair":"failed"}[review["verdict"]]
+        return record["feedback"]
+
+    def failure_history(self, key, limit=6):
+        """Rejected designs with the reason each was rejected.
+
+        Repair feedback used to keep only the most recent error. An author then fixed
+        error A, reintroduced the design that had been rejected for error B, and the
+        loop alternated indefinitely. Every attempt keeps its actionable reason here.
+        """
+        rows=[]
+        for stage in self.state.get("stages",[]):
+            if stage.get("kind")!="asset" or stage.get("job")!=key:continue
+            feedback=stage.get("feedback") or {}
+            numerical=feedback.get("numerical") or {}
+            reasons=[{"check":row.get("id"),"status":row.get("status"),
+                      "detail":str(row.get("detail") or "")[:600]}
+                     for row in numerical.get("checks",[]) if row.get("status") in {"fail","error"}]
+            if feedback.get("generation_error"):
+                reasons.append({"check":"generation_error","status":"error",
+                                "detail":str(feedback["generation_error"])[:600]})
+            if feedback.get("task_deferred"):
+                reasons.append({"check":"task_deferred","status":"error",
+                                "detail":str(feedback["task_deferred"])[:600]})
+            rows.append({"stage":stage.get("directory"),"reasons":reasons})
+        out=[row for row in rows if row["reasons"]][-limit:]
+        if not out:return []
+        # Collapse repeated identical rejections into a count; iteration order is kept.
+        grouped={}
+        for row in out:
+            signature=tuple(sorted((r["check"],r["status"],r["detail"]) for r in row["reasons"]))
+            grouped.setdefault(signature,{"stage":row["stage"],"reasons":row["reasons"],"occurrences":0})
+            grouped[signature]["occurrences"]+=1
+        history=list(grouped.values())
+        history[-1]["latest"]=True
+        return history
+
+    def generate_job(self, job, feedback=None, *, draft=False):
+        key = job["id"]
+        current = self.state["jobs"].get(key)
+        recheck_required = bool(current and current.get('needs_implementation_recheck'))
+        review_again = current and (recheck_required or current["status"] == "review_pending" or
+                                    feedback is None and current["status"] == "needs_review")
+        previous_source = (current or {}).get("source")
+        previous = safe_path(self.root,previous_source).read_text(encoding="utf-8") if previous_source else None
+        if feedback is None and current:
+            feedback = current.get("feedback")
+        bundle = task_bundle(self.catalogue,job)
+        references = list(bundle["images"])
+        reference_policy = "仪器生成使用所选资产全部原始参考图"
+        if job["role"] != "asset":
+            bundle["original_image_inventory"] = [{k:v for k,v in im.items() if k != "data_url"} for im in bundle["images"]]
+            dependency_images = []
+            for dependency_id in job["depends_on"]:
+                previews = self.state["jobs"][dependency_id].get("preview_paths",[])
+                require(draft or previews, "操作装置设计依赖缺少已验证渲染")
+                if previews:
+                    dependency_images.append(image_record(safe_path(self.root,previews[0]),self.root,self.generation))
+            bundle["images"] = dependency_images
+            reference_policy = ("操作装置设计使用已生成依赖的实际渲染及接口；原图用于前序资产生成，质量将在场景保存后审查；缺图不代表质量通过"
+                                if draft else "操作装置设计使用每项已生成依赖的首个实际渲染视角及实测接口；原图由前序资产阶段完整审查，完整多视角证据保留在各版本")
+        profile = check_profile({**self.contract["jobs"].get(key,{}), "validation_mode":self.limits.validation_mode})
+        previews = [image_record(safe_path(self.root,path),self.root,self.generation)
+                    for path in (current or {}).get("preview_paths",[])]
+        if not draft and current and current["status"] in {"needs_check_support","needs_environment"}:
+            from asset_generation.check_recovery import recover_checks
+            destination=self.begin("asset_review")
+            report=current["feedback"]["numerical"]
+            if report["status"]=="error" and hasattr(self.sandbox,"recheck_asset"):
+                report,renders=self.sandbox.recheck_asset(safe_path(self.root,current["artifact"]),
+                    destination/"recheck",job["asset_ids"],profile)
+                report=checked_report(report,domain="asset",mode=profile.get("validation_mode","full"),require_renders=True)
+                report,previews=checked_previews(report,renders,
+                    lambda directory,name:image_record(safe_path(directory,name),self.root,self.generation))
+            if report["status"]!="error":
+                report=recover_checks(self.sandbox,safe_path(self.root,current["artifact"]),report,
+                    self.root/"asset_check_recovery",implementation=self.implementation_guard.expected,contract=profile,
+                    check_pause=self.check_pause,max_actions=self.limits.max_check_actions,max_retries=self.limits.max_check_retries)
+            record={k:v for k,v in current.items() if k not in {"stage","dirty"}}
+            record.update(preview_paths=[im["path"] for im in previews],manifest=report.get("manifest"),
+                geometry_summary=report.get("geometry_summary",{}))
+            record["feedback"]={"numerical":report}
+            record["status"]={"partial":"needs_check_support","error":"needs_environment","fail":"failed","pass":"review_pending"}[report["status"]]
+            if report["status"]=="pass" and previews:
+                save_review_checkpoint(self,"asset",record)
+                self.review_asset(job,bundle,references,previews,report,destination,record)
+            self.commit("asset_review",record)
+            if record["status"] in ASSEMBLABLE:return True
+            if report["status"]=="fail":return self.generate_job(job,record["feedback"])
+            self.state["status"]=record["status"]
+            self.store.save()
+            return False
+        # 审查证据不足或升级后需重新审查：保留已编译的资产，不盲目修改几何。
+        if not draft and review_again and (recheck_required or current.get("feedback",{}).get("numerical",{}).get("status") == "pass") and previews:
+            destination = self.begin("asset_review")
+            report = current["feedback"]["numerical"]
+            record = {k:v for k,v in current.items() if k not in {"stage","dirty"}}
+            if record.pop('needs_implementation_recheck', False):
+                report, renders = self.sandbox.recheck_asset(safe_path(self.root,current['artifact']),
+                    destination, job['asset_ids'], profile)
+                self.implementation_guard.check()
+                record['feedback'] = {'numerical':report}
+                if report['status'] != 'pass':
+                    # 保留几何，交回真实新证据；程序/量测问题不进入几何修复。
+                    record['status'] = 'failed' if report['status']=='fail' else 'needs_environment'
+                    if report['status'] != 'fail':
+                        record['needs_implementation_recheck'] = True
+                    self.commit('asset_review', record)
+                    self.state['status'] = 'needs_review' if report['status']=='fail' else 'needs_environment'
+                    self.store.save()
+                    return self.generate_job(job, record['feedback']) if report['status']=='fail' else False
+                previews = self.images(renders, report)
+                record['preview_paths'] = [image['path'] for image in previews]
+            if not record.pop("interrupted_review",False):
+                record["reviewed_from"] = current["stage"]
+            record.update(reference_policy=reference_policy,
+                          artifact_stage=current.get("artifact_stage",current["stage"]))
+            atomic_json(destination/"checks.json",report)
+            save_review_checkpoint(self, "asset", record)
+            feedback = self.review_asset(job,bundle,references,previews,report,destination,record)
+            stage = self.commit("asset_review",record)
+            self.state["jobs"][key] = {**record,"stage":stage["directory"],"dirty":record["status"] not in ASSEMBLABLE}
+            self.store.save()
+            if record["status"] in ASSEMBLABLE:
+                return True
+            if record["status"] == "needs_review":
+                self.state["status"] = evidence_stop_status(record.get('evidence_outcome'))
+                return False
+        # Full-mode callers and resumes share committed author attempts too.
+        # Static collection reserves its own cumulative attempts before entering.
+        consumed=sum(s["kind"]=="asset" and s.get("job")==key for s in self.state["stages"])
+        attempts=range(1) if draft else range(consumed,self.generation.max_iterations)
+        for attempt in attempts:
+            from asset_generation.authoring import capabilities
+            context = {"authoring_capabilities":capabilities(self.generation,self.store.state.get("joint_backend",self.store.state["identity"].get("backend"))),"input":public_bundle(bundle),"job":job,"dependencies":self.dependency_context(job),
+                       "environment":self.env,"profile":profile,"current_model_py":previous,"feedback":feedback,
+                       "table_edit_policy":table_policy(self.env),"table_modifications":self.state["plan"].get("table_modifications", []),
+                       "edge_mount_policy":EDGE_MOUNT_POLICY,"edge_mounts":self.state['plan'].get('edge_mounts',[]),
+                       "fixed_contract":self.contract["jobs"].get(key,{}),
+                       "instance_contract":self.instance_contract(job),
+                       "scene_layout":self.layout_context(),
+                       "repair_directive":self.state.get("repair_directive"),
+                       "repair_tasks":self.state.get("repair_tasks",{}).get(key,[]),
+                       "rejected_attempts":self.failure_history(key),
+                       "task_recovery":self.state.get("task_recovery",{}).get(key),
+                       "reference_policy":reference_policy,"scene_round":len(self.state["rounds"]),"attempt":attempt}
+            if context["task_recovery"]:
+                context["rejected_attempts"]=context["rejected_attempts"][-1:]
+            instruction = AUTHOR+REQUIREMENTS_POLICY
+            instruction += "\n遵守instance_contract：只生成一个可复制单元，场景实例数由框架负责。repair_directive是本轮修复决策，必须结合具体失败证据落实；依赖变化时验证实际新接口，不能只修改声明。scene_layout是实际装配布局，必须按其中坐标变换设计夹具与目标的配合，不能在局部模型中直接使用世界坐标。"
+            instruction += ("\nrejected_attempts列出本任务此前被拒绝的设计及原因，occurrences表示同一拒绝重复次数。"
+                            "修复当前错误时不能重新引入已被拒绝的另一表示；若两种表示分别触发不同约束，"
+                            "说明该部件需要的表达方式尚未声明正确，应按检查器给出的合法类别与约束类型重新声明，"
+                            "而不是在两种已知被拒方案之间切换。")
+            if self.limits.validation_mode == "static":
+                instruction += "\n当前仅验收静态场景外观和几何。仍按资料建立运动关节、按钮、连接及接口；本轮跳过操作验证并不允许把可动仪器简化为不可动外壳。"
+            if job["role"] != "asset":
+                instruction += "\n本次只生成job.role指定的操作装置，不重复生成所服务仪器。asset_ids表示服务范围。依据实际dependencies接口完成配合设计。"
+                from .layout import author_layout_policy
+                instruction += "\n" + author_layout_policy(self.env)
+            if job["role"] == "tool":
+                from .tool_contract import TOOL_POLICY
+                instruction += "\n" + TOOL_POLICY
+            destination = self.begin("asset")
+            report = {}
+            record = {"job":key,"source":previous_source,"status":"failed","reference_policy":reference_policy,"preview_paths":[]}
+            try:
+                value, call = self.model.ask(instruction,context,bundle["images"]+previews,"asset:"+key)
+                source = author_result(value,previous,self.generation.max_script_bytes)
+                self.before_candidate(key,str(destination.relative_to(self.root)))
+                script = destination/"model.py"
+                script.write_text(source,encoding="utf-8")
+                previous = source
+                previous_source = str(script.relative_to(self.root))
+                record.update(source=previous_source,call=call)
+                if draft and hasattr(self.sandbox,"build_candidate"):
+                    admission_profile={**profile,"assembly_role":job["role"],"assembly_configurations":job.get("configurations",["default"])}
+                    report,renders=self.sandbox.build_candidate(script,destination,job["asset_ids"],admission_profile)
+                else:
+                    report, renders = self.sandbox.build_and_check(script,destination,job["asset_ids"],profile)
+                from asset_generation.configurations import catalogue
+                from asset_generation.check_report import report_status
+                if report.get("manifest") is not None:
+                    actual = set(catalogue(destination/"artifact"))
+                    expected = set(job.get("configurations",["default"]))
+                    if actual != expected:
+                        report["checks"].append({"id":"planned_configurations","status":"fail",
+                            "detail":"Delivered configurations must exactly match plan", "expected":sorted(expected),"actual":sorted(actual)})
+                        report["status"]=report_status(report["checks"])
+                report = checked_report(report,domain='asset',mode=profile.get('validation_mode','full'),require_renders=True)
+                if not draft and any(incomplete(r) for r in report.get("checks",[])) and report["status"]!="error":
+                    from asset_generation.check_recovery import recover_checks
+                    report=recover_checks(self.sandbox,destination/"artifact",report,self.root/"asset_check_recovery",
+                        implementation=self.implementation_guard.expected,contract=profile,check_pause=self.check_pause,
+                        max_actions=self.limits.max_check_actions,max_retries=self.limits.max_check_retries)
+                report,previews = checked_previews(report,renders,
+                    lambda directory,name:image_record(safe_path(directory,name),self.root,self.generation))
+                atomic_json(destination/"checks.json",report)
+                feedback = {"numerical":report}
+                record["preview_paths"] = [im["path"] for im in previews]
+                record.update(manifest=report.get("manifest"), geometry_summary=report.get("geometry_summary",{}),
+                              coverage=report.get("coverage",[]), feedback={"numerical":report},
+                              artifact=str((destination/"artifact").relative_to(self.root)),
+                              artifact_stage=str(destination.relative_to(self.root)))
+                if not draft and report["status"] == "pass" and previews:
+                    save_review_checkpoint(self, "asset", record)
+                    feedback = self.review_asset(job,bundle,references,previews,report,destination,record)
+                elif report["status"] == "error":
+                    record["status"] = "needs_environment"
+                elif report["status"] == "partial":
+                    record["status"] = "needs_check_support"
+                record["manifest"] = report.get("manifest")
+                record["geometry_summary"] = report.get("geometry_summary",{})
+                record["coverage"] = report.get("coverage",[])
+            except ContextLimitError as exc:
+                feedback = {**(feedback or {}),"task_deferred":str(exc)}
+                record["task_deferred"] = str(exc)
+            except ValidationError as exc:
+                feedback = {"generation_error":str(exc)}
+            if draft:
+                record["assembly_readiness"] = report.get("assembly_readiness",{"loadable":False})
+                record["status"] = "unassessed" if record["assembly_readiness"].get("loadable") else record["status"]
+            record["feedback"] = feedback
+            stage = self.commit("asset",record)
+            self.state["jobs"][key] = {**record,"stage":stage["directory"],
+                "artifact_stage":stage["directory"],"artifact":stage["directory"]+"/artifact",
+                "dirty":record["status"] not in ASSEMBLABLE}
+            self.store.save()
+            if draft:
+                from .candidate import usable
+                ready = usable(self,self.state["jobs"][key])
+                self.state["jobs"][key]["dirty"] = not ready
+                self.store.save()
+                return ready
+            if record.get("task_deferred"):
+                self.state["status"] = "needs_review"
+                return False
+            if record["status"] in ASSEMBLABLE:
+                return True
+            if record["status"] in {"needs_review","needs_environment","needs_check_support"}:
+                self.state["status"] = evidence_stop_status(record.get('evidence_outcome')) if record['status']=='needs_review' else record['status']
+                return False
+        self.state["status"] = "asset_repair_budget_exhausted"
+        return False
+
+    def recover_checks(self, report, artifact, destination):
+        return recover(self,report,artifact,destination)
+
+    def check_progress(self, report, artifact, event):
+        from copy import deepcopy
+        published = self.state.get('published_scene')
+        if published and safe_path(self.root,published['artifact']) == Path(artifact):
+            self.state['current_assessment'] = {'assembly_key':published['assembly_key'],
+                'artifact_sha256':published['artifact_sha256'],'report':deepcopy(report)}
+        self.progress('scene_evidence', event)
+
+    def build_scene(self):
+        destination = self.begin("scene")
+        self.state.pop('active_check_recovery',None)
+        self.state.setdefault('evidence_outcomes',{}).pop('scene_review',None)
+        resumed = self.state.get("scene_review_resume")
+        versions = {key:job["stage"] for key,job in self.state["jobs"].items()}
+        latest = self.state.get('latest',{})
+        if (not resumed and latest.get('plan')==self.state['plan'] and latest.get('job_versions')==versions
+                and 'preview_paths' in latest):
+            resumed = latest
+        if resumed:
+            require(resumed["plan"] == self.state["plan"] and resumed["job_versions"] == versions,
+                    "已构建场景的计划或资产版本变化，不能只恢复审查")
+            report = checked_report(resumed["report"],domain='scene',mode=self.limits.validation_mode)
+            images = [image_record(safe_path(self.root,p),self.root,self.generation) for p in resumed["preview_paths"]]
+            artifact = safe_path(self.root,resumed["artifact"])
+        else:
+            artifacts = {k:safe_path(self.root,v["artifact"]) for k,v in self.state["jobs"].items()}
+            print(f'开始第 {len(self.state["rounds"])+1} 轮场景装配、检查与渲染。',flush=True)
+            report, renders = self.sandbox.assemble_and_check(self.state["plan"],self.env,artifacts,self.robot_root,
+                                                           destination,self.limits,self.contract)
+            report = checked_report(report,domain='scene',mode=self.limits.validation_mode,require_renders=True)
+            report,images = checked_previews(report,renders,
+                lambda directory,name:image_record(safe_path(directory,name),self.root,self.generation))
+            artifact = destination/"scene"/"artifact"
+        if artifact.is_dir() and (check_gaps(report) or report.get('status') in {'fail','error','partial'}):
+            save_review_checkpoint(self,'scene_check',{'report':report,'plan':self.state['plan'],
+                'job_versions':versions,'artifact':str(artifact.relative_to(self.root)),
+                'preview_paths':[im['path'] for im in images]})
+            report = self.recover_checks(report,artifact,destination)
+        if report['status']=='pass' and not images:
+            report,images = checked_previews(report,None,lambda *_:None)
+        atomic_json(destination/"checks.json",report)
+        review = None
+        if report["status"] != "error" and images:
+            save_review_checkpoint(self, "scene", {"report":report,"plan":self.state["plan"],
+                "job_versions":versions,"artifact":str(artifact.relative_to(self.root)),
+                "preview_paths":[im["path"] for im in images]})
+            deferred = self.deferred_checks()
+            originals = list({im["sha256"]:im for bundle in self.catalogue["bundles"].values() for im in bundle["images"]}.values())
+            self.check_pause()
+            review, call = review_with_evidence(self,SCENE_REVIEW+REQUIREMENTS_POLICY+SCENE_SCOPE,{"source":self.catalogue["source"],"plan":self.state["plan"],
+                                        "protocol":self.catalogue.get("protocol"),"checks":report,
+                                        "fixed_contract":self.contract,
+                                        "review_scope":{"stage":"scene","validation_mode":self.limits.validation_mode},
+                                        "layout_review_targets":review_targets(self.state["plan"]),
+                                        "deferred_checks":deferred,
+                                        "evidence":{"original_reference_images":[im["path"] for im in originals],
+                                                    "assembled_scene_images":[im["path"] for im in images]}},
+                                        originals+images,"scene_review",destination,
+                                        validator=lambda value: scoped_review(value,"scene",deferred,preview=self.limits.validation_mode == "static",
+                                            instance_ids={i["id"] for i in self.state["plan"]["instances"]},
+                                            layout_targets=review_targets(self.state["plan"])),
+                                        artifact=artifact,scope="scene")
+            atomic_json(destination/"review.json",{"review":review,"call":call})
+        record = {"report":report,"review":review,"plan":self.state["plan"],"artifact":str(artifact.relative_to(self.root)),
+                  "assessed":True,"assessment_scope":"full_quality",
+                  "assessment_implementation":self.implementation_guard.expected,
+                  "preview_paths":[im['path'] for im in images],
+                  "evidence_outcome":self.state.get('evidence_outcomes',{}).get('scene_review'),
+                  "job_versions":{key:job["stage"] for key,job in self.state["jobs"].items()}}
+        stage = self.commit("scene",record)
+        return report, review
+
+    def repair_input_key(self):
+        return digest({'plan':semantic(self.state['plan']),
+                       'sources':{k:file_hash(safe_path(self.root,v['source'])) if v.get('source') else None for k,v in self.state['jobs'].items()},
+                       'artifacts':{k:snapshot(safe_path(self.root,v['artifact'])) for k,v in self.state['jobs'].items()}})
+
+    def finish_repair(self, report, review):
+        for entry in self.state.get('repair_history',[]):
+            if entry.get('status') == 'applied':
+                output_key = self.repair_input_key()
+                remaining = problem_identity(report,review)
+                from .progress import repair_comparison
+                baseline=entry.get("baseline")
+                old=next((r for r in self.state["stages"] if r["directory"]==baseline.get("scene")),None) if baseline else None
+                comparison=repair_comparison(old["report"],report,old.get("review"),review,
+                    old_plan=old.get("requested_plan",old.get("plan")),new_plan=self.state["plan"]) if old else None
+                entry.update(status='evaluated',output_key=output_key,remaining_problem=remaining,
+                             outcome=comparison["outcome"] if comparison else 'ineffective' if remaining==entry['problem_key'] else 'changed',
+                             comparison=comparison,scene=self.state['latest']['directory'],
+                             calls_consumed=len(self.store.state['calls'])-entry.get('call_start',len(self.store.state['calls'])))
+
+    def select_repair_candidate(self):
+        """Restore archived references only; never rewind calls, stages or attempt budgets."""
+        from copy import deepcopy
+        entry=next((r for r in reversed(self.state.get("repair_history",[]))
+                    if r.get("status")=="evaluated" and r.get("baseline") and "selection" not in r),None)
+        if entry is None:return False
+        if not entry.get("comparison") or entry["comparison"]["adopt"]:
+            entry["selection"]="adopted";self.store.save();return False
+        stages={r["directory"]:r for r in self.state["stages"]}
+        baseline=entry["baseline"]
+        old=stages[baseline["scene"]]
+        for directory in {baseline["scene"],*baseline["jobs"].values()}:
+            if snapshot(safe_path(self.root,directory))!=stages[directory]["files"]:
+                raise StaleEvidence("修复基线归档变化，禁止恢复旧证据")
+        jobs={}
+        for key,directory in baseline["jobs"].items():
+            stage=stages[directory]
+            jobs[key]={k:deepcopy(v) for k,v in stage.items() if k not in {"directory","kind","files"}}
+            jobs[key].update(stage=directory,dirty=False)
+            jobs[key].setdefault("artifact",directory+"/artifact")
+            jobs[key].setdefault("artifact_stage",directory)
+        restored={k:deepcopy(v) for k,v in old.items() if k not in {"kind","files"}}
+        self.state.update(plan=deepcopy(old.get("requested_plan",old["plan"])),jobs=jobs,latest=restored,feedback=deepcopy(old["report"]),
+                          published_scene=deepcopy(restored),repair_pending=True)
+        _,self.state["order"]=validate_plan(self.state["plan"],self.catalogue["asset_ids"],self.limits,self.env)
+        for key in ("current_assessment","repair_directive","repair_tasks","scene_review_resume"):
+            self.state.pop(key,None)
+        entry["selection"]="baseline_preserved"
+        self.store.save()
+        return True
+
+    def deferred_checks(self):
+        return [item for job in self.state["jobs"].values() for item in job.get("deferred_checks",[])]
+
+    def route_repair(self):
+        self.check_pause()
+        # Failed assembly never reaches an assessed scene round. Its applied
+        # repair still consumes the cumulative allocation, including on resume.
+        if len(self.state.get("repair_history", [])) >= self.limits.max_iterations:
+            self.state.update(status="scene_repair_budget_exhausted", stop_reason={
+                "reason":"场景累计修复动作预算耗尽，保留已发布场景和失败候选",
+                "attempts":len(self.state["repair_history"]), "limit":self.limits.max_iterations})
+            self.store.save()
+            return False
+        self.state['status']='repairing_scene'
+        self.progress('scene_repair', 'repair_planning_started')
+        report = self.state["feedback"]
+        from .recovery import repairable_rows
+        from .progress import repair_tasks
+        editable=repairable_rows(report)
+        affected = {i for row in editable for i in row.get("instances",[])}
+        review = self.state.get("latest",{}).get("review")
+        if review and review["verdict"] == "repair" and not any(f["status"]=="open" for f in report.get("recovery_failures",[])):
+            affected.update(review.get("affected_instances",[]))
+        items = {i["id"]:i for i in self.state["plan"]["instances"]}
+        affected &= {i for i in items if self.state["jobs"].get(items[i]["job"],{}).get("source")
+            and (self.limits.validation_mode!="static" or self.state["jobs"][items[i]["job"]].get("assembly_readiness",{}).get("loadable"))}
+        visual_layout = (review or {}).get("affected_layout") if not any(
+            r.get("status")=="error" for r in report.get("checks",[])) else []
+        layout_only = "layout" in self.state["plan"] and not affected and (bool(visual_layout) or any(
+            set(row.get("instances",[])) & {"robot","environment"} or row["id"].startswith("table_")
+            for row in editable))
+        if not affected and not layout_only:
+            self.state["status"] = "needs_review"
+            self.state["repair_error"] = "失败报告未定位到可编辑实例；保留证据，不盲目扩大工作区"
+            return False
+        blocked_instances={i for row in report.get("checks",[]) if row.get("status")=="error" for i in row.get("instances",[])}
+        blocked_jobs={items[i]["job"] for i in blocked_instances if i in items}
+        affected={i for i in affected if items[i]["job"] not in blocked_jobs}
+        jobs = sorted({items[i]["job"] for i in affected})
+        if not affected and not layout_only:
+            self.state.update(status="needs_review",repair_error="已确认问题与故障对象共享资产，不能在缺乏可靠证据时修改")
+            return False
+        tasks=repair_tasks(report,review,self.state["plan"],self.repair_input_key())
+        from .repair_schedule import schedule, action_tasks
+        tasks=schedule(self,tasks)
+        if not tasks:
+            self.state.update(status="repair_tasks_deferred",repair_pending=False,
+                stop_reason={"reason":"no_runnable_repairs","detail":"保留失败与未知项；当前问题均已暂挂"})
+            self.store.save()
+            return False
+        eligible={i for t in tasks for i in t['instances']}
+        affected &= eligible
+        jobs=list(dict.fromkeys(items[i]['job'] for t in tasks for i in t['instances'] if i in affected))
+        input_key=self.repair_input_key()
+        from .capabilities import problem_identity
+        problem_key=problem_identity(report,review)
+        from .progress import repair_history_context
+        history_view=repair_history_context(self.state.get("repair_history",[]),problem_key,input_key,
+            target_checks=[t.get('check_id',t['id']) for t in tasks])
+        latest = self.state.get("latest", {})
+        for task in tasks:
+            task["evidence_record"]=latest.get("directory","")+"/record.json"
+        cycle = latest.get("directory", str(len(self.state["rounds"])))
+        planning = self.state.setdefault("repair_planning", {"cycle":cycle,"attempts":[]})
+        if planning["cycle"] != cycle:
+            planning = self.state["repair_planning"] = {"cycle":cycle,"attempts":[]}
+        planning.setdefault("call_start",len(self.store.state["calls"]))
+        # Try the joint problem, then smaller independent job scopes. Same state on
+        # resume consumes the saved attempts instead of restarting a failed loop.
+        # Limit the initial design packet to the same asset count the action can
+        # actually modify. Remaining assets retain their own repair opportunities.
+        initial_jobs=set(jobs[:self.limits.max_repairs_per_round])
+        scopes=[sorted(i for i in affected if items[i]["job"] in initial_jobs)]+[sorted(i for i in affected if items[i]["job"]==j) for j in jobs]
+        solved=False
+        for scope_index,allowed in enumerate(scopes):
+            scoped_jobs=sorted({items[i]["job"] for i in allowed})
+            scoped_tasks=[t for t in tasks if set(t["instances"]) & set(allowed) or layout_only]
+            scope_key=digest({'jobs':scoped_jobs,'tasks':[(t['id'],t['binding']) for t in scoped_tasks]})
+            if "layout" in self.state["plan"]:
+                # Layout edits can move a whole support tree, but this never expands geometry-edit rights.
+                allowed=sorted(i for i in items if items[i]["placement"]!="robot" and items[i]["job"] not in blocked_jobs)
+            attempts=[a for a in planning["attempts"] if a.get('scope_key')==scope_key]
+            if any(a.get("scope_deferred") for a in attempts):continue
+            current_assets,images={},[]
+            for key in scoped_jobs:
+                asset=self.state["jobs"][key]
+                current_assets[key]={"model_py":safe_path(self.root,asset["source"]).read_text(encoding="utf-8"),
+                    "manifest":asset.get("manifest"),"geometry":asset.get("geometry_summary"),"version":asset["stage"]}
+                for image_path in asset.get("preview_paths",[])[:1]:
+                    images.append(image_record(safe_path(self.root,image_path),self.root,self.generation))
+            for image_path in latest.get("preview_paths",[])[:3]:
+                images.append(image_record(safe_path(self.root,image_path),self.root,self.generation))
+            images=list({im["sha256"]:im for im in images}.values())
+            for attempt in range(len(attempts),self.limits.max_repair_plan_attempts):
+                self.check_pause()
+                from .diagnostics import triage
+                context={"plan":self.state["plan"],"feedback":report,"visual":review,
+                    "benchmark_environment":(self.catalogue.get('benchmark_public') or {}).get('summary'),
+                    "evidence_triage":triage(report),
+                    "allowed_jobs":scoped_jobs,"allowed_instances":allowed,"max_repairs":self.limits.max_repairs_per_round,
+                    "environment":self.env,"robot_joint_contract":self.robot_joints,"contract":self.contract,"table_edit_policy":table_policy(self.env),
+                    "edge_mount_policy":EDGE_MOUNT_POLICY,"current_assets":current_assets,
+                    "repair_tasks":scoped_tasks,"validation_feedback":planning["attempts"],
+                    **history_view,
+                    "cycle":cycle,"attempt":attempt,"scope_index":scope_index,
+                    "strategy":"联合处理" if scope_index==0 else "缩小到当前资产；优先解决一个有证据的问题，其他问题保留",
+                    "recovery_history":self.state.get("repair_history",[])[-8:]}
+                value,call=None,None
+                try:
+                    value,call=self.model.ask(for_environment(REPAIR,self.env),context,images,"scene_repair")
+                    if isinstance(value,dict) and set(value)=={"blocked"}:
+                        blocked=value["blocked"]
+                        require(isinstance(blocked,dict) and set(blocked)=={"kind","detail"}
+                            and blocked["kind"] in ("missing_evidence","unsupported_repair","contract_conflict")
+                            and isinstance(blocked["detail"],str) and blocked["detail"].strip(),"修复阻塞须明确kind及detail")
+                        raise ValidationError("该方案暂不可用；核对局部摆放、已有接口或资产局部重设计，优先处理本范围内可推进的部分："+str(blocked))
+                    updated=repair_action(value,self.state["plan"],scoped_jobs,allowed,self.limits,self.env)
+                    self.validate_prepared_plan(updated)
+                    chosen_tasks=action_tasks(scoped_tasks,value,self.state['plan'],updated)
+                    require(bool(chosen_tasks),'修改必须涉及当前授权的目标问题')
+                    require(all(not t['scheduling']['change_mechanism'] or repair_mechanism(value)
+                        not in t['scheduling']['failed_mechanisms'] for t in chosen_tasks),
+                        '连续两次未改善；须改变修复机制或先取得能区分原因的新证据')
+                    validate_model_posture(updated,self.robot_joints)
+                    input_key=self.repair_input_key();problem_key=problem_identity(report,review);action_key=repair_signature(value)
+                    repeated=repeated_repair(self.state.get("repair_history",[]),input_key,problem_key,action_key,
+                        mechanism=repair_mechanism(value))
+                    require(not repeated,
+                        "相同输入下已执行过该修复且未解决问题；使用历史比较选择不同动作")
+                    planning["attempts"].append({"response":value,"call":call,"scope":scope_index,"scope_key":scope_key,"status":"accepted"})
+                    tasks=chosen_tasks;solved=True
+                    break
+                except (ValidationError,ContextLimitError) as exc:
+                    planning["attempts"].append({"response":value,"call":call,"scope":scope_index,"scope_key":scope_key,"error":str(exc)})
+                    self.state["repair_error"]=str(exc);self.store.save()
+                    # Repeated blockers or an oversized joint request yield to a smaller scope.
+                    if isinstance(exc,ContextLimitError) or (isinstance(value,dict) and "blocked" in value and
+                        any(a.get("response")==value for a in attempts)):
+                        planning["attempts"][-1]["scope_deferred"]=True
+                        self.store.save();break
+                    attempts.append(planning["attempts"][-1])
+            if solved:break
+        if not solved:
+            self.state.update(status="needs_review",stop_reason={"reason":"repair_tasks_deferred",
+                "detail":"联合方案及可编辑资产的局部方案均暂不可执行；保留最好场景和逐项反馈",
+                "attempts":len(planning["attempts"])})
+            self.store.save()
+            return False
+        self.state.pop("repair_error", None)
+        self.before_repair(value)
+        _, self.state["order"] = validate_plan(updated,self.catalogue["asset_ids"],self.limits,self.env)
+        dirty = set(value["jobs"])
+        for key in self.state["order"]:
+            job = next(j for j in updated["jobs"] if j["id"] == key)
+            if dirty.intersection(job["depends_on"]):
+                dirty.add(key)
+        old_items = {i['id']:i for i in self.state['plan']['instances']}
+        moved_jobs = {i['job'] for i in updated['instances'] if i != old_items.get(i['id'])}
+        if "layout" in updated and layout_revision(updated) != layout_revision(self.state["plan"]):
+            moved_jobs |= {j["id"] for j in updated["jobs"] if j["role"]!="asset"}
+        revalidate = set()
+        for key in self.state['order']:
+            job = next(j for j in updated['jobs'] if j['id']==key)
+            if job['role'] != 'asset' and (key in moved_jobs or (moved_jobs|revalidate).intersection(job['depends_on'])):
+                revalidate.add(key)
+        destination = self.begin("repair")
+        atomic_json(destination/"action.json",value)
+        self.state.setdefault('repair_history',[]).append({'input_key':input_key,'action':value,'cycle':cycle,
+            'problem_key':problem_key,'action_key':action_key,'mechanism':repair_mechanism(value),
+            'status':'applied',
+            'baseline':{'scene':latest['directory'],'jobs':{k:v['stage'] for k,v in self.state['jobs'].items()}}
+                if self.limits.validation_mode=='static' and latest.get('assessed') else None,
+            'target_checks':[t.get('check_id',t['id']) for t in tasks],
+            'task_bindings':{t.get('check_id',t['id']):t['binding'] for t in tasks},
+            'call_start':planning.setdefault('call_start',max(0,len(self.store.state['calls'])-1))})
+        self.state["plan"] = updated
+        self.state["repair_directive"] = value
+        self.state["repair_tasks"]={key:[t for t in tasks if any(items[i]["job"]==key for i in t["instances"] if i in items)] for key in value["jobs"]}
+        for addition in value.get("tool_additions",[]):
+            self.state["repair_tasks"][addition["job"]["id"]]=tasks
+        # 依赖传播触发复核；只授权直接 jobs 的几何编辑。
+        for key in set(value['jobs']):
+            if key in self.state["jobs"]:
+                self.state["jobs"][key]["dirty"] = True
+                self.state["jobs"][key]["regenerate"] = True
+        revalidate |= dirty-set(value['jobs'])
+        dirty = set(value['jobs'])
+        pending_generation = (revalidate | dirty) - set(self.state['jobs'])
+        revalidate &= set(self.state['jobs'])
+        for key in revalidate-dirty:
+            self.state['jobs'][key].update(dirty=True,status='review_pending',layout_revalidation={
+                'reason':'依赖或本装置的实际实例姿态改变；核对现有几何能否继续配合，必要时请求局部重设计',
+                'previous_layout':self.state['jobs'][key].get('layout_revision'),
+                'current_layout':layout_revision(updated)})
+        self.commit("repair",{"call":call,"dirty_jobs":sorted(dirty),"layout_revalidation_jobs":sorted(revalidate-dirty),"pending_generation_jobs":sorted(pending_generation),"plan":updated})
+        self.state.pop('repair_planning',None)
+        self.state["repair_pending"] = False
+        self.store.save()
+        return True
+
+    def result(self):
+        latest = self.state.get("published_scene") if self.limits.validation_mode == "static" else self.state.get("latest")
+        # In static mode only a successfully admitted publication is an artifact.
+        # `latest` can describe an assembly failure with a half-written directory.
+        current=self.state.get("current_assessment",{})
+        if latest and current and current.get("assembly_key")==latest.get("assembly_key") and current.get("artifact_sha256")==latest.get("artifact_sha256") and not latest.get("assessed"):
+            latest={**latest,"report":current["report"]}
+        artifact = safe_path(self.root,latest.get("artifact",latest["directory"]+"/scene/artifact")) if latest else None
+        scene_hash = digest(snapshot(artifact)) if artifact and artifact.is_dir() else None
+        if latest and latest.get("artifact_sha256") and scene_hash!=latest["artifact_sha256"]:
+            raise StaleEvidence("已发布场景摘要变化，禁止重新绑定旧证据")
+        gaps = list((latest or {}).get("report",{}).get("coverage",[]))
+        gaps.extend((self.catalogue.get("protocol") or {}).get("warnings",[]))
+        for job in self.state["jobs"].values():
+            gaps.extend(job.get("coverage",[]))
+            gaps.extend(job.get("feedback",{}).get("visual",{}).get("unverified",[]))
+        for row in check_gaps((latest or {}).get('report',{})):
+            gaps.append('主检查未完成：'+row['id'])
+        if latest and latest.get("review"):
+            gaps.extend(latest["review"]["unverified"])
+        current_evidence = (latest and latest["plan"] == self.state["plan"]
+                            and latest.get("job_versions") == {k:v["stage"] for k,v in self.state["jobs"].items()}
+                            and not any(v.get("dirty") for v in self.state["jobs"].values()))
+        resolutions = {r["id"]:r for r in latest["review"].get("deferred_results",[])} if current_evidence and latest.get("review") else {}
+        deferred = []
+        for item in self.deferred_checks():
+            resolution = resolutions.get(item["id"],{})
+            row = {**item,"status":resolution.get("status","pending"),"evidence":resolution.get("evidence")}
+            if row["status"] == "out_of_scope":
+                row.update(status="pending",stage=resolution["target_stage"],deferred_from=item["stage"])
+            deferred.append(row)
+            if row["status"] != "resolved":
+                gaps.append(f"待{row['stage']}阶段验证：{item['detail']}")
+        static = self.limits.validation_mode == "static"
+        if static:
+            gaps.append("静态预览未执行动力学、按钮/锁扣操作、关节开合空间及机器人可达性验证")
+        status = "static_candidate_ready" if static and self.state["status"] == "candidate_ready" else self.state["status"]
+        preview_only = static and any(row.get("deferred_from") for row in deferred)
+        if preview_only and status == "static_candidate_ready":
+            status = "static_preview_ready"
+        result = {"activity":self.state.get("activity"),"status":status,"provenance":self.store.state["identity"]["provenance"],
+                  "validation_mode":self.limits.validation_mode,
+                  "budget":self.store.totals(),"scene_rounds":len(self.state["rounds"]),
+                  "repair_rounds":len(self.state.get("repair_history", [])),
+                  "requests":request_summary(self.store.state["calls"]),
+                  "scene_artifact":str(artifact.relative_to(self.root)) if artifact and artifact.is_dir() else None,
+                  "scene_sha256":scene_hash,"unverified":list(dict.fromkeys(gaps)),
+                  "qualification":"静态场景预览候选；未认证操作能力" if static else "场景工程候选；不代表完整轨迹或生化实验完成",
+                  "deferred_checks":deferred,
+                  "blocking_reasons":[reason for job in self.state["jobs"].values()
+                                      for reason in job.get("feedback",{}).get("visual",{}).get("blocking",[])],
+                  "repair_error":self.state.get("repair_error"),"jobs":{k:v["status"] for k,v in self.state["jobs"].items()}}
+        rows=(latest or {}).get("report",{}).get("checks",[])
+        result["quality_progress"]={"scene_version":(latest or {}).get("directory"),"evidence_current":bool(current_evidence),
+            "assessment_scope":(latest or {}).get('assessment_scope'),
+            "confirmed_failed_checks":sum(r.get("status")=="fail" for r in rows),
+            "incomplete_checks":sum(incomplete(r) for r in rows),
+            "execution_error_checks":sum(r.get("status")=="error" for r in rows),
+            "review_pending":not bool(current_evidence and latest.get("review") and latest["review"].get("verdict")!="uncertain")}
+        if preview_only:
+            result["qualification"] = "当前静态布局预览；尚未完成所列规程初始状态、其他装配配合姿态及操作验证"
+        result["verification_scope"] = "initial_static_layout" if static else "scene_engineering"
+        if self.state.get("request_failure"):
+            result["request_failure"] = self.state["request_failure"]
+        if self.state.get("local_failure"):
+            result["local_failure"] = self.state["local_failure"]
+        if self.state.get("assembly_failure"):
+            result["assembly_failure"] = self.state["assembly_failure"]
+        result['evidence_outcomes']=self.state.get('evidence_outcomes',{})
+        if self.limits.validation_mode == "static":
+            missing=(latest or {}).get("missing_jobs",[j["id"] for j in self.state.get("plan",{}).get("jobs",[])])
+            result["assembly"]={"available":bool(artifact and artifact.is_dir()),
+                "complete":bool(latest and not latest.get("missing_jobs")),
+                "missing_jobs":missing,
+                "ready_unassembled_jobs":{key:self.state["jobs"][key]["artifact"] for key in missing
+                    if self.state["jobs"].get(key,{}).get("assembly_readiness",{}).get("loadable")},
+                "quality_accepted":status == "static_candidate_ready",
+                "scene_version":(latest or {}).get("directory"),
+                "issues":((latest or {}).get("report") or self.state.get("assembly_failure",{})).get("checks",[]),
+                "attempts":self.state.get("candidate_attempts",{})}
+        result['check_recovery']=[{k:a[k] for k in a if k not in {'report','actions'}}
+                                  | {'evidence_source':'state.json:scene.check_recovery.'+key}
+                                  for key,a in self.state.get('check_recovery',{}).items()]
+        result['repair_progress']=[{k:v for k,v in h.items() if k in {'cycle','status','outcome','comparison','selection','scene','target_checks','calls_consumed'}}
+                                   for h in self.state.get('repair_history',[])]
+        result['repair_schedule']=self.state.get('repair_schedule',[])
+        result['phase_budget']=self.store.state.get('phase_budget')
+        from .handoff import quality_handoff
+        result['operation_handoff']=quality_handoff((latest or {}).get('report',{}),scene_hash,self.state.get('repair_schedule',[]))
+        result['stop_reason']=self.state.get('stop_reason')
+        if not result['stop_reason'] and status not in {'candidate_ready','static_candidate_ready','static_preview_ready'}:
+            result['stop_reason']={'status':status,'reason':self.state.get('repair_error') or
+                ('本阶段尝试预算耗尽；已保留产物和尝试记录' if 'exhausted' in status else
+                 '尚未满足验收；按检查、审查或暂停记录处理后恢复'),
+                'required_action':'查看check_failure、evidence_outcomes和各任务反馈；不要把未完成视为通过'}
+        if self.state.get('check_failure'):
+            result['check_failure']=self.state['check_failure']
+        checkpoint = self.state.get("pending",{}).get("review_checkpoint")
+        if checkpoint:
+            result["paused_stage"] = checkpoint["kind"] + "_review"
+            if checkpoint["kind"] == "asset":
+                result["jobs"][checkpoint["record"]["job"]] = "review_pending"
+        result["blocking_reasons"].extend((latest or {}).get("review",{}).get("blocking",[]) if (latest or {}).get("review") else [])
+        result["scene_document"]="scene_document.md"
+        from .document import write as write_scene_document
+        write_scene_document(self,result,latest)
+        atomic_json(self.root/"result.json",result)
+        from .preview import write_preview_index
+        write_preview_index(self.root, result)
+        if self.limits.validation_mode == "static":
+            from .scene_first import write_status_page
+            write_status_page(self,result)
+        if artifact and artifact.is_dir():
+            atomic_json(self.root/"planning_handoff.json",{"scene_sha256":scene_hash,"artifact":result["scene_artifact"],
+                "candidate_status":result["status"],"environment":self.env,"plan":latest["plan"],
+                "requirements":self.contract,"qualification":result["qualification"],"unverified":result["unverified"],
+                "validation_mode":self.limits.validation_mode,"deferred_checks":deferred,
+                "quality":result['operation_handoff']})
+        return result
+
+    def run(self, feedback=None):
+        require(feedback is None or self.limits.validation_mode != "static", "静态场景不接受操作规划反馈")
+        try:
+            if not (self.root/"scene_document.md").exists():
+                from .document import write
+                write(self, {"status":self.state["status"],
+                             "qualification":"正在准备场景；尚无质量验收结论。"}, None)
+            self.state.pop("request_failure", None)
+            self.state.pop("local_failure", None)
+            self.state.pop('check_failure',None)
+            self.state.pop('stop_reason',None)
+            self.initialize()
+            if feedback is not None and digest(feedback) not in self.state["feedback_receipts"]:
+                checked = planning_feedback(feedback,self.result()["scene_sha256"],self.state["plan"])
+                self.state.update(feedback=checked,repair_pending=True,status="running")
+                self.state["feedback_receipts"].append(digest(feedback))
+                self.store.save()
+            elif self.state["status"] == "candidate_ready":
+                return self.result()
+            if self.limits.validation_mode == "static":
+                from .scene_first import run_static
+                return run_static(self)
+            while len(self.state["rounds"]) < self.limits.max_iterations:
+                if self.state.get("repair_pending") and not self.route_repair():
+                    break
+                self.state["status"] = "running"
+                jobs = {j["id"]:j for j in self.state["plan"]["jobs"]}
+                for key in self.state["order"]:
+                    if key not in self.state["jobs"] or self.state["jobs"][key].get("dirty"):
+                        if not self.generate_job(jobs[key],self.state.get("feedback")):
+                            self.store.save()
+                            return self.result()
+                report, review = self.build_scene()
+                active = self.state.get('check_recovery',{}).get(self.state.get('active_check_recovery'),{})
+                if active.get('status')=='budget_exhausted':
+                    self.state['status']='check_recovery_budget_exhausted'
+                    self.state['stop_reason']={'reason':'检查恢复预算耗尽，保留场景和已执行动作',
+                                              'exhaustion':active['exhaustion']}
+                    break
+                action = decide(report,review)
+                self.state['last_decision'] = {'action':action,'scene':self.state['latest']['directory']}
+                if action in {'needs_check_support','needs_environment'}:
+                    self.state['status']=action
+                    self.state['check_failure']={'kind':report.get('error_kind','environment') if action=='needs_environment' else 'measurement_error',
+                        'checks':check_gaps(report) or [r for r in report.get('checks',[]) if r.get('status')=='error'],
+                        'failures':[f for f in report.get('recovery_failures',[]) if f['status']=='open']}
+                    self.state['stop_reason']={'reason':'主检查仍有未解决证据缺口，当前可用补查已执行或不可用；未将未知判为通过',
+                                              'required_action':'补充检查能力或处理报告中的工具故障',
+                                              'recovery_keys':list(self.state.get('check_recovery',{})),
+                                              'capability_search':[h.get('exhaustion') for h in self.state.get('check_recovery',{}).values()]}
+                    break
+                if review and review["verdict"] == "uncertain" and action != "repair":
+                    self.state["status"] = evidence_stop_status(self.state.get('evidence_outcomes',{}).get('scene_review'))
+                    break
+                if action == 'candidate_ready':
+                    self.state["status"] = "candidate_ready"
+                    break
+                if action == 'needs_review':
+                    self.state['status'] = 'needs_review'
+                    self.state['stop_reason'] = {'reason':'缺少可消费的审查结论；没有已确认的几何修复依据',
+                                                'required_action':'检查审查证据与审查预算'}
+                    break
+                self.state["repair_pending"] = True
+                self.store.save()
+            else:
+                self.state["status"] = "scene_repair_budget_exhausted"
+            self.store.save()
+            return self.result()
+        except (PrepError,KeyboardInterrupt,OSError) as original:
+            from asset_prep.phase_budget import PhaseBudgetExceeded
+            if isinstance(original,PhaseBudgetExceeded):
+                self.state.update(status='phase_budget_exhausted',stop_reason={'reason':'phase_budget',
+                    'detail':str(original),'next_phase':'operation'})
+                self.store.save()
+                return self.result()
+            self.state["status"] = "paused"
+            if isinstance(original, implementation.ImplementationDrift):
+                self.state['stop_reason'] = {'reason':'implementation_drift', 'detail':str(original)}
+            if isinstance(original, OSError):
+                self.state["local_failure"] = {"kind":"local_io", "error_type":type(original).__name__,
+                    "errno":original.errno,"winerror":getattr(original,"winerror",None),
+                    "path":str(original.filename) if original.filename else None}
+            if isinstance(original, (ProviderError, UncertainRequest)):
+                calls = self.store.state["calls"]
+                last = calls[-1] if calls else {}
+                self.state["request_failure"] = {
+                    "kind": "provider_request", "call_index": last.get("index"),
+                    "phase": last.get("phase"), "diagnostics": last.get("diagnostics", {}),
+                    "provider_error": last.get("provider_error", {}),
+                    "outcome_unknown": last.get("status") == "pending"}
+            for name, operation in (("保存状态",self.store.save),("生成暂停报告",self.result)):
+                try:
+                    operation()
+                except Exception as secondary:
+                    original.add_note(name+"也发生异常："+type(secondary).__name__)
+            raise

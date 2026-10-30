@@ -1,0 +1,556 @@
+{
+  "schema_version": "1.0",
+  "asset_ids": [
+    "A14"
+  ],
+  "parts": [
+    {
+      "id": "pipette_0.1_2.5",
+      "body": "pipette_p025"
+    },
+    {
+      "id": "pipette_0.5_10",
+      "body": "pipette_p010"
+    },
+    {
+      "id": "pipette_2_20",
+      "body": "pipette_p020"
+    },
+    {
+      "id": "pipette_20_200",
+      "body": "pipette_p200"
+    },
+    {
+      "id": "pipette_100_1000",
+      "body": "pipette_p1000"
+    },
+    {
+      "id": "tip_box_96_position",
+      "body": "tip_box"
+    }
+  ],
+  "interfaces": [
+    {
+      "id": "p025_grasp",
+      "asset_id": "A14",
+      "kind": "grasp",
+      "body": "pipette_p025",
+      "site": "p025_grasp_site",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "p025_tip_attach",
+      "asset_id": "A14",
+      "kind": "insert",
+      "body": "pipette_p025",
+      "site": "p025_tip_interface",
+      "approach_axis": [
+        0,
+        0,
+        -1
+      ]
+    },
+    {
+      "id": "p025_knob_rotate",
+      "asset_id": "A14",
+      "kind": "rotate",
+      "body": "pipette_p025",
+      "site": "p025_grasp_site",
+      "operation": {
+        "status": "declared",
+        "axis": [
+          0,
+          0,
+          1
+        ],
+        "joint": "p025_knob_rotate",
+        "range": [
+          -3.14159,
+          3.14159
+        ],
+        "basis": {
+          "joint": {
+            "kind": "assumption",
+            "reference": "旋钮转动机构的建模自由度"
+          }
+        }
+      }
+    },
+    {
+      "id": "p025_release",
+      "asset_id": "A14",
+      "kind": "press",
+      "body": "pipette_p025",
+      "site": "p025_grasp_site",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "p025_eject",
+      "asset_id": "A14",
+      "kind": "press",
+      "body": "pipette_p025",
+      "site": "p025_grasp_site",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "p010_grasp",
+      "asset_id": "A14",
+      "kind": "grasp",
+      "body": "pipette_p010",
+      "site": "p010_grasp_site",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "p010_tip_attach",
+      "asset_id": "A14",
+      "kind": "insert",
+      "body": "pipette_p010",
+      "site": "p010_tip_interface",
+      "approach_axis": [
+        0,
+        0,
+        -1
+      ]
+    },
+    {
+      "id": "p010_knob_rotate",
+      "asset_id": "A14",
+      "kind": "rotate",
+      "body": "pipette_p010",
+      "site": "p010_grasp_site",
+      "operation": {
+        "status": "declared",
+        "axis": [
+          0,
+          0,
+          1
+        ],
+        "joint": "p010_knob_rotate",
+        "range": [
+          -3.14159,
+          3.14159
+        ],
+        "basis": {
+          "joint": {
+            "kind": "assumption",
+            "reference": "旋钮转动机构的建模自由度"
+          }
+        }
+      }
+    },
+    {
+      "id": "p010_release",
+      "asset_id": "A14",
+      "kind": "press",
+      "body": "pipette_p010",
+      "site": "p010_grasp_site",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "p010_eject",
+      "asset_id": "A14",
+      "kind": "press",
+      "body": "pipette_p010",
+      "site": "p010_grasp_site",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "p020_grasp",
+      "asset_id": "A14",
+      "kind": "grasp",
+      "body": "pipette_p020",
+      "site": "p020_grasp_site",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "p020_tip_attach",
+      "asset_id": "A14",
+      "kind": "insert",
+      "body": "pipette_p020",
+      "site": "p020_tip_interface",
+      "approach_axis": [
+        0,
+        0,
+        -1
+      ]
+    },
+    {
+      "id": "p020_knob_rotate",
+      "asset_id": "A14",
+      "kind": "rotate",
+      "body": "pipette_p020",
+      "site": "p020_grasp_site",
+      "operation": {
+        "status": "declared",
+        "axis": [
+          0,
+          0,
+          1
+        ],
+        "joint": "p020_knob_rotate",
+        "range": [
+          -3.14159,
+          3.14159
+        ],
+        "basis": {
+          "joint": {
+            "kind": "assumption",
+            "reference": "旋钮转动机构的建模自由度"
+          }
+        }
+      }
+    },
+    {
+      "id": "p020_release",
+      "asset_id": "A14",
+      "kind": "press",
+      "body": "pipette_p020",
+      "site": "p020_grasp_site",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "p020_eject",
+      "asset_id": "A14",
+      "kind": "press",
+      "body": "pipette_p020",
+      "site": "p020_grasp_site",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "p200_grasp",
+      "asset_id": "A14",
+      "kind": "grasp",
+      "body": "pipette_p200",
+      "site": "p200_grasp_site",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "p200_tip_attach",
+      "asset_id": "A14",
+      "kind": "insert",
+      "body": "pipette_p200",
+      "site": "p200_tip_interface",
+      "approach_axis": [
+        0,
+        0,
+        -1
+      ]
+    },
+    {
+      "id": "p200_knob_rotate",
+      "asset_id": "A14",
+      "kind": "rotate",
+      "body": "pipette_p200",
+      "site": "p200_grasp_site",
+      "operation": {
+        "status": "declared",
+        "axis": [
+          0,
+          0,
+          1
+        ],
+        "joint": "p200_knob_rotate",
+        "range": [
+          -3.14159,
+          3.14159
+        ],
+        "basis": {
+          "joint": {
+            "kind": "assumption",
+            "reference": "旋钮转动机构的建模自由度"
+          }
+        }
+      }
+    },
+    {
+      "id": "p200_release",
+      "asset_id": "A14",
+      "kind": "press",
+      "body": "pipette_p200",
+      "site": "p200_grasp_site",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "p200_eject",
+      "asset_id": "A14",
+      "kind": "press",
+      "body": "pipette_p200",
+      "site": "p200_grasp_site",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "p1000_grasp",
+      "asset_id": "A14",
+      "kind": "grasp",
+      "body": "pipette_p1000",
+      "site": "p1000_grasp_site",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "p1000_tip_attach",
+      "asset_id": "A14",
+      "kind": "insert",
+      "body": "pipette_p1000",
+      "site": "p1000_tip_interface",
+      "approach_axis": [
+        0,
+        0,
+        -1
+      ]
+    },
+    {
+      "id": "p1000_knob_rotate",
+      "asset_id": "A14",
+      "kind": "rotate",
+      "body": "pipette_p1000",
+      "site": "p1000_grasp_site",
+      "operation": {
+        "status": "declared",
+        "axis": [
+          0,
+          0,
+          1
+        ],
+        "joint": "p1000_knob_rotate",
+        "range": [
+          -3.14159,
+          3.14159
+        ],
+        "basis": {
+          "joint": {
+            "kind": "assumption",
+            "reference": "旋钮转动机构的建模自由度"
+          }
+        }
+      }
+    },
+    {
+      "id": "p1000_release",
+      "asset_id": "A14",
+      "kind": "press",
+      "body": "pipette_p1000",
+      "site": "p1000_grasp_site",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "p1000_eject",
+      "asset_id": "A14",
+      "kind": "press",
+      "body": "pipette_p1000",
+      "site": "p1000_grasp_site",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "tip_box_grasp",
+      "asset_id": "A14",
+      "kind": "grasp",
+      "body": "tip_box",
+      "site": "tip_box_grasp_site",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "tip_box_lid_open",
+      "asset_id": "A14",
+      "kind": "rotate",
+      "body": "tip_box_lid",
+      "site": "tip_box_lid_grasp_site",
+      "approach_axis": [
+        0,
+        -1,
+        0
+      ]
+    }
+  ],
+  "assumptions": [
+    "五支移液器按资料给定量程建模；外形、孔距、壁厚和内部弹簧尺寸为建模假设。",
+    "吸头盒按96孔、8行12列建模，孔距和开口形状为建模假设。",
+    "每支移液器初始带一支独立吸头；盒内另有96支未使用吸头，作为独立可拆对象。"
+  ],
+  "approximations": [
+    "旋钮、一级/二级按压和弹射用转动关节及两级滑动关节刚体近似。",
+    "吸头锥体采用圆柱加圆锥分段刚体近似，未模拟柔性薄壁。"
+  ],
+  "buttons": [
+    {
+      "id": "p025_first_stop",
+      "joint": "p025_stage1_slide",
+      "geom": "p025_stage1_button",
+      "pressed_at": 0.006,
+      "released_at": 0.0005,
+      "event": "p025_first_stop_event"
+    },
+    {
+      "id": "p025_second_stop",
+      "joint": "p025_stage2_slide",
+      "geom": "p025_stage2_button",
+      "pressed_at": 0.006,
+      "released_at": 0.0005,
+      "event": "p025_second_stop_event"
+    },
+    {
+      "id": "p010_first_stop",
+      "joint": "p010_stage1_slide",
+      "geom": "p010_stage1_button",
+      "pressed_at": 0.006,
+      "released_at": 0.0005,
+      "event": "p010_first_stop_event"
+    },
+    {
+      "id": "p010_second_stop",
+      "joint": "p010_stage2_slide",
+      "geom": "p010_stage2_button",
+      "pressed_at": 0.006,
+      "released_at": 0.0005,
+      "event": "p010_second_stop_event"
+    },
+    {
+      "id": "p020_first_stop",
+      "joint": "p020_stage1_slide",
+      "geom": "p020_stage1_button",
+      "pressed_at": 0.006,
+      "released_at": 0.0005,
+      "event": "p020_first_stop_event"
+    },
+    {
+      "id": "p020_second_stop",
+      "joint": "p020_stage2_slide",
+      "geom": "p020_stage2_button",
+      "pressed_at": 0.006,
+      "released_at": 0.0005,
+      "event": "p020_second_stop_event"
+    },
+    {
+      "id": "p200_first_stop",
+      "joint": "p200_stage1_slide",
+      "geom": "p200_stage1_button",
+      "pressed_at": 0.006,
+      "released_at": 0.0005,
+      "event": "p200_first_stop_event"
+    },
+    {
+      "id": "p200_second_stop",
+      "joint": "p200_stage2_slide",
+      "geom": "p200_stage2_button",
+      "pressed_at": 0.006,
+      "released_at": 0.0005,
+      "event": "p200_second_stop_event"
+    },
+    {
+      "id": "p1000_first_stop",
+      "joint": "p1000_stage1_slide",
+      "geom": "p1000_stage1_button",
+      "pressed_at": 0.006,
+      "released_at": 0.0005,
+      "event": "p1000_first_stop_event"
+    },
+    {
+      "id": "p1000_second_stop",
+      "joint": "p1000_stage2_slide",
+      "geom": "p1000_stage2_button",
+      "pressed_at": 0.006,
+      "released_at": 0.0005,
+      "event": "p1000_second_stop_event"
+    }
+  ],
+  "connections": [
+    {
+      "id": "p025_tip_connection",
+      "kind": "detachable",
+      "equality": "p025_tip_detachable_weld",
+      "release_event": "p025_eject",
+      "irreversible": false
+    },
+    {
+      "id": "p010_tip_connection",
+      "kind": "detachable",
+      "equality": "p010_tip_detachable_weld",
+      "release_event": "p010_eject",
+      "irreversible": false
+    },
+    {
+      "id": "p020_tip_connection",
+      "kind": "detachable",
+      "equality": "p020_tip_detachable_weld",
+      "release_event": "p020_eject",
+      "irreversible": false
+    },
+    {
+      "id": "p200_tip_connection",
+      "kind": "detachable",
+      "equality": "p200_tip_detachable_weld",
+      "release_event": "p200_eject",
+      "irreversible": false
+    },
+    {
+      "id": "p1000_tip_connection",
+      "kind": "detachable",
+      "equality": "p1000_tip_detachable_weld",
+      "release_event": "p1000_eject",
+      "irreversible": false
+    }
+  ]
+}

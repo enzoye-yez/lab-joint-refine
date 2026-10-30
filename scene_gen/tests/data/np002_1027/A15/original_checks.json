@@ -1,0 +1,1 @@
+{"checks": [{"detail": "操作行程须绑定关节", "id": "assembly_compile", "status": "fail"}], "coverage": ["Not loadable for assembly"], "manifest": null, "renders": [], "status": "fail"}

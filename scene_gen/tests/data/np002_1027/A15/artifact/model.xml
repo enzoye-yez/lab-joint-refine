@@ -1,0 +1,681 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mujoco model="A15_DynaMag_2">
+  <compiler angle="radian" autolimits="true" />
+  <option timestep="0.002" gravity="0 0 -9.81" integrator="implicitfast" />
+  <default>
+    <geom friction="0.45 0.006 0.0001" condim="4" solref="0.008 1" solimp="0.95 0.99 0.001" margin="0" density="1100" />
+    <site size="0.001" rgba="0.15 0.6 0.8 0" group="4" />
+  </default>
+  <asset>
+    <mesh name="A15_socket_sector_mesh" file="meshes/socket_sector.obj" />
+    <material name="A15_ivory" rgba="0.84 0.85 0.82 1" specular="0.28" roughness="0.55" />
+    <material name="A15_magnet_gray" rgba="0.48 0.50 0.49 1" specular="0.3" roughness="0.48" />
+    <material name="A15_clear_polymer" rgba="0.79 0.85 0.83 0.48" specular="0.65" shininess="0.65" />
+    <material name="A15_ink" rgba="0.23 0.27 0.25 1" />
+    <texture name="A15_warning_texture" type="2d" file="textures/magnet_warning.png" />
+    <material name="A15_warning_material" texture="A15_warning_texture" texuniform="false" specular="0" />
+  </asset>
+  <worldbody>
+    <body name="A15_magnet_base" pos="0 0 0">
+      <geom name="A15_left_support_shoe" type="box" pos="-0.08 0 0.004" size="0.009 0.022 0.004" material="A15_ivory" />
+      <geom name="A15_left_end_housing" type="box" pos="-0.08 0 0.0305" size="0.006 0.022 0.0225" material="A15_ivory" />
+      <site name="A15_left_support_surface" pos="-0.08 0 0.053" />
+      <geom name="A15_right_support_shoe" type="box" pos="0.08 0 0.004" size="0.009 0.022 0.004" material="A15_ivory" />
+      <geom name="A15_right_end_housing" type="box" pos="0.08 0 0.0305" size="0.006 0.022 0.0225" material="A15_ivory" />
+      <site name="A15_right_support_surface" pos="0.08 0 0.053" />
+      <geom name="A15_magnet_encapsulated_slab" type="box" pos="0 0 0.0265" size="0.074 0.0043 0.0185" material="A15_magnet_gray" />
+      <geom name="A15_warning_decal" type="box" pos="-0.065 -0.004345 0.017" size="0.004 4.5e-05 0.004" material="A15_warning_material" contype="0" conaffinity="0" mass="0" />
+      <site name="A15_base_mount_site" pos="0 0 0.053" />
+      <site name="A15_base_grasp_site" pos="-0.080 -0.022 0.032" />
+    </body>
+    <body name="A15_upper_rack" pos="0 0 0.053">
+      <freejoint name="A15_upper_rack_free" />
+      <inertial pos="0 0 0" mass="0.055" diaginertia="1.099065e-05 0.0001357583333 0.0001464189833" />
+      <geom name="A15_left_rack_saddle" type="box" pos="-0.08 0 0.0015" size="0.006 0.0202 0.0015" material="A15_clear_polymer" />
+      <geom name="A15_right_rack_saddle" type="box" pos="0.08 0 0.0015" size="0.006 0.0202 0.0015" material="A15_clear_polymer" />
+      <geom name="A15_front_longitudinal_rail" type="box" pos="0 -0.019 -0.0005" size="0.074 0.0012 0.0015" material="A15_clear_polymer" />
+      <geom name="A15_rear_longitudinal_rail" type="box" pos="0 0.019 -0.0005" size="0.074 0.0012 0.0015" material="A15_clear_polymer" />
+      <geom name="A15_central_rack_spine" type="box" pos="0 0 -0.0005" size="0.074 0.0038 0.0015" material="A15_clear_polymer" />
+      <site name="A15_rack_mount_site" pos="0 0 0" />
+      <site name="A15_rack_left_grasp_site" pos="-0.080 0 0.003" />
+      <site name="A15_rack_right_grasp_site" pos="0.080 0 0.003" />
+      <geom name="A15_socket_01_sector_00" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 -0.0108 -0.0005" quat="1 0 0 0" material="A15_clear_polymer" />
+      <geom name="A15_socket_01_sector_01" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 -0.0108 -0.0005" quat="0.9951847267 0 0 0.09801714033" material="A15_clear_polymer" />
+      <geom name="A15_socket_01_sector_02" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 -0.0108 -0.0005" quat="0.9807852804 0 0 0.195090322" material="A15_clear_polymer" />
+      <geom name="A15_socket_01_sector_03" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 -0.0108 -0.0005" quat="0.9569403357 0 0 0.2902846773" material="A15_clear_polymer" />
+      <geom name="A15_socket_01_sector_04" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 -0.0108 -0.0005" quat="0.9238795325 0 0 0.3826834324" material="A15_clear_polymer" />
+      <geom name="A15_socket_01_sector_05" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 -0.0108 -0.0005" quat="0.8819212643 0 0 0.4713967368" material="A15_clear_polymer" />
+      <geom name="A15_socket_01_sector_06" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 -0.0108 -0.0005" quat="0.8314696123 0 0 0.555570233" material="A15_clear_polymer" />
+      <geom name="A15_socket_01_sector_07" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 -0.0108 -0.0005" quat="0.7730104534 0 0 0.6343932842" material="A15_clear_polymer" />
+      <geom name="A15_socket_01_sector_08" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 -0.0108 -0.0005" quat="0.7071067812 0 0 0.7071067812" material="A15_clear_polymer" />
+      <geom name="A15_socket_01_sector_09" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 -0.0108 -0.0005" quat="0.6343932842 0 0 0.7730104534" material="A15_clear_polymer" />
+      <geom name="A15_socket_01_sector_10" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 -0.0108 -0.0005" quat="0.555570233 0 0 0.8314696123" material="A15_clear_polymer" />
+      <geom name="A15_socket_01_sector_11" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 -0.0108 -0.0005" quat="0.4713967368 0 0 0.8819212643" material="A15_clear_polymer" />
+      <geom name="A15_socket_01_sector_12" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 -0.0108 -0.0005" quat="0.3826834324 0 0 0.9238795325" material="A15_clear_polymer" />
+      <geom name="A15_socket_01_sector_13" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 -0.0108 -0.0005" quat="0.2902846773 0 0 0.9569403357" material="A15_clear_polymer" />
+      <geom name="A15_socket_01_sector_14" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 -0.0108 -0.0005" quat="0.195090322 0 0 0.9807852804" material="A15_clear_polymer" />
+      <geom name="A15_socket_01_sector_15" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 -0.0108 -0.0005" quat="0.09801714033 0 0 0.9951847267" material="A15_clear_polymer" />
+      <geom name="A15_socket_01_sector_16" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 -0.0108 -0.0005" quat="6.123233996e-17 0 0 1" material="A15_clear_polymer" />
+      <geom name="A15_socket_01_sector_17" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 -0.0108 -0.0005" quat="-0.09801714033 0 0 0.9951847267" material="A15_clear_polymer" />
+      <geom name="A15_socket_01_sector_18" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 -0.0108 -0.0005" quat="-0.195090322 0 0 0.9807852804" material="A15_clear_polymer" />
+      <geom name="A15_socket_01_sector_19" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 -0.0108 -0.0005" quat="-0.2902846773 0 0 0.9569403357" material="A15_clear_polymer" />
+      <geom name="A15_socket_01_sector_20" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 -0.0108 -0.0005" quat="-0.3826834324 0 0 0.9238795325" material="A15_clear_polymer" />
+      <geom name="A15_socket_01_sector_21" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 -0.0108 -0.0005" quat="-0.4713967368 0 0 0.8819212643" material="A15_clear_polymer" />
+      <geom name="A15_socket_01_sector_22" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 -0.0108 -0.0005" quat="-0.555570233 0 0 0.8314696123" material="A15_clear_polymer" />
+      <geom name="A15_socket_01_sector_23" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 -0.0108 -0.0005" quat="-0.6343932842 0 0 0.7730104534" material="A15_clear_polymer" />
+      <geom name="A15_socket_01_sector_24" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 -0.0108 -0.0005" quat="-0.7071067812 0 0 0.7071067812" material="A15_clear_polymer" />
+      <geom name="A15_socket_01_sector_25" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 -0.0108 -0.0005" quat="-0.7730104534 0 0 0.6343932842" material="A15_clear_polymer" />
+      <geom name="A15_socket_01_sector_26" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 -0.0108 -0.0005" quat="-0.8314696123 0 0 0.555570233" material="A15_clear_polymer" />
+      <geom name="A15_socket_01_sector_27" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 -0.0108 -0.0005" quat="-0.8819212643 0 0 0.4713967368" material="A15_clear_polymer" />
+      <geom name="A15_socket_01_sector_28" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 -0.0108 -0.0005" quat="-0.9238795325 0 0 0.3826834324" material="A15_clear_polymer" />
+      <geom name="A15_socket_01_sector_29" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 -0.0108 -0.0005" quat="-0.9569403357 0 0 0.2902846773" material="A15_clear_polymer" />
+      <geom name="A15_socket_01_sector_30" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 -0.0108 -0.0005" quat="-0.9807852804 0 0 0.195090322" material="A15_clear_polymer" />
+      <geom name="A15_socket_01_sector_31" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 -0.0108 -0.0005" quat="-0.9951847267 0 0 0.09801714033" material="A15_clear_polymer" />
+      <geom name="A15_socket_01_number_tab" type="box" pos="-0.063 -0.022 -0.0005" size="0.0033 0.0023 0.0015" material="A15_clear_polymer" />
+      <geom name="A15_label_01_0_b" type="capsule" fromto="-0.062475 -0.021 0.001075 -0.062475 -0.022 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_01_0_c" type="capsule" fromto="-0.062475 -0.022 0.001075 -0.062475 -0.023 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <site name="A15_socket_01_site" pos="-0.063 -0.0108 0.001" size="0.002" />
+      <geom name="A15_socket_02_sector_00" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 -0.0108 -0.0005" quat="1 0 0 0" material="A15_clear_polymer" />
+      <geom name="A15_socket_02_sector_01" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 -0.0108 -0.0005" quat="0.9951847267 0 0 0.09801714033" material="A15_clear_polymer" />
+      <geom name="A15_socket_02_sector_02" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 -0.0108 -0.0005" quat="0.9807852804 0 0 0.195090322" material="A15_clear_polymer" />
+      <geom name="A15_socket_02_sector_03" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 -0.0108 -0.0005" quat="0.9569403357 0 0 0.2902846773" material="A15_clear_polymer" />
+      <geom name="A15_socket_02_sector_04" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 -0.0108 -0.0005" quat="0.9238795325 0 0 0.3826834324" material="A15_clear_polymer" />
+      <geom name="A15_socket_02_sector_05" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 -0.0108 -0.0005" quat="0.8819212643 0 0 0.4713967368" material="A15_clear_polymer" />
+      <geom name="A15_socket_02_sector_06" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 -0.0108 -0.0005" quat="0.8314696123 0 0 0.555570233" material="A15_clear_polymer" />
+      <geom name="A15_socket_02_sector_07" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 -0.0108 -0.0005" quat="0.7730104534 0 0 0.6343932842" material="A15_clear_polymer" />
+      <geom name="A15_socket_02_sector_08" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 -0.0108 -0.0005" quat="0.7071067812 0 0 0.7071067812" material="A15_clear_polymer" />
+      <geom name="A15_socket_02_sector_09" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 -0.0108 -0.0005" quat="0.6343932842 0 0 0.7730104534" material="A15_clear_polymer" />
+      <geom name="A15_socket_02_sector_10" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 -0.0108 -0.0005" quat="0.555570233 0 0 0.8314696123" material="A15_clear_polymer" />
+      <geom name="A15_socket_02_sector_11" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 -0.0108 -0.0005" quat="0.4713967368 0 0 0.8819212643" material="A15_clear_polymer" />
+      <geom name="A15_socket_02_sector_12" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 -0.0108 -0.0005" quat="0.3826834324 0 0 0.9238795325" material="A15_clear_polymer" />
+      <geom name="A15_socket_02_sector_13" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 -0.0108 -0.0005" quat="0.2902846773 0 0 0.9569403357" material="A15_clear_polymer" />
+      <geom name="A15_socket_02_sector_14" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 -0.0108 -0.0005" quat="0.195090322 0 0 0.9807852804" material="A15_clear_polymer" />
+      <geom name="A15_socket_02_sector_15" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 -0.0108 -0.0005" quat="0.09801714033 0 0 0.9951847267" material="A15_clear_polymer" />
+      <geom name="A15_socket_02_sector_16" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 -0.0108 -0.0005" quat="6.123233996e-17 0 0 1" material="A15_clear_polymer" />
+      <geom name="A15_socket_02_sector_17" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 -0.0108 -0.0005" quat="-0.09801714033 0 0 0.9951847267" material="A15_clear_polymer" />
+      <geom name="A15_socket_02_sector_18" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 -0.0108 -0.0005" quat="-0.195090322 0 0 0.9807852804" material="A15_clear_polymer" />
+      <geom name="A15_socket_02_sector_19" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 -0.0108 -0.0005" quat="-0.2902846773 0 0 0.9569403357" material="A15_clear_polymer" />
+      <geom name="A15_socket_02_sector_20" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 -0.0108 -0.0005" quat="-0.3826834324 0 0 0.9238795325" material="A15_clear_polymer" />
+      <geom name="A15_socket_02_sector_21" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 -0.0108 -0.0005" quat="-0.4713967368 0 0 0.8819212643" material="A15_clear_polymer" />
+      <geom name="A15_socket_02_sector_22" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 -0.0108 -0.0005" quat="-0.555570233 0 0 0.8314696123" material="A15_clear_polymer" />
+      <geom name="A15_socket_02_sector_23" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 -0.0108 -0.0005" quat="-0.6343932842 0 0 0.7730104534" material="A15_clear_polymer" />
+      <geom name="A15_socket_02_sector_24" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 -0.0108 -0.0005" quat="-0.7071067812 0 0 0.7071067812" material="A15_clear_polymer" />
+      <geom name="A15_socket_02_sector_25" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 -0.0108 -0.0005" quat="-0.7730104534 0 0 0.6343932842" material="A15_clear_polymer" />
+      <geom name="A15_socket_02_sector_26" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 -0.0108 -0.0005" quat="-0.8314696123 0 0 0.555570233" material="A15_clear_polymer" />
+      <geom name="A15_socket_02_sector_27" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 -0.0108 -0.0005" quat="-0.8819212643 0 0 0.4713967368" material="A15_clear_polymer" />
+      <geom name="A15_socket_02_sector_28" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 -0.0108 -0.0005" quat="-0.9238795325 0 0 0.3826834324" material="A15_clear_polymer" />
+      <geom name="A15_socket_02_sector_29" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 -0.0108 -0.0005" quat="-0.9569403357 0 0 0.2902846773" material="A15_clear_polymer" />
+      <geom name="A15_socket_02_sector_30" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 -0.0108 -0.0005" quat="-0.9807852804 0 0 0.195090322" material="A15_clear_polymer" />
+      <geom name="A15_socket_02_sector_31" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 -0.0108 -0.0005" quat="-0.9951847267 0 0 0.09801714033" material="A15_clear_polymer" />
+      <geom name="A15_socket_02_number_tab" type="box" pos="-0.045 -0.022 -0.0005" size="0.0033 0.0023 0.0015" material="A15_clear_polymer" />
+      <geom name="A15_label_02_0_a" type="capsule" fromto="-0.045525 -0.021 0.001075 -0.044475 -0.021 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_02_0_b" type="capsule" fromto="-0.044475 -0.021 0.001075 -0.044475 -0.022 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_02_0_g" type="capsule" fromto="-0.045525 -0.022 0.001075 -0.044475 -0.022 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_02_0_e" type="capsule" fromto="-0.045525 -0.022 0.001075 -0.045525 -0.023 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_02_0_d" type="capsule" fromto="-0.045525 -0.023 0.001075 -0.044475 -0.023 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <site name="A15_socket_02_site" pos="-0.045 -0.0108 0.001" size="0.002" />
+      <geom name="A15_socket_03_sector_00" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 -0.0108 -0.0005" quat="1 0 0 0" material="A15_clear_polymer" />
+      <geom name="A15_socket_03_sector_01" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 -0.0108 -0.0005" quat="0.9951847267 0 0 0.09801714033" material="A15_clear_polymer" />
+      <geom name="A15_socket_03_sector_02" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 -0.0108 -0.0005" quat="0.9807852804 0 0 0.195090322" material="A15_clear_polymer" />
+      <geom name="A15_socket_03_sector_03" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 -0.0108 -0.0005" quat="0.9569403357 0 0 0.2902846773" material="A15_clear_polymer" />
+      <geom name="A15_socket_03_sector_04" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 -0.0108 -0.0005" quat="0.9238795325 0 0 0.3826834324" material="A15_clear_polymer" />
+      <geom name="A15_socket_03_sector_05" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 -0.0108 -0.0005" quat="0.8819212643 0 0 0.4713967368" material="A15_clear_polymer" />
+      <geom name="A15_socket_03_sector_06" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 -0.0108 -0.0005" quat="0.8314696123 0 0 0.555570233" material="A15_clear_polymer" />
+      <geom name="A15_socket_03_sector_07" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 -0.0108 -0.0005" quat="0.7730104534 0 0 0.6343932842" material="A15_clear_polymer" />
+      <geom name="A15_socket_03_sector_08" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 -0.0108 -0.0005" quat="0.7071067812 0 0 0.7071067812" material="A15_clear_polymer" />
+      <geom name="A15_socket_03_sector_09" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 -0.0108 -0.0005" quat="0.6343932842 0 0 0.7730104534" material="A15_clear_polymer" />
+      <geom name="A15_socket_03_sector_10" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 -0.0108 -0.0005" quat="0.555570233 0 0 0.8314696123" material="A15_clear_polymer" />
+      <geom name="A15_socket_03_sector_11" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 -0.0108 -0.0005" quat="0.4713967368 0 0 0.8819212643" material="A15_clear_polymer" />
+      <geom name="A15_socket_03_sector_12" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 -0.0108 -0.0005" quat="0.3826834324 0 0 0.9238795325" material="A15_clear_polymer" />
+      <geom name="A15_socket_03_sector_13" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 -0.0108 -0.0005" quat="0.2902846773 0 0 0.9569403357" material="A15_clear_polymer" />
+      <geom name="A15_socket_03_sector_14" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 -0.0108 -0.0005" quat="0.195090322 0 0 0.9807852804" material="A15_clear_polymer" />
+      <geom name="A15_socket_03_sector_15" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 -0.0108 -0.0005" quat="0.09801714033 0 0 0.9951847267" material="A15_clear_polymer" />
+      <geom name="A15_socket_03_sector_16" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 -0.0108 -0.0005" quat="6.123233996e-17 0 0 1" material="A15_clear_polymer" />
+      <geom name="A15_socket_03_sector_17" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 -0.0108 -0.0005" quat="-0.09801714033 0 0 0.9951847267" material="A15_clear_polymer" />
+      <geom name="A15_socket_03_sector_18" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 -0.0108 -0.0005" quat="-0.195090322 0 0 0.9807852804" material="A15_clear_polymer" />
+      <geom name="A15_socket_03_sector_19" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 -0.0108 -0.0005" quat="-0.2902846773 0 0 0.9569403357" material="A15_clear_polymer" />
+      <geom name="A15_socket_03_sector_20" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 -0.0108 -0.0005" quat="-0.3826834324 0 0 0.9238795325" material="A15_clear_polymer" />
+      <geom name="A15_socket_03_sector_21" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 -0.0108 -0.0005" quat="-0.4713967368 0 0 0.8819212643" material="A15_clear_polymer" />
+      <geom name="A15_socket_03_sector_22" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 -0.0108 -0.0005" quat="-0.555570233 0 0 0.8314696123" material="A15_clear_polymer" />
+      <geom name="A15_socket_03_sector_23" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 -0.0108 -0.0005" quat="-0.6343932842 0 0 0.7730104534" material="A15_clear_polymer" />
+      <geom name="A15_socket_03_sector_24" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 -0.0108 -0.0005" quat="-0.7071067812 0 0 0.7071067812" material="A15_clear_polymer" />
+      <geom name="A15_socket_03_sector_25" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 -0.0108 -0.0005" quat="-0.7730104534 0 0 0.6343932842" material="A15_clear_polymer" />
+      <geom name="A15_socket_03_sector_26" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 -0.0108 -0.0005" quat="-0.8314696123 0 0 0.555570233" material="A15_clear_polymer" />
+      <geom name="A15_socket_03_sector_27" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 -0.0108 -0.0005" quat="-0.8819212643 0 0 0.4713967368" material="A15_clear_polymer" />
+      <geom name="A15_socket_03_sector_28" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 -0.0108 -0.0005" quat="-0.9238795325 0 0 0.3826834324" material="A15_clear_polymer" />
+      <geom name="A15_socket_03_sector_29" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 -0.0108 -0.0005" quat="-0.9569403357 0 0 0.2902846773" material="A15_clear_polymer" />
+      <geom name="A15_socket_03_sector_30" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 -0.0108 -0.0005" quat="-0.9807852804 0 0 0.195090322" material="A15_clear_polymer" />
+      <geom name="A15_socket_03_sector_31" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 -0.0108 -0.0005" quat="-0.9951847267 0 0 0.09801714033" material="A15_clear_polymer" />
+      <geom name="A15_socket_03_number_tab" type="box" pos="-0.027 -0.022 -0.0005" size="0.0033 0.0023 0.0015" material="A15_clear_polymer" />
+      <geom name="A15_label_03_0_a" type="capsule" fromto="-0.027525 -0.021 0.001075 -0.026475 -0.021 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_03_0_b" type="capsule" fromto="-0.026475 -0.021 0.001075 -0.026475 -0.022 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_03_0_g" type="capsule" fromto="-0.027525 -0.022 0.001075 -0.026475 -0.022 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_03_0_c" type="capsule" fromto="-0.026475 -0.022 0.001075 -0.026475 -0.023 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_03_0_d" type="capsule" fromto="-0.027525 -0.023 0.001075 -0.026475 -0.023 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <site name="A15_socket_03_site" pos="-0.027 -0.0108 0.001" size="0.002" />
+      <geom name="A15_socket_04_sector_00" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 -0.0108 -0.0005" quat="1 0 0 0" material="A15_clear_polymer" />
+      <geom name="A15_socket_04_sector_01" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 -0.0108 -0.0005" quat="0.9951847267 0 0 0.09801714033" material="A15_clear_polymer" />
+      <geom name="A15_socket_04_sector_02" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 -0.0108 -0.0005" quat="0.9807852804 0 0 0.195090322" material="A15_clear_polymer" />
+      <geom name="A15_socket_04_sector_03" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 -0.0108 -0.0005" quat="0.9569403357 0 0 0.2902846773" material="A15_clear_polymer" />
+      <geom name="A15_socket_04_sector_04" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 -0.0108 -0.0005" quat="0.9238795325 0 0 0.3826834324" material="A15_clear_polymer" />
+      <geom name="A15_socket_04_sector_05" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 -0.0108 -0.0005" quat="0.8819212643 0 0 0.4713967368" material="A15_clear_polymer" />
+      <geom name="A15_socket_04_sector_06" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 -0.0108 -0.0005" quat="0.8314696123 0 0 0.555570233" material="A15_clear_polymer" />
+      <geom name="A15_socket_04_sector_07" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 -0.0108 -0.0005" quat="0.7730104534 0 0 0.6343932842" material="A15_clear_polymer" />
+      <geom name="A15_socket_04_sector_08" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 -0.0108 -0.0005" quat="0.7071067812 0 0 0.7071067812" material="A15_clear_polymer" />
+      <geom name="A15_socket_04_sector_09" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 -0.0108 -0.0005" quat="0.6343932842 0 0 0.7730104534" material="A15_clear_polymer" />
+      <geom name="A15_socket_04_sector_10" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 -0.0108 -0.0005" quat="0.555570233 0 0 0.8314696123" material="A15_clear_polymer" />
+      <geom name="A15_socket_04_sector_11" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 -0.0108 -0.0005" quat="0.4713967368 0 0 0.8819212643" material="A15_clear_polymer" />
+      <geom name="A15_socket_04_sector_12" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 -0.0108 -0.0005" quat="0.3826834324 0 0 0.9238795325" material="A15_clear_polymer" />
+      <geom name="A15_socket_04_sector_13" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 -0.0108 -0.0005" quat="0.2902846773 0 0 0.9569403357" material="A15_clear_polymer" />
+      <geom name="A15_socket_04_sector_14" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 -0.0108 -0.0005" quat="0.195090322 0 0 0.9807852804" material="A15_clear_polymer" />
+      <geom name="A15_socket_04_sector_15" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 -0.0108 -0.0005" quat="0.09801714033 0 0 0.9951847267" material="A15_clear_polymer" />
+      <geom name="A15_socket_04_sector_16" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 -0.0108 -0.0005" quat="6.123233996e-17 0 0 1" material="A15_clear_polymer" />
+      <geom name="A15_socket_04_sector_17" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 -0.0108 -0.0005" quat="-0.09801714033 0 0 0.9951847267" material="A15_clear_polymer" />
+      <geom name="A15_socket_04_sector_18" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 -0.0108 -0.0005" quat="-0.195090322 0 0 0.9807852804" material="A15_clear_polymer" />
+      <geom name="A15_socket_04_sector_19" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 -0.0108 -0.0005" quat="-0.2902846773 0 0 0.9569403357" material="A15_clear_polymer" />
+      <geom name="A15_socket_04_sector_20" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 -0.0108 -0.0005" quat="-0.3826834324 0 0 0.9238795325" material="A15_clear_polymer" />
+      <geom name="A15_socket_04_sector_21" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 -0.0108 -0.0005" quat="-0.4713967368 0 0 0.8819212643" material="A15_clear_polymer" />
+      <geom name="A15_socket_04_sector_22" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 -0.0108 -0.0005" quat="-0.555570233 0 0 0.8314696123" material="A15_clear_polymer" />
+      <geom name="A15_socket_04_sector_23" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 -0.0108 -0.0005" quat="-0.6343932842 0 0 0.7730104534" material="A15_clear_polymer" />
+      <geom name="A15_socket_04_sector_24" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 -0.0108 -0.0005" quat="-0.7071067812 0 0 0.7071067812" material="A15_clear_polymer" />
+      <geom name="A15_socket_04_sector_25" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 -0.0108 -0.0005" quat="-0.7730104534 0 0 0.6343932842" material="A15_clear_polymer" />
+      <geom name="A15_socket_04_sector_26" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 -0.0108 -0.0005" quat="-0.8314696123 0 0 0.555570233" material="A15_clear_polymer" />
+      <geom name="A15_socket_04_sector_27" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 -0.0108 -0.0005" quat="-0.8819212643 0 0 0.4713967368" material="A15_clear_polymer" />
+      <geom name="A15_socket_04_sector_28" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 -0.0108 -0.0005" quat="-0.9238795325 0 0 0.3826834324" material="A15_clear_polymer" />
+      <geom name="A15_socket_04_sector_29" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 -0.0108 -0.0005" quat="-0.9569403357 0 0 0.2902846773" material="A15_clear_polymer" />
+      <geom name="A15_socket_04_sector_30" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 -0.0108 -0.0005" quat="-0.9807852804 0 0 0.195090322" material="A15_clear_polymer" />
+      <geom name="A15_socket_04_sector_31" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 -0.0108 -0.0005" quat="-0.9951847267 0 0 0.09801714033" material="A15_clear_polymer" />
+      <geom name="A15_socket_04_number_tab" type="box" pos="-0.009 -0.022 -0.0005" size="0.0033 0.0023 0.0015" material="A15_clear_polymer" />
+      <geom name="A15_label_04_0_f" type="capsule" fromto="-0.009525 -0.021 0.001075 -0.009525 -0.022 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_04_0_g" type="capsule" fromto="-0.009525 -0.022 0.001075 -0.008475 -0.022 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_04_0_b" type="capsule" fromto="-0.008475 -0.021 0.001075 -0.008475 -0.022 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_04_0_c" type="capsule" fromto="-0.008475 -0.022 0.001075 -0.008475 -0.023 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <site name="A15_socket_04_site" pos="-0.009 -0.0108 0.001" size="0.002" />
+      <geom name="A15_socket_05_sector_00" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 -0.0108 -0.0005" quat="1 0 0 0" material="A15_clear_polymer" />
+      <geom name="A15_socket_05_sector_01" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 -0.0108 -0.0005" quat="0.9951847267 0 0 0.09801714033" material="A15_clear_polymer" />
+      <geom name="A15_socket_05_sector_02" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 -0.0108 -0.0005" quat="0.9807852804 0 0 0.195090322" material="A15_clear_polymer" />
+      <geom name="A15_socket_05_sector_03" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 -0.0108 -0.0005" quat="0.9569403357 0 0 0.2902846773" material="A15_clear_polymer" />
+      <geom name="A15_socket_05_sector_04" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 -0.0108 -0.0005" quat="0.9238795325 0 0 0.3826834324" material="A15_clear_polymer" />
+      <geom name="A15_socket_05_sector_05" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 -0.0108 -0.0005" quat="0.8819212643 0 0 0.4713967368" material="A15_clear_polymer" />
+      <geom name="A15_socket_05_sector_06" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 -0.0108 -0.0005" quat="0.8314696123 0 0 0.555570233" material="A15_clear_polymer" />
+      <geom name="A15_socket_05_sector_07" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 -0.0108 -0.0005" quat="0.7730104534 0 0 0.6343932842" material="A15_clear_polymer" />
+      <geom name="A15_socket_05_sector_08" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 -0.0108 -0.0005" quat="0.7071067812 0 0 0.7071067812" material="A15_clear_polymer" />
+      <geom name="A15_socket_05_sector_09" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 -0.0108 -0.0005" quat="0.6343932842 0 0 0.7730104534" material="A15_clear_polymer" />
+      <geom name="A15_socket_05_sector_10" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 -0.0108 -0.0005" quat="0.555570233 0 0 0.8314696123" material="A15_clear_polymer" />
+      <geom name="A15_socket_05_sector_11" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 -0.0108 -0.0005" quat="0.4713967368 0 0 0.8819212643" material="A15_clear_polymer" />
+      <geom name="A15_socket_05_sector_12" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 -0.0108 -0.0005" quat="0.3826834324 0 0 0.9238795325" material="A15_clear_polymer" />
+      <geom name="A15_socket_05_sector_13" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 -0.0108 -0.0005" quat="0.2902846773 0 0 0.9569403357" material="A15_clear_polymer" />
+      <geom name="A15_socket_05_sector_14" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 -0.0108 -0.0005" quat="0.195090322 0 0 0.9807852804" material="A15_clear_polymer" />
+      <geom name="A15_socket_05_sector_15" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 -0.0108 -0.0005" quat="0.09801714033 0 0 0.9951847267" material="A15_clear_polymer" />
+      <geom name="A15_socket_05_sector_16" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 -0.0108 -0.0005" quat="6.123233996e-17 0 0 1" material="A15_clear_polymer" />
+      <geom name="A15_socket_05_sector_17" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 -0.0108 -0.0005" quat="-0.09801714033 0 0 0.9951847267" material="A15_clear_polymer" />
+      <geom name="A15_socket_05_sector_18" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 -0.0108 -0.0005" quat="-0.195090322 0 0 0.9807852804" material="A15_clear_polymer" />
+      <geom name="A15_socket_05_sector_19" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 -0.0108 -0.0005" quat="-0.2902846773 0 0 0.9569403357" material="A15_clear_polymer" />
+      <geom name="A15_socket_05_sector_20" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 -0.0108 -0.0005" quat="-0.3826834324 0 0 0.9238795325" material="A15_clear_polymer" />
+      <geom name="A15_socket_05_sector_21" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 -0.0108 -0.0005" quat="-0.4713967368 0 0 0.8819212643" material="A15_clear_polymer" />
+      <geom name="A15_socket_05_sector_22" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 -0.0108 -0.0005" quat="-0.555570233 0 0 0.8314696123" material="A15_clear_polymer" />
+      <geom name="A15_socket_05_sector_23" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 -0.0108 -0.0005" quat="-0.6343932842 0 0 0.7730104534" material="A15_clear_polymer" />
+      <geom name="A15_socket_05_sector_24" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 -0.0108 -0.0005" quat="-0.7071067812 0 0 0.7071067812" material="A15_clear_polymer" />
+      <geom name="A15_socket_05_sector_25" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 -0.0108 -0.0005" quat="-0.7730104534 0 0 0.6343932842" material="A15_clear_polymer" />
+      <geom name="A15_socket_05_sector_26" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 -0.0108 -0.0005" quat="-0.8314696123 0 0 0.555570233" material="A15_clear_polymer" />
+      <geom name="A15_socket_05_sector_27" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 -0.0108 -0.0005" quat="-0.8819212643 0 0 0.4713967368" material="A15_clear_polymer" />
+      <geom name="A15_socket_05_sector_28" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 -0.0108 -0.0005" quat="-0.9238795325 0 0 0.3826834324" material="A15_clear_polymer" />
+      <geom name="A15_socket_05_sector_29" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 -0.0108 -0.0005" quat="-0.9569403357 0 0 0.2902846773" material="A15_clear_polymer" />
+      <geom name="A15_socket_05_sector_30" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 -0.0108 -0.0005" quat="-0.9807852804 0 0 0.195090322" material="A15_clear_polymer" />
+      <geom name="A15_socket_05_sector_31" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 -0.0108 -0.0005" quat="-0.9951847267 0 0 0.09801714033" material="A15_clear_polymer" />
+      <geom name="A15_socket_05_number_tab" type="box" pos="0.009 -0.022 -0.0005" size="0.0033 0.0023 0.0015" material="A15_clear_polymer" />
+      <geom name="A15_label_05_0_a" type="capsule" fromto="0.008475 -0.021 0.001075 0.009525 -0.021 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_05_0_f" type="capsule" fromto="0.008475 -0.021 0.001075 0.008475 -0.022 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_05_0_g" type="capsule" fromto="0.008475 -0.022 0.001075 0.009525 -0.022 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_05_0_c" type="capsule" fromto="0.009525 -0.022 0.001075 0.009525 -0.023 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_05_0_d" type="capsule" fromto="0.008475 -0.023 0.001075 0.009525 -0.023 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <site name="A15_socket_05_site" pos="0.009 -0.0108 0.001" size="0.002" />
+      <geom name="A15_socket_06_sector_00" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 -0.0108 -0.0005" quat="1 0 0 0" material="A15_clear_polymer" />
+      <geom name="A15_socket_06_sector_01" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 -0.0108 -0.0005" quat="0.9951847267 0 0 0.09801714033" material="A15_clear_polymer" />
+      <geom name="A15_socket_06_sector_02" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 -0.0108 -0.0005" quat="0.9807852804 0 0 0.195090322" material="A15_clear_polymer" />
+      <geom name="A15_socket_06_sector_03" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 -0.0108 -0.0005" quat="0.9569403357 0 0 0.2902846773" material="A15_clear_polymer" />
+      <geom name="A15_socket_06_sector_04" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 -0.0108 -0.0005" quat="0.9238795325 0 0 0.3826834324" material="A15_clear_polymer" />
+      <geom name="A15_socket_06_sector_05" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 -0.0108 -0.0005" quat="0.8819212643 0 0 0.4713967368" material="A15_clear_polymer" />
+      <geom name="A15_socket_06_sector_06" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 -0.0108 -0.0005" quat="0.8314696123 0 0 0.555570233" material="A15_clear_polymer" />
+      <geom name="A15_socket_06_sector_07" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 -0.0108 -0.0005" quat="0.7730104534 0 0 0.6343932842" material="A15_clear_polymer" />
+      <geom name="A15_socket_06_sector_08" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 -0.0108 -0.0005" quat="0.7071067812 0 0 0.7071067812" material="A15_clear_polymer" />
+      <geom name="A15_socket_06_sector_09" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 -0.0108 -0.0005" quat="0.6343932842 0 0 0.7730104534" material="A15_clear_polymer" />
+      <geom name="A15_socket_06_sector_10" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 -0.0108 -0.0005" quat="0.555570233 0 0 0.8314696123" material="A15_clear_polymer" />
+      <geom name="A15_socket_06_sector_11" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 -0.0108 -0.0005" quat="0.4713967368 0 0 0.8819212643" material="A15_clear_polymer" />
+      <geom name="A15_socket_06_sector_12" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 -0.0108 -0.0005" quat="0.3826834324 0 0 0.9238795325" material="A15_clear_polymer" />
+      <geom name="A15_socket_06_sector_13" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 -0.0108 -0.0005" quat="0.2902846773 0 0 0.9569403357" material="A15_clear_polymer" />
+      <geom name="A15_socket_06_sector_14" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 -0.0108 -0.0005" quat="0.195090322 0 0 0.9807852804" material="A15_clear_polymer" />
+      <geom name="A15_socket_06_sector_15" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 -0.0108 -0.0005" quat="0.09801714033 0 0 0.9951847267" material="A15_clear_polymer" />
+      <geom name="A15_socket_06_sector_16" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 -0.0108 -0.0005" quat="6.123233996e-17 0 0 1" material="A15_clear_polymer" />
+      <geom name="A15_socket_06_sector_17" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 -0.0108 -0.0005" quat="-0.09801714033 0 0 0.9951847267" material="A15_clear_polymer" />
+      <geom name="A15_socket_06_sector_18" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 -0.0108 -0.0005" quat="-0.195090322 0 0 0.9807852804" material="A15_clear_polymer" />
+      <geom name="A15_socket_06_sector_19" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 -0.0108 -0.0005" quat="-0.2902846773 0 0 0.9569403357" material="A15_clear_polymer" />
+      <geom name="A15_socket_06_sector_20" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 -0.0108 -0.0005" quat="-0.3826834324 0 0 0.9238795325" material="A15_clear_polymer" />
+      <geom name="A15_socket_06_sector_21" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 -0.0108 -0.0005" quat="-0.4713967368 0 0 0.8819212643" material="A15_clear_polymer" />
+      <geom name="A15_socket_06_sector_22" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 -0.0108 -0.0005" quat="-0.555570233 0 0 0.8314696123" material="A15_clear_polymer" />
+      <geom name="A15_socket_06_sector_23" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 -0.0108 -0.0005" quat="-0.6343932842 0 0 0.7730104534" material="A15_clear_polymer" />
+      <geom name="A15_socket_06_sector_24" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 -0.0108 -0.0005" quat="-0.7071067812 0 0 0.7071067812" material="A15_clear_polymer" />
+      <geom name="A15_socket_06_sector_25" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 -0.0108 -0.0005" quat="-0.7730104534 0 0 0.6343932842" material="A15_clear_polymer" />
+      <geom name="A15_socket_06_sector_26" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 -0.0108 -0.0005" quat="-0.8314696123 0 0 0.555570233" material="A15_clear_polymer" />
+      <geom name="A15_socket_06_sector_27" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 -0.0108 -0.0005" quat="-0.8819212643 0 0 0.4713967368" material="A15_clear_polymer" />
+      <geom name="A15_socket_06_sector_28" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 -0.0108 -0.0005" quat="-0.9238795325 0 0 0.3826834324" material="A15_clear_polymer" />
+      <geom name="A15_socket_06_sector_29" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 -0.0108 -0.0005" quat="-0.9569403357 0 0 0.2902846773" material="A15_clear_polymer" />
+      <geom name="A15_socket_06_sector_30" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 -0.0108 -0.0005" quat="-0.9807852804 0 0 0.195090322" material="A15_clear_polymer" />
+      <geom name="A15_socket_06_sector_31" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 -0.0108 -0.0005" quat="-0.9951847267 0 0 0.09801714033" material="A15_clear_polymer" />
+      <geom name="A15_socket_06_number_tab" type="box" pos="0.027 -0.022 -0.0005" size="0.0033 0.0023 0.0015" material="A15_clear_polymer" />
+      <geom name="A15_label_06_0_a" type="capsule" fromto="0.026475 -0.021 0.001075 0.027525 -0.021 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_06_0_f" type="capsule" fromto="0.026475 -0.021 0.001075 0.026475 -0.022 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_06_0_g" type="capsule" fromto="0.026475 -0.022 0.001075 0.027525 -0.022 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_06_0_e" type="capsule" fromto="0.026475 -0.022 0.001075 0.026475 -0.023 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_06_0_c" type="capsule" fromto="0.027525 -0.022 0.001075 0.027525 -0.023 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_06_0_d" type="capsule" fromto="0.026475 -0.023 0.001075 0.027525 -0.023 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <site name="A15_socket_06_site" pos="0.027 -0.0108 0.001" size="0.002" />
+      <geom name="A15_socket_07_sector_00" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 -0.0108 -0.0005" quat="1 0 0 0" material="A15_clear_polymer" />
+      <geom name="A15_socket_07_sector_01" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 -0.0108 -0.0005" quat="0.9951847267 0 0 0.09801714033" material="A15_clear_polymer" />
+      <geom name="A15_socket_07_sector_02" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 -0.0108 -0.0005" quat="0.9807852804 0 0 0.195090322" material="A15_clear_polymer" />
+      <geom name="A15_socket_07_sector_03" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 -0.0108 -0.0005" quat="0.9569403357 0 0 0.2902846773" material="A15_clear_polymer" />
+      <geom name="A15_socket_07_sector_04" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 -0.0108 -0.0005" quat="0.9238795325 0 0 0.3826834324" material="A15_clear_polymer" />
+      <geom name="A15_socket_07_sector_05" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 -0.0108 -0.0005" quat="0.8819212643 0 0 0.4713967368" material="A15_clear_polymer" />
+      <geom name="A15_socket_07_sector_06" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 -0.0108 -0.0005" quat="0.8314696123 0 0 0.555570233" material="A15_clear_polymer" />
+      <geom name="A15_socket_07_sector_07" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 -0.0108 -0.0005" quat="0.7730104534 0 0 0.6343932842" material="A15_clear_polymer" />
+      <geom name="A15_socket_07_sector_08" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 -0.0108 -0.0005" quat="0.7071067812 0 0 0.7071067812" material="A15_clear_polymer" />
+      <geom name="A15_socket_07_sector_09" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 -0.0108 -0.0005" quat="0.6343932842 0 0 0.7730104534" material="A15_clear_polymer" />
+      <geom name="A15_socket_07_sector_10" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 -0.0108 -0.0005" quat="0.555570233 0 0 0.8314696123" material="A15_clear_polymer" />
+      <geom name="A15_socket_07_sector_11" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 -0.0108 -0.0005" quat="0.4713967368 0 0 0.8819212643" material="A15_clear_polymer" />
+      <geom name="A15_socket_07_sector_12" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 -0.0108 -0.0005" quat="0.3826834324 0 0 0.9238795325" material="A15_clear_polymer" />
+      <geom name="A15_socket_07_sector_13" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 -0.0108 -0.0005" quat="0.2902846773 0 0 0.9569403357" material="A15_clear_polymer" />
+      <geom name="A15_socket_07_sector_14" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 -0.0108 -0.0005" quat="0.195090322 0 0 0.9807852804" material="A15_clear_polymer" />
+      <geom name="A15_socket_07_sector_15" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 -0.0108 -0.0005" quat="0.09801714033 0 0 0.9951847267" material="A15_clear_polymer" />
+      <geom name="A15_socket_07_sector_16" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 -0.0108 -0.0005" quat="6.123233996e-17 0 0 1" material="A15_clear_polymer" />
+      <geom name="A15_socket_07_sector_17" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 -0.0108 -0.0005" quat="-0.09801714033 0 0 0.9951847267" material="A15_clear_polymer" />
+      <geom name="A15_socket_07_sector_18" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 -0.0108 -0.0005" quat="-0.195090322 0 0 0.9807852804" material="A15_clear_polymer" />
+      <geom name="A15_socket_07_sector_19" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 -0.0108 -0.0005" quat="-0.2902846773 0 0 0.9569403357" material="A15_clear_polymer" />
+      <geom name="A15_socket_07_sector_20" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 -0.0108 -0.0005" quat="-0.3826834324 0 0 0.9238795325" material="A15_clear_polymer" />
+      <geom name="A15_socket_07_sector_21" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 -0.0108 -0.0005" quat="-0.4713967368 0 0 0.8819212643" material="A15_clear_polymer" />
+      <geom name="A15_socket_07_sector_22" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 -0.0108 -0.0005" quat="-0.555570233 0 0 0.8314696123" material="A15_clear_polymer" />
+      <geom name="A15_socket_07_sector_23" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 -0.0108 -0.0005" quat="-0.6343932842 0 0 0.7730104534" material="A15_clear_polymer" />
+      <geom name="A15_socket_07_sector_24" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 -0.0108 -0.0005" quat="-0.7071067812 0 0 0.7071067812" material="A15_clear_polymer" />
+      <geom name="A15_socket_07_sector_25" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 -0.0108 -0.0005" quat="-0.7730104534 0 0 0.6343932842" material="A15_clear_polymer" />
+      <geom name="A15_socket_07_sector_26" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 -0.0108 -0.0005" quat="-0.8314696123 0 0 0.555570233" material="A15_clear_polymer" />
+      <geom name="A15_socket_07_sector_27" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 -0.0108 -0.0005" quat="-0.8819212643 0 0 0.4713967368" material="A15_clear_polymer" />
+      <geom name="A15_socket_07_sector_28" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 -0.0108 -0.0005" quat="-0.9238795325 0 0 0.3826834324" material="A15_clear_polymer" />
+      <geom name="A15_socket_07_sector_29" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 -0.0108 -0.0005" quat="-0.9569403357 0 0 0.2902846773" material="A15_clear_polymer" />
+      <geom name="A15_socket_07_sector_30" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 -0.0108 -0.0005" quat="-0.9807852804 0 0 0.195090322" material="A15_clear_polymer" />
+      <geom name="A15_socket_07_sector_31" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 -0.0108 -0.0005" quat="-0.9951847267 0 0 0.09801714033" material="A15_clear_polymer" />
+      <geom name="A15_socket_07_number_tab" type="box" pos="0.045 -0.022 -0.0005" size="0.0033 0.0023 0.0015" material="A15_clear_polymer" />
+      <geom name="A15_label_07_0_a" type="capsule" fromto="0.044475 -0.021 0.001075 0.045525 -0.021 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_07_0_b" type="capsule" fromto="0.045525 -0.021 0.001075 0.045525 -0.022 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_07_0_c" type="capsule" fromto="0.045525 -0.022 0.001075 0.045525 -0.023 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <site name="A15_socket_07_site" pos="0.045 -0.0108 0.001" size="0.002" />
+      <geom name="A15_socket_08_sector_00" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 -0.0108 -0.0005" quat="1 0 0 0" material="A15_clear_polymer" />
+      <geom name="A15_socket_08_sector_01" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 -0.0108 -0.0005" quat="0.9951847267 0 0 0.09801714033" material="A15_clear_polymer" />
+      <geom name="A15_socket_08_sector_02" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 -0.0108 -0.0005" quat="0.9807852804 0 0 0.195090322" material="A15_clear_polymer" />
+      <geom name="A15_socket_08_sector_03" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 -0.0108 -0.0005" quat="0.9569403357 0 0 0.2902846773" material="A15_clear_polymer" />
+      <geom name="A15_socket_08_sector_04" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 -0.0108 -0.0005" quat="0.9238795325 0 0 0.3826834324" material="A15_clear_polymer" />
+      <geom name="A15_socket_08_sector_05" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 -0.0108 -0.0005" quat="0.8819212643 0 0 0.4713967368" material="A15_clear_polymer" />
+      <geom name="A15_socket_08_sector_06" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 -0.0108 -0.0005" quat="0.8314696123 0 0 0.555570233" material="A15_clear_polymer" />
+      <geom name="A15_socket_08_sector_07" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 -0.0108 -0.0005" quat="0.7730104534 0 0 0.6343932842" material="A15_clear_polymer" />
+      <geom name="A15_socket_08_sector_08" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 -0.0108 -0.0005" quat="0.7071067812 0 0 0.7071067812" material="A15_clear_polymer" />
+      <geom name="A15_socket_08_sector_09" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 -0.0108 -0.0005" quat="0.6343932842 0 0 0.7730104534" material="A15_clear_polymer" />
+      <geom name="A15_socket_08_sector_10" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 -0.0108 -0.0005" quat="0.555570233 0 0 0.8314696123" material="A15_clear_polymer" />
+      <geom name="A15_socket_08_sector_11" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 -0.0108 -0.0005" quat="0.4713967368 0 0 0.8819212643" material="A15_clear_polymer" />
+      <geom name="A15_socket_08_sector_12" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 -0.0108 -0.0005" quat="0.3826834324 0 0 0.9238795325" material="A15_clear_polymer" />
+      <geom name="A15_socket_08_sector_13" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 -0.0108 -0.0005" quat="0.2902846773 0 0 0.9569403357" material="A15_clear_polymer" />
+      <geom name="A15_socket_08_sector_14" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 -0.0108 -0.0005" quat="0.195090322 0 0 0.9807852804" material="A15_clear_polymer" />
+      <geom name="A15_socket_08_sector_15" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 -0.0108 -0.0005" quat="0.09801714033 0 0 0.9951847267" material="A15_clear_polymer" />
+      <geom name="A15_socket_08_sector_16" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 -0.0108 -0.0005" quat="6.123233996e-17 0 0 1" material="A15_clear_polymer" />
+      <geom name="A15_socket_08_sector_17" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 -0.0108 -0.0005" quat="-0.09801714033 0 0 0.9951847267" material="A15_clear_polymer" />
+      <geom name="A15_socket_08_sector_18" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 -0.0108 -0.0005" quat="-0.195090322 0 0 0.9807852804" material="A15_clear_polymer" />
+      <geom name="A15_socket_08_sector_19" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 -0.0108 -0.0005" quat="-0.2902846773 0 0 0.9569403357" material="A15_clear_polymer" />
+      <geom name="A15_socket_08_sector_20" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 -0.0108 -0.0005" quat="-0.3826834324 0 0 0.9238795325" material="A15_clear_polymer" />
+      <geom name="A15_socket_08_sector_21" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 -0.0108 -0.0005" quat="-0.4713967368 0 0 0.8819212643" material="A15_clear_polymer" />
+      <geom name="A15_socket_08_sector_22" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 -0.0108 -0.0005" quat="-0.555570233 0 0 0.8314696123" material="A15_clear_polymer" />
+      <geom name="A15_socket_08_sector_23" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 -0.0108 -0.0005" quat="-0.6343932842 0 0 0.7730104534" material="A15_clear_polymer" />
+      <geom name="A15_socket_08_sector_24" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 -0.0108 -0.0005" quat="-0.7071067812 0 0 0.7071067812" material="A15_clear_polymer" />
+      <geom name="A15_socket_08_sector_25" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 -0.0108 -0.0005" quat="-0.7730104534 0 0 0.6343932842" material="A15_clear_polymer" />
+      <geom name="A15_socket_08_sector_26" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 -0.0108 -0.0005" quat="-0.8314696123 0 0 0.555570233" material="A15_clear_polymer" />
+      <geom name="A15_socket_08_sector_27" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 -0.0108 -0.0005" quat="-0.8819212643 0 0 0.4713967368" material="A15_clear_polymer" />
+      <geom name="A15_socket_08_sector_28" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 -0.0108 -0.0005" quat="-0.9238795325 0 0 0.3826834324" material="A15_clear_polymer" />
+      <geom name="A15_socket_08_sector_29" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 -0.0108 -0.0005" quat="-0.9569403357 0 0 0.2902846773" material="A15_clear_polymer" />
+      <geom name="A15_socket_08_sector_30" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 -0.0108 -0.0005" quat="-0.9807852804 0 0 0.195090322" material="A15_clear_polymer" />
+      <geom name="A15_socket_08_sector_31" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 -0.0108 -0.0005" quat="-0.9951847267 0 0 0.09801714033" material="A15_clear_polymer" />
+      <geom name="A15_socket_08_number_tab" type="box" pos="0.063 -0.022 -0.0005" size="0.0033 0.0023 0.0015" material="A15_clear_polymer" />
+      <geom name="A15_label_08_0_a" type="capsule" fromto="0.062475 -0.021 0.001075 0.063525 -0.021 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_08_0_b" type="capsule" fromto="0.063525 -0.021 0.001075 0.063525 -0.022 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_08_0_c" type="capsule" fromto="0.063525 -0.022 0.001075 0.063525 -0.023 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_08_0_d" type="capsule" fromto="0.062475 -0.023 0.001075 0.063525 -0.023 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_08_0_e" type="capsule" fromto="0.062475 -0.022 0.001075 0.062475 -0.023 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_08_0_f" type="capsule" fromto="0.062475 -0.021 0.001075 0.062475 -0.022 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_08_0_g" type="capsule" fromto="0.062475 -0.022 0.001075 0.063525 -0.022 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <site name="A15_socket_08_site" pos="0.063 -0.0108 0.001" size="0.002" />
+      <geom name="A15_socket_09_sector_00" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 0.0108 -0.0005" quat="1 0 0 0" material="A15_clear_polymer" />
+      <geom name="A15_socket_09_sector_01" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 0.0108 -0.0005" quat="0.9951847267 0 0 0.09801714033" material="A15_clear_polymer" />
+      <geom name="A15_socket_09_sector_02" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 0.0108 -0.0005" quat="0.9807852804 0 0 0.195090322" material="A15_clear_polymer" />
+      <geom name="A15_socket_09_sector_03" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 0.0108 -0.0005" quat="0.9569403357 0 0 0.2902846773" material="A15_clear_polymer" />
+      <geom name="A15_socket_09_sector_04" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 0.0108 -0.0005" quat="0.9238795325 0 0 0.3826834324" material="A15_clear_polymer" />
+      <geom name="A15_socket_09_sector_05" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 0.0108 -0.0005" quat="0.8819212643 0 0 0.4713967368" material="A15_clear_polymer" />
+      <geom name="A15_socket_09_sector_06" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 0.0108 -0.0005" quat="0.8314696123 0 0 0.555570233" material="A15_clear_polymer" />
+      <geom name="A15_socket_09_sector_07" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 0.0108 -0.0005" quat="0.7730104534 0 0 0.6343932842" material="A15_clear_polymer" />
+      <geom name="A15_socket_09_sector_08" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 0.0108 -0.0005" quat="0.7071067812 0 0 0.7071067812" material="A15_clear_polymer" />
+      <geom name="A15_socket_09_sector_09" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 0.0108 -0.0005" quat="0.6343932842 0 0 0.7730104534" material="A15_clear_polymer" />
+      <geom name="A15_socket_09_sector_10" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 0.0108 -0.0005" quat="0.555570233 0 0 0.8314696123" material="A15_clear_polymer" />
+      <geom name="A15_socket_09_sector_11" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 0.0108 -0.0005" quat="0.4713967368 0 0 0.8819212643" material="A15_clear_polymer" />
+      <geom name="A15_socket_09_sector_12" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 0.0108 -0.0005" quat="0.3826834324 0 0 0.9238795325" material="A15_clear_polymer" />
+      <geom name="A15_socket_09_sector_13" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 0.0108 -0.0005" quat="0.2902846773 0 0 0.9569403357" material="A15_clear_polymer" />
+      <geom name="A15_socket_09_sector_14" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 0.0108 -0.0005" quat="0.195090322 0 0 0.9807852804" material="A15_clear_polymer" />
+      <geom name="A15_socket_09_sector_15" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 0.0108 -0.0005" quat="0.09801714033 0 0 0.9951847267" material="A15_clear_polymer" />
+      <geom name="A15_socket_09_sector_16" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 0.0108 -0.0005" quat="6.123233996e-17 0 0 1" material="A15_clear_polymer" />
+      <geom name="A15_socket_09_sector_17" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 0.0108 -0.0005" quat="-0.09801714033 0 0 0.9951847267" material="A15_clear_polymer" />
+      <geom name="A15_socket_09_sector_18" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 0.0108 -0.0005" quat="-0.195090322 0 0 0.9807852804" material="A15_clear_polymer" />
+      <geom name="A15_socket_09_sector_19" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 0.0108 -0.0005" quat="-0.2902846773 0 0 0.9569403357" material="A15_clear_polymer" />
+      <geom name="A15_socket_09_sector_20" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 0.0108 -0.0005" quat="-0.3826834324 0 0 0.9238795325" material="A15_clear_polymer" />
+      <geom name="A15_socket_09_sector_21" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 0.0108 -0.0005" quat="-0.4713967368 0 0 0.8819212643" material="A15_clear_polymer" />
+      <geom name="A15_socket_09_sector_22" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 0.0108 -0.0005" quat="-0.555570233 0 0 0.8314696123" material="A15_clear_polymer" />
+      <geom name="A15_socket_09_sector_23" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 0.0108 -0.0005" quat="-0.6343932842 0 0 0.7730104534" material="A15_clear_polymer" />
+      <geom name="A15_socket_09_sector_24" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 0.0108 -0.0005" quat="-0.7071067812 0 0 0.7071067812" material="A15_clear_polymer" />
+      <geom name="A15_socket_09_sector_25" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 0.0108 -0.0005" quat="-0.7730104534 0 0 0.6343932842" material="A15_clear_polymer" />
+      <geom name="A15_socket_09_sector_26" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 0.0108 -0.0005" quat="-0.8314696123 0 0 0.555570233" material="A15_clear_polymer" />
+      <geom name="A15_socket_09_sector_27" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 0.0108 -0.0005" quat="-0.8819212643 0 0 0.4713967368" material="A15_clear_polymer" />
+      <geom name="A15_socket_09_sector_28" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 0.0108 -0.0005" quat="-0.9238795325 0 0 0.3826834324" material="A15_clear_polymer" />
+      <geom name="A15_socket_09_sector_29" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 0.0108 -0.0005" quat="-0.9569403357 0 0 0.2902846773" material="A15_clear_polymer" />
+      <geom name="A15_socket_09_sector_30" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 0.0108 -0.0005" quat="-0.9807852804 0 0 0.195090322" material="A15_clear_polymer" />
+      <geom name="A15_socket_09_sector_31" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.063 0.0108 -0.0005" quat="-0.9951847267 0 0 0.09801714033" material="A15_clear_polymer" />
+      <geom name="A15_socket_09_number_tab" type="box" pos="-0.063 0.022 -0.0005" size="0.0033 0.0023 0.0015" material="A15_clear_polymer" />
+      <geom name="A15_label_09_0_a" type="capsule" fromto="-0.063525 0.023 0.001075 -0.062475 0.023 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_09_0_b" type="capsule" fromto="-0.062475 0.023 0.001075 -0.062475 0.022 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_09_0_f" type="capsule" fromto="-0.063525 0.023 0.001075 -0.063525 0.022 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_09_0_g" type="capsule" fromto="-0.063525 0.022 0.001075 -0.062475 0.022 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_09_0_c" type="capsule" fromto="-0.062475 0.022 0.001075 -0.062475 0.021 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_09_0_d" type="capsule" fromto="-0.063525 0.021 0.001075 -0.062475 0.021 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <site name="A15_socket_09_site" pos="-0.063 0.0108 0.001" size="0.002" />
+      <geom name="A15_socket_10_sector_00" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 0.0108 -0.0005" quat="1 0 0 0" material="A15_clear_polymer" />
+      <geom name="A15_socket_10_sector_01" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 0.0108 -0.0005" quat="0.9951847267 0 0 0.09801714033" material="A15_clear_polymer" />
+      <geom name="A15_socket_10_sector_02" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 0.0108 -0.0005" quat="0.9807852804 0 0 0.195090322" material="A15_clear_polymer" />
+      <geom name="A15_socket_10_sector_03" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 0.0108 -0.0005" quat="0.9569403357 0 0 0.2902846773" material="A15_clear_polymer" />
+      <geom name="A15_socket_10_sector_04" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 0.0108 -0.0005" quat="0.9238795325 0 0 0.3826834324" material="A15_clear_polymer" />
+      <geom name="A15_socket_10_sector_05" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 0.0108 -0.0005" quat="0.8819212643 0 0 0.4713967368" material="A15_clear_polymer" />
+      <geom name="A15_socket_10_sector_06" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 0.0108 -0.0005" quat="0.8314696123 0 0 0.555570233" material="A15_clear_polymer" />
+      <geom name="A15_socket_10_sector_07" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 0.0108 -0.0005" quat="0.7730104534 0 0 0.6343932842" material="A15_clear_polymer" />
+      <geom name="A15_socket_10_sector_08" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 0.0108 -0.0005" quat="0.7071067812 0 0 0.7071067812" material="A15_clear_polymer" />
+      <geom name="A15_socket_10_sector_09" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 0.0108 -0.0005" quat="0.6343932842 0 0 0.7730104534" material="A15_clear_polymer" />
+      <geom name="A15_socket_10_sector_10" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 0.0108 -0.0005" quat="0.555570233 0 0 0.8314696123" material="A15_clear_polymer" />
+      <geom name="A15_socket_10_sector_11" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 0.0108 -0.0005" quat="0.4713967368 0 0 0.8819212643" material="A15_clear_polymer" />
+      <geom name="A15_socket_10_sector_12" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 0.0108 -0.0005" quat="0.3826834324 0 0 0.9238795325" material="A15_clear_polymer" />
+      <geom name="A15_socket_10_sector_13" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 0.0108 -0.0005" quat="0.2902846773 0 0 0.9569403357" material="A15_clear_polymer" />
+      <geom name="A15_socket_10_sector_14" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 0.0108 -0.0005" quat="0.195090322 0 0 0.9807852804" material="A15_clear_polymer" />
+      <geom name="A15_socket_10_sector_15" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 0.0108 -0.0005" quat="0.09801714033 0 0 0.9951847267" material="A15_clear_polymer" />
+      <geom name="A15_socket_10_sector_16" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 0.0108 -0.0005" quat="6.123233996e-17 0 0 1" material="A15_clear_polymer" />
+      <geom name="A15_socket_10_sector_17" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 0.0108 -0.0005" quat="-0.09801714033 0 0 0.9951847267" material="A15_clear_polymer" />
+      <geom name="A15_socket_10_sector_18" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 0.0108 -0.0005" quat="-0.195090322 0 0 0.9807852804" material="A15_clear_polymer" />
+      <geom name="A15_socket_10_sector_19" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 0.0108 -0.0005" quat="-0.2902846773 0 0 0.9569403357" material="A15_clear_polymer" />
+      <geom name="A15_socket_10_sector_20" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 0.0108 -0.0005" quat="-0.3826834324 0 0 0.9238795325" material="A15_clear_polymer" />
+      <geom name="A15_socket_10_sector_21" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 0.0108 -0.0005" quat="-0.4713967368 0 0 0.8819212643" material="A15_clear_polymer" />
+      <geom name="A15_socket_10_sector_22" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 0.0108 -0.0005" quat="-0.555570233 0 0 0.8314696123" material="A15_clear_polymer" />
+      <geom name="A15_socket_10_sector_23" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 0.0108 -0.0005" quat="-0.6343932842 0 0 0.7730104534" material="A15_clear_polymer" />
+      <geom name="A15_socket_10_sector_24" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 0.0108 -0.0005" quat="-0.7071067812 0 0 0.7071067812" material="A15_clear_polymer" />
+      <geom name="A15_socket_10_sector_25" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 0.0108 -0.0005" quat="-0.7730104534 0 0 0.6343932842" material="A15_clear_polymer" />
+      <geom name="A15_socket_10_sector_26" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 0.0108 -0.0005" quat="-0.8314696123 0 0 0.555570233" material="A15_clear_polymer" />
+      <geom name="A15_socket_10_sector_27" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 0.0108 -0.0005" quat="-0.8819212643 0 0 0.4713967368" material="A15_clear_polymer" />
+      <geom name="A15_socket_10_sector_28" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 0.0108 -0.0005" quat="-0.9238795325 0 0 0.3826834324" material="A15_clear_polymer" />
+      <geom name="A15_socket_10_sector_29" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 0.0108 -0.0005" quat="-0.9569403357 0 0 0.2902846773" material="A15_clear_polymer" />
+      <geom name="A15_socket_10_sector_30" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 0.0108 -0.0005" quat="-0.9807852804 0 0 0.195090322" material="A15_clear_polymer" />
+      <geom name="A15_socket_10_sector_31" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.045 0.0108 -0.0005" quat="-0.9951847267 0 0 0.09801714033" material="A15_clear_polymer" />
+      <geom name="A15_socket_10_number_tab" type="box" pos="-0.045 0.022 -0.0005" size="0.0033 0.0023 0.0015" material="A15_clear_polymer" />
+      <geom name="A15_label_10_0_b" type="capsule" fromto="-0.045225 0.023 0.001075 -0.045225 0.022 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_10_0_c" type="capsule" fromto="-0.045225 0.022 0.001075 -0.045225 0.021 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_10_1_a" type="capsule" fromto="-0.044775 0.023 0.001075 -0.043725 0.023 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_10_1_b" type="capsule" fromto="-0.043725 0.023 0.001075 -0.043725 0.022 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_10_1_c" type="capsule" fromto="-0.043725 0.022 0.001075 -0.043725 0.021 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_10_1_d" type="capsule" fromto="-0.044775 0.021 0.001075 -0.043725 0.021 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_10_1_e" type="capsule" fromto="-0.044775 0.022 0.001075 -0.044775 0.021 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_10_1_f" type="capsule" fromto="-0.044775 0.023 0.001075 -0.044775 0.022 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <site name="A15_socket_10_site" pos="-0.045 0.0108 0.001" size="0.002" />
+      <geom name="A15_socket_11_sector_00" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 0.0108 -0.0005" quat="1 0 0 0" material="A15_clear_polymer" />
+      <geom name="A15_socket_11_sector_01" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 0.0108 -0.0005" quat="0.9951847267 0 0 0.09801714033" material="A15_clear_polymer" />
+      <geom name="A15_socket_11_sector_02" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 0.0108 -0.0005" quat="0.9807852804 0 0 0.195090322" material="A15_clear_polymer" />
+      <geom name="A15_socket_11_sector_03" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 0.0108 -0.0005" quat="0.9569403357 0 0 0.2902846773" material="A15_clear_polymer" />
+      <geom name="A15_socket_11_sector_04" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 0.0108 -0.0005" quat="0.9238795325 0 0 0.3826834324" material="A15_clear_polymer" />
+      <geom name="A15_socket_11_sector_05" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 0.0108 -0.0005" quat="0.8819212643 0 0 0.4713967368" material="A15_clear_polymer" />
+      <geom name="A15_socket_11_sector_06" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 0.0108 -0.0005" quat="0.8314696123 0 0 0.555570233" material="A15_clear_polymer" />
+      <geom name="A15_socket_11_sector_07" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 0.0108 -0.0005" quat="0.7730104534 0 0 0.6343932842" material="A15_clear_polymer" />
+      <geom name="A15_socket_11_sector_08" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 0.0108 -0.0005" quat="0.7071067812 0 0 0.7071067812" material="A15_clear_polymer" />
+      <geom name="A15_socket_11_sector_09" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 0.0108 -0.0005" quat="0.6343932842 0 0 0.7730104534" material="A15_clear_polymer" />
+      <geom name="A15_socket_11_sector_10" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 0.0108 -0.0005" quat="0.555570233 0 0 0.8314696123" material="A15_clear_polymer" />
+      <geom name="A15_socket_11_sector_11" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 0.0108 -0.0005" quat="0.4713967368 0 0 0.8819212643" material="A15_clear_polymer" />
+      <geom name="A15_socket_11_sector_12" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 0.0108 -0.0005" quat="0.3826834324 0 0 0.9238795325" material="A15_clear_polymer" />
+      <geom name="A15_socket_11_sector_13" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 0.0108 -0.0005" quat="0.2902846773 0 0 0.9569403357" material="A15_clear_polymer" />
+      <geom name="A15_socket_11_sector_14" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 0.0108 -0.0005" quat="0.195090322 0 0 0.9807852804" material="A15_clear_polymer" />
+      <geom name="A15_socket_11_sector_15" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 0.0108 -0.0005" quat="0.09801714033 0 0 0.9951847267" material="A15_clear_polymer" />
+      <geom name="A15_socket_11_sector_16" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 0.0108 -0.0005" quat="6.123233996e-17 0 0 1" material="A15_clear_polymer" />
+      <geom name="A15_socket_11_sector_17" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 0.0108 -0.0005" quat="-0.09801714033 0 0 0.9951847267" material="A15_clear_polymer" />
+      <geom name="A15_socket_11_sector_18" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 0.0108 -0.0005" quat="-0.195090322 0 0 0.9807852804" material="A15_clear_polymer" />
+      <geom name="A15_socket_11_sector_19" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 0.0108 -0.0005" quat="-0.2902846773 0 0 0.9569403357" material="A15_clear_polymer" />
+      <geom name="A15_socket_11_sector_20" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 0.0108 -0.0005" quat="-0.3826834324 0 0 0.9238795325" material="A15_clear_polymer" />
+      <geom name="A15_socket_11_sector_21" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 0.0108 -0.0005" quat="-0.4713967368 0 0 0.8819212643" material="A15_clear_polymer" />
+      <geom name="A15_socket_11_sector_22" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 0.0108 -0.0005" quat="-0.555570233 0 0 0.8314696123" material="A15_clear_polymer" />
+      <geom name="A15_socket_11_sector_23" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 0.0108 -0.0005" quat="-0.6343932842 0 0 0.7730104534" material="A15_clear_polymer" />
+      <geom name="A15_socket_11_sector_24" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 0.0108 -0.0005" quat="-0.7071067812 0 0 0.7071067812" material="A15_clear_polymer" />
+      <geom name="A15_socket_11_sector_25" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 0.0108 -0.0005" quat="-0.7730104534 0 0 0.6343932842" material="A15_clear_polymer" />
+      <geom name="A15_socket_11_sector_26" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 0.0108 -0.0005" quat="-0.8314696123 0 0 0.555570233" material="A15_clear_polymer" />
+      <geom name="A15_socket_11_sector_27" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 0.0108 -0.0005" quat="-0.8819212643 0 0 0.4713967368" material="A15_clear_polymer" />
+      <geom name="A15_socket_11_sector_28" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 0.0108 -0.0005" quat="-0.9238795325 0 0 0.3826834324" material="A15_clear_polymer" />
+      <geom name="A15_socket_11_sector_29" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 0.0108 -0.0005" quat="-0.9569403357 0 0 0.2902846773" material="A15_clear_polymer" />
+      <geom name="A15_socket_11_sector_30" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 0.0108 -0.0005" quat="-0.9807852804 0 0 0.195090322" material="A15_clear_polymer" />
+      <geom name="A15_socket_11_sector_31" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.027 0.0108 -0.0005" quat="-0.9951847267 0 0 0.09801714033" material="A15_clear_polymer" />
+      <geom name="A15_socket_11_number_tab" type="box" pos="-0.027 0.022 -0.0005" size="0.0033 0.0023 0.0015" material="A15_clear_polymer" />
+      <geom name="A15_label_11_0_b" type="capsule" fromto="-0.027225 0.023 0.001075 -0.027225 0.022 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_11_0_c" type="capsule" fromto="-0.027225 0.022 0.001075 -0.027225 0.021 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_11_1_b" type="capsule" fromto="-0.025725 0.023 0.001075 -0.025725 0.022 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_11_1_c" type="capsule" fromto="-0.025725 0.022 0.001075 -0.025725 0.021 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <site name="A15_socket_11_site" pos="-0.027 0.0108 0.001" size="0.002" />
+      <geom name="A15_socket_12_sector_00" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 0.0108 -0.0005" quat="1 0 0 0" material="A15_clear_polymer" />
+      <geom name="A15_socket_12_sector_01" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 0.0108 -0.0005" quat="0.9951847267 0 0 0.09801714033" material="A15_clear_polymer" />
+      <geom name="A15_socket_12_sector_02" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 0.0108 -0.0005" quat="0.9807852804 0 0 0.195090322" material="A15_clear_polymer" />
+      <geom name="A15_socket_12_sector_03" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 0.0108 -0.0005" quat="0.9569403357 0 0 0.2902846773" material="A15_clear_polymer" />
+      <geom name="A15_socket_12_sector_04" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 0.0108 -0.0005" quat="0.9238795325 0 0 0.3826834324" material="A15_clear_polymer" />
+      <geom name="A15_socket_12_sector_05" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 0.0108 -0.0005" quat="0.8819212643 0 0 0.4713967368" material="A15_clear_polymer" />
+      <geom name="A15_socket_12_sector_06" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 0.0108 -0.0005" quat="0.8314696123 0 0 0.555570233" material="A15_clear_polymer" />
+      <geom name="A15_socket_12_sector_07" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 0.0108 -0.0005" quat="0.7730104534 0 0 0.6343932842" material="A15_clear_polymer" />
+      <geom name="A15_socket_12_sector_08" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 0.0108 -0.0005" quat="0.7071067812 0 0 0.7071067812" material="A15_clear_polymer" />
+      <geom name="A15_socket_12_sector_09" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 0.0108 -0.0005" quat="0.6343932842 0 0 0.7730104534" material="A15_clear_polymer" />
+      <geom name="A15_socket_12_sector_10" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 0.0108 -0.0005" quat="0.555570233 0 0 0.8314696123" material="A15_clear_polymer" />
+      <geom name="A15_socket_12_sector_11" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 0.0108 -0.0005" quat="0.4713967368 0 0 0.8819212643" material="A15_clear_polymer" />
+      <geom name="A15_socket_12_sector_12" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 0.0108 -0.0005" quat="0.3826834324 0 0 0.9238795325" material="A15_clear_polymer" />
+      <geom name="A15_socket_12_sector_13" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 0.0108 -0.0005" quat="0.2902846773 0 0 0.9569403357" material="A15_clear_polymer" />
+      <geom name="A15_socket_12_sector_14" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 0.0108 -0.0005" quat="0.195090322 0 0 0.9807852804" material="A15_clear_polymer" />
+      <geom name="A15_socket_12_sector_15" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 0.0108 -0.0005" quat="0.09801714033 0 0 0.9951847267" material="A15_clear_polymer" />
+      <geom name="A15_socket_12_sector_16" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 0.0108 -0.0005" quat="6.123233996e-17 0 0 1" material="A15_clear_polymer" />
+      <geom name="A15_socket_12_sector_17" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 0.0108 -0.0005" quat="-0.09801714033 0 0 0.9951847267" material="A15_clear_polymer" />
+      <geom name="A15_socket_12_sector_18" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 0.0108 -0.0005" quat="-0.195090322 0 0 0.9807852804" material="A15_clear_polymer" />
+      <geom name="A15_socket_12_sector_19" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 0.0108 -0.0005" quat="-0.2902846773 0 0 0.9569403357" material="A15_clear_polymer" />
+      <geom name="A15_socket_12_sector_20" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 0.0108 -0.0005" quat="-0.3826834324 0 0 0.9238795325" material="A15_clear_polymer" />
+      <geom name="A15_socket_12_sector_21" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 0.0108 -0.0005" quat="-0.4713967368 0 0 0.8819212643" material="A15_clear_polymer" />
+      <geom name="A15_socket_12_sector_22" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 0.0108 -0.0005" quat="-0.555570233 0 0 0.8314696123" material="A15_clear_polymer" />
+      <geom name="A15_socket_12_sector_23" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 0.0108 -0.0005" quat="-0.6343932842 0 0 0.7730104534" material="A15_clear_polymer" />
+      <geom name="A15_socket_12_sector_24" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 0.0108 -0.0005" quat="-0.7071067812 0 0 0.7071067812" material="A15_clear_polymer" />
+      <geom name="A15_socket_12_sector_25" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 0.0108 -0.0005" quat="-0.7730104534 0 0 0.6343932842" material="A15_clear_polymer" />
+      <geom name="A15_socket_12_sector_26" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 0.0108 -0.0005" quat="-0.8314696123 0 0 0.555570233" material="A15_clear_polymer" />
+      <geom name="A15_socket_12_sector_27" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 0.0108 -0.0005" quat="-0.8819212643 0 0 0.4713967368" material="A15_clear_polymer" />
+      <geom name="A15_socket_12_sector_28" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 0.0108 -0.0005" quat="-0.9238795325 0 0 0.3826834324" material="A15_clear_polymer" />
+      <geom name="A15_socket_12_sector_29" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 0.0108 -0.0005" quat="-0.9569403357 0 0 0.2902846773" material="A15_clear_polymer" />
+      <geom name="A15_socket_12_sector_30" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 0.0108 -0.0005" quat="-0.9807852804 0 0 0.195090322" material="A15_clear_polymer" />
+      <geom name="A15_socket_12_sector_31" type="mesh" mesh="A15_socket_sector_mesh" pos="-0.009 0.0108 -0.0005" quat="-0.9951847267 0 0 0.09801714033" material="A15_clear_polymer" />
+      <geom name="A15_socket_12_number_tab" type="box" pos="-0.009 0.022 -0.0005" size="0.0033 0.0023 0.0015" material="A15_clear_polymer" />
+      <geom name="A15_label_12_0_b" type="capsule" fromto="-0.009225 0.023 0.001075 -0.009225 0.022 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_12_0_c" type="capsule" fromto="-0.009225 0.022 0.001075 -0.009225 0.021 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_12_1_a" type="capsule" fromto="-0.008775 0.023 0.001075 -0.007725 0.023 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_12_1_b" type="capsule" fromto="-0.007725 0.023 0.001075 -0.007725 0.022 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_12_1_g" type="capsule" fromto="-0.008775 0.022 0.001075 -0.007725 0.022 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_12_1_e" type="capsule" fromto="-0.008775 0.022 0.001075 -0.008775 0.021 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_12_1_d" type="capsule" fromto="-0.008775 0.021 0.001075 -0.007725 0.021 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <site name="A15_socket_12_site" pos="-0.009 0.0108 0.001" size="0.002" />
+      <geom name="A15_socket_13_sector_00" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 0.0108 -0.0005" quat="1 0 0 0" material="A15_clear_polymer" />
+      <geom name="A15_socket_13_sector_01" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 0.0108 -0.0005" quat="0.9951847267 0 0 0.09801714033" material="A15_clear_polymer" />
+      <geom name="A15_socket_13_sector_02" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 0.0108 -0.0005" quat="0.9807852804 0 0 0.195090322" material="A15_clear_polymer" />
+      <geom name="A15_socket_13_sector_03" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 0.0108 -0.0005" quat="0.9569403357 0 0 0.2902846773" material="A15_clear_polymer" />
+      <geom name="A15_socket_13_sector_04" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 0.0108 -0.0005" quat="0.9238795325 0 0 0.3826834324" material="A15_clear_polymer" />
+      <geom name="A15_socket_13_sector_05" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 0.0108 -0.0005" quat="0.8819212643 0 0 0.4713967368" material="A15_clear_polymer" />
+      <geom name="A15_socket_13_sector_06" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 0.0108 -0.0005" quat="0.8314696123 0 0 0.555570233" material="A15_clear_polymer" />
+      <geom name="A15_socket_13_sector_07" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 0.0108 -0.0005" quat="0.7730104534 0 0 0.6343932842" material="A15_clear_polymer" />
+      <geom name="A15_socket_13_sector_08" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 0.0108 -0.0005" quat="0.7071067812 0 0 0.7071067812" material="A15_clear_polymer" />
+      <geom name="A15_socket_13_sector_09" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 0.0108 -0.0005" quat="0.6343932842 0 0 0.7730104534" material="A15_clear_polymer" />
+      <geom name="A15_socket_13_sector_10" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 0.0108 -0.0005" quat="0.555570233 0 0 0.8314696123" material="A15_clear_polymer" />
+      <geom name="A15_socket_13_sector_11" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 0.0108 -0.0005" quat="0.4713967368 0 0 0.8819212643" material="A15_clear_polymer" />
+      <geom name="A15_socket_13_sector_12" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 0.0108 -0.0005" quat="0.3826834324 0 0 0.9238795325" material="A15_clear_polymer" />
+      <geom name="A15_socket_13_sector_13" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 0.0108 -0.0005" quat="0.2902846773 0 0 0.9569403357" material="A15_clear_polymer" />
+      <geom name="A15_socket_13_sector_14" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 0.0108 -0.0005" quat="0.195090322 0 0 0.9807852804" material="A15_clear_polymer" />
+      <geom name="A15_socket_13_sector_15" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 0.0108 -0.0005" quat="0.09801714033 0 0 0.9951847267" material="A15_clear_polymer" />
+      <geom name="A15_socket_13_sector_16" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 0.0108 -0.0005" quat="6.123233996e-17 0 0 1" material="A15_clear_polymer" />
+      <geom name="A15_socket_13_sector_17" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 0.0108 -0.0005" quat="-0.09801714033 0 0 0.9951847267" material="A15_clear_polymer" />
+      <geom name="A15_socket_13_sector_18" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 0.0108 -0.0005" quat="-0.195090322 0 0 0.9807852804" material="A15_clear_polymer" />
+      <geom name="A15_socket_13_sector_19" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 0.0108 -0.0005" quat="-0.2902846773 0 0 0.9569403357" material="A15_clear_polymer" />
+      <geom name="A15_socket_13_sector_20" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 0.0108 -0.0005" quat="-0.3826834324 0 0 0.9238795325" material="A15_clear_polymer" />
+      <geom name="A15_socket_13_sector_21" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 0.0108 -0.0005" quat="-0.4713967368 0 0 0.8819212643" material="A15_clear_polymer" />
+      <geom name="A15_socket_13_sector_22" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 0.0108 -0.0005" quat="-0.555570233 0 0 0.8314696123" material="A15_clear_polymer" />
+      <geom name="A15_socket_13_sector_23" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 0.0108 -0.0005" quat="-0.6343932842 0 0 0.7730104534" material="A15_clear_polymer" />
+      <geom name="A15_socket_13_sector_24" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 0.0108 -0.0005" quat="-0.7071067812 0 0 0.7071067812" material="A15_clear_polymer" />
+      <geom name="A15_socket_13_sector_25" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 0.0108 -0.0005" quat="-0.7730104534 0 0 0.6343932842" material="A15_clear_polymer" />
+      <geom name="A15_socket_13_sector_26" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 0.0108 -0.0005" quat="-0.8314696123 0 0 0.555570233" material="A15_clear_polymer" />
+      <geom name="A15_socket_13_sector_27" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 0.0108 -0.0005" quat="-0.8819212643 0 0 0.4713967368" material="A15_clear_polymer" />
+      <geom name="A15_socket_13_sector_28" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 0.0108 -0.0005" quat="-0.9238795325 0 0 0.3826834324" material="A15_clear_polymer" />
+      <geom name="A15_socket_13_sector_29" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 0.0108 -0.0005" quat="-0.9569403357 0 0 0.2902846773" material="A15_clear_polymer" />
+      <geom name="A15_socket_13_sector_30" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 0.0108 -0.0005" quat="-0.9807852804 0 0 0.195090322" material="A15_clear_polymer" />
+      <geom name="A15_socket_13_sector_31" type="mesh" mesh="A15_socket_sector_mesh" pos="0.009 0.0108 -0.0005" quat="-0.9951847267 0 0 0.09801714033" material="A15_clear_polymer" />
+      <geom name="A15_socket_13_number_tab" type="box" pos="0.009 0.022 -0.0005" size="0.0033 0.0023 0.0015" material="A15_clear_polymer" />
+      <geom name="A15_label_13_0_b" type="capsule" fromto="0.008775 0.023 0.001075 0.008775 0.022 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_13_0_c" type="capsule" fromto="0.008775 0.022 0.001075 0.008775 0.021 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_13_1_a" type="capsule" fromto="0.009225 0.023 0.001075 0.010275 0.023 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_13_1_b" type="capsule" fromto="0.010275 0.023 0.001075 0.010275 0.022 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_13_1_g" type="capsule" fromto="0.009225 0.022 0.001075 0.010275 0.022 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_13_1_c" type="capsule" fromto="0.010275 0.022 0.001075 0.010275 0.021 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_13_1_d" type="capsule" fromto="0.009225 0.021 0.001075 0.010275 0.021 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <site name="A15_socket_13_site" pos="0.009 0.0108 0.001" size="0.002" />
+      <geom name="A15_socket_14_sector_00" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 0.0108 -0.0005" quat="1 0 0 0" material="A15_clear_polymer" />
+      <geom name="A15_socket_14_sector_01" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 0.0108 -0.0005" quat="0.9951847267 0 0 0.09801714033" material="A15_clear_polymer" />
+      <geom name="A15_socket_14_sector_02" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 0.0108 -0.0005" quat="0.9807852804 0 0 0.195090322" material="A15_clear_polymer" />
+      <geom name="A15_socket_14_sector_03" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 0.0108 -0.0005" quat="0.9569403357 0 0 0.2902846773" material="A15_clear_polymer" />
+      <geom name="A15_socket_14_sector_04" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 0.0108 -0.0005" quat="0.9238795325 0 0 0.3826834324" material="A15_clear_polymer" />
+      <geom name="A15_socket_14_sector_05" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 0.0108 -0.0005" quat="0.8819212643 0 0 0.4713967368" material="A15_clear_polymer" />
+      <geom name="A15_socket_14_sector_06" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 0.0108 -0.0005" quat="0.8314696123 0 0 0.555570233" material="A15_clear_polymer" />
+      <geom name="A15_socket_14_sector_07" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 0.0108 -0.0005" quat="0.7730104534 0 0 0.6343932842" material="A15_clear_polymer" />
+      <geom name="A15_socket_14_sector_08" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 0.0108 -0.0005" quat="0.7071067812 0 0 0.7071067812" material="A15_clear_polymer" />
+      <geom name="A15_socket_14_sector_09" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 0.0108 -0.0005" quat="0.6343932842 0 0 0.7730104534" material="A15_clear_polymer" />
+      <geom name="A15_socket_14_sector_10" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 0.0108 -0.0005" quat="0.555570233 0 0 0.8314696123" material="A15_clear_polymer" />
+      <geom name="A15_socket_14_sector_11" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 0.0108 -0.0005" quat="0.4713967368 0 0 0.8819212643" material="A15_clear_polymer" />
+      <geom name="A15_socket_14_sector_12" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 0.0108 -0.0005" quat="0.3826834324 0 0 0.9238795325" material="A15_clear_polymer" />
+      <geom name="A15_socket_14_sector_13" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 0.0108 -0.0005" quat="0.2902846773 0 0 0.9569403357" material="A15_clear_polymer" />
+      <geom name="A15_socket_14_sector_14" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 0.0108 -0.0005" quat="0.195090322 0 0 0.9807852804" material="A15_clear_polymer" />
+      <geom name="A15_socket_14_sector_15" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 0.0108 -0.0005" quat="0.09801714033 0 0 0.9951847267" material="A15_clear_polymer" />
+      <geom name="A15_socket_14_sector_16" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 0.0108 -0.0005" quat="6.123233996e-17 0 0 1" material="A15_clear_polymer" />
+      <geom name="A15_socket_14_sector_17" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 0.0108 -0.0005" quat="-0.09801714033 0 0 0.9951847267" material="A15_clear_polymer" />
+      <geom name="A15_socket_14_sector_18" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 0.0108 -0.0005" quat="-0.195090322 0 0 0.9807852804" material="A15_clear_polymer" />
+      <geom name="A15_socket_14_sector_19" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 0.0108 -0.0005" quat="-0.2902846773 0 0 0.9569403357" material="A15_clear_polymer" />
+      <geom name="A15_socket_14_sector_20" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 0.0108 -0.0005" quat="-0.3826834324 0 0 0.9238795325" material="A15_clear_polymer" />
+      <geom name="A15_socket_14_sector_21" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 0.0108 -0.0005" quat="-0.4713967368 0 0 0.8819212643" material="A15_clear_polymer" />
+      <geom name="A15_socket_14_sector_22" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 0.0108 -0.0005" quat="-0.555570233 0 0 0.8314696123" material="A15_clear_polymer" />
+      <geom name="A15_socket_14_sector_23" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 0.0108 -0.0005" quat="-0.6343932842 0 0 0.7730104534" material="A15_clear_polymer" />
+      <geom name="A15_socket_14_sector_24" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 0.0108 -0.0005" quat="-0.7071067812 0 0 0.7071067812" material="A15_clear_polymer" />
+      <geom name="A15_socket_14_sector_25" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 0.0108 -0.0005" quat="-0.7730104534 0 0 0.6343932842" material="A15_clear_polymer" />
+      <geom name="A15_socket_14_sector_26" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 0.0108 -0.0005" quat="-0.8314696123 0 0 0.555570233" material="A15_clear_polymer" />
+      <geom name="A15_socket_14_sector_27" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 0.0108 -0.0005" quat="-0.8819212643 0 0 0.4713967368" material="A15_clear_polymer" />
+      <geom name="A15_socket_14_sector_28" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 0.0108 -0.0005" quat="-0.9238795325 0 0 0.3826834324" material="A15_clear_polymer" />
+      <geom name="A15_socket_14_sector_29" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 0.0108 -0.0005" quat="-0.9569403357 0 0 0.2902846773" material="A15_clear_polymer" />
+      <geom name="A15_socket_14_sector_30" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 0.0108 -0.0005" quat="-0.9807852804 0 0 0.195090322" material="A15_clear_polymer" />
+      <geom name="A15_socket_14_sector_31" type="mesh" mesh="A15_socket_sector_mesh" pos="0.027 0.0108 -0.0005" quat="-0.9951847267 0 0 0.09801714033" material="A15_clear_polymer" />
+      <geom name="A15_socket_14_number_tab" type="box" pos="0.027 0.022 -0.0005" size="0.0033 0.0023 0.0015" material="A15_clear_polymer" />
+      <geom name="A15_label_14_0_b" type="capsule" fromto="0.026775 0.023 0.001075 0.026775 0.022 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_14_0_c" type="capsule" fromto="0.026775 0.022 0.001075 0.026775 0.021 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_14_1_f" type="capsule" fromto="0.027225 0.023 0.001075 0.027225 0.022 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_14_1_g" type="capsule" fromto="0.027225 0.022 0.001075 0.028275 0.022 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_14_1_b" type="capsule" fromto="0.028275 0.023 0.001075 0.028275 0.022 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_14_1_c" type="capsule" fromto="0.028275 0.022 0.001075 0.028275 0.021 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <site name="A15_socket_14_site" pos="0.027 0.0108 0.001" size="0.002" />
+      <geom name="A15_socket_15_sector_00" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 0.0108 -0.0005" quat="1 0 0 0" material="A15_clear_polymer" />
+      <geom name="A15_socket_15_sector_01" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 0.0108 -0.0005" quat="0.9951847267 0 0 0.09801714033" material="A15_clear_polymer" />
+      <geom name="A15_socket_15_sector_02" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 0.0108 -0.0005" quat="0.9807852804 0 0 0.195090322" material="A15_clear_polymer" />
+      <geom name="A15_socket_15_sector_03" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 0.0108 -0.0005" quat="0.9569403357 0 0 0.2902846773" material="A15_clear_polymer" />
+      <geom name="A15_socket_15_sector_04" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 0.0108 -0.0005" quat="0.9238795325 0 0 0.3826834324" material="A15_clear_polymer" />
+      <geom name="A15_socket_15_sector_05" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 0.0108 -0.0005" quat="0.8819212643 0 0 0.4713967368" material="A15_clear_polymer" />
+      <geom name="A15_socket_15_sector_06" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 0.0108 -0.0005" quat="0.8314696123 0 0 0.555570233" material="A15_clear_polymer" />
+      <geom name="A15_socket_15_sector_07" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 0.0108 -0.0005" quat="0.7730104534 0 0 0.6343932842" material="A15_clear_polymer" />
+      <geom name="A15_socket_15_sector_08" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 0.0108 -0.0005" quat="0.7071067812 0 0 0.7071067812" material="A15_clear_polymer" />
+      <geom name="A15_socket_15_sector_09" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 0.0108 -0.0005" quat="0.6343932842 0 0 0.7730104534" material="A15_clear_polymer" />
+      <geom name="A15_socket_15_sector_10" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 0.0108 -0.0005" quat="0.555570233 0 0 0.8314696123" material="A15_clear_polymer" />
+      <geom name="A15_socket_15_sector_11" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 0.0108 -0.0005" quat="0.4713967368 0 0 0.8819212643" material="A15_clear_polymer" />
+      <geom name="A15_socket_15_sector_12" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 0.0108 -0.0005" quat="0.3826834324 0 0 0.9238795325" material="A15_clear_polymer" />
+      <geom name="A15_socket_15_sector_13" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 0.0108 -0.0005" quat="0.2902846773 0 0 0.9569403357" material="A15_clear_polymer" />
+      <geom name="A15_socket_15_sector_14" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 0.0108 -0.0005" quat="0.195090322 0 0 0.9807852804" material="A15_clear_polymer" />
+      <geom name="A15_socket_15_sector_15" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 0.0108 -0.0005" quat="0.09801714033 0 0 0.9951847267" material="A15_clear_polymer" />
+      <geom name="A15_socket_15_sector_16" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 0.0108 -0.0005" quat="6.123233996e-17 0 0 1" material="A15_clear_polymer" />
+      <geom name="A15_socket_15_sector_17" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 0.0108 -0.0005" quat="-0.09801714033 0 0 0.9951847267" material="A15_clear_polymer" />
+      <geom name="A15_socket_15_sector_18" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 0.0108 -0.0005" quat="-0.195090322 0 0 0.9807852804" material="A15_clear_polymer" />
+      <geom name="A15_socket_15_sector_19" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 0.0108 -0.0005" quat="-0.2902846773 0 0 0.9569403357" material="A15_clear_polymer" />
+      <geom name="A15_socket_15_sector_20" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 0.0108 -0.0005" quat="-0.3826834324 0 0 0.9238795325" material="A15_clear_polymer" />
+      <geom name="A15_socket_15_sector_21" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 0.0108 -0.0005" quat="-0.4713967368 0 0 0.8819212643" material="A15_clear_polymer" />
+      <geom name="A15_socket_15_sector_22" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 0.0108 -0.0005" quat="-0.555570233 0 0 0.8314696123" material="A15_clear_polymer" />
+      <geom name="A15_socket_15_sector_23" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 0.0108 -0.0005" quat="-0.6343932842 0 0 0.7730104534" material="A15_clear_polymer" />
+      <geom name="A15_socket_15_sector_24" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 0.0108 -0.0005" quat="-0.7071067812 0 0 0.7071067812" material="A15_clear_polymer" />
+      <geom name="A15_socket_15_sector_25" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 0.0108 -0.0005" quat="-0.7730104534 0 0 0.6343932842" material="A15_clear_polymer" />
+      <geom name="A15_socket_15_sector_26" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 0.0108 -0.0005" quat="-0.8314696123 0 0 0.555570233" material="A15_clear_polymer" />
+      <geom name="A15_socket_15_sector_27" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 0.0108 -0.0005" quat="-0.8819212643 0 0 0.4713967368" material="A15_clear_polymer" />
+      <geom name="A15_socket_15_sector_28" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 0.0108 -0.0005" quat="-0.9238795325 0 0 0.3826834324" material="A15_clear_polymer" />
+      <geom name="A15_socket_15_sector_29" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 0.0108 -0.0005" quat="-0.9569403357 0 0 0.2902846773" material="A15_clear_polymer" />
+      <geom name="A15_socket_15_sector_30" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 0.0108 -0.0005" quat="-0.9807852804 0 0 0.195090322" material="A15_clear_polymer" />
+      <geom name="A15_socket_15_sector_31" type="mesh" mesh="A15_socket_sector_mesh" pos="0.045 0.0108 -0.0005" quat="-0.9951847267 0 0 0.09801714033" material="A15_clear_polymer" />
+      <geom name="A15_socket_15_number_tab" type="box" pos="0.045 0.022 -0.0005" size="0.0033 0.0023 0.0015" material="A15_clear_polymer" />
+      <geom name="A15_label_15_0_b" type="capsule" fromto="0.044775 0.023 0.001075 0.044775 0.022 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_15_0_c" type="capsule" fromto="0.044775 0.022 0.001075 0.044775 0.021 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_15_1_a" type="capsule" fromto="0.045225 0.023 0.001075 0.046275 0.023 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_15_1_f" type="capsule" fromto="0.045225 0.023 0.001075 0.045225 0.022 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_15_1_g" type="capsule" fromto="0.045225 0.022 0.001075 0.046275 0.022 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_15_1_c" type="capsule" fromto="0.046275 0.022 0.001075 0.046275 0.021 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_15_1_d" type="capsule" fromto="0.045225 0.021 0.001075 0.046275 0.021 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <site name="A15_socket_15_site" pos="0.045 0.0108 0.001" size="0.002" />
+      <geom name="A15_socket_16_sector_00" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 0.0108 -0.0005" quat="1 0 0 0" material="A15_clear_polymer" />
+      <geom name="A15_socket_16_sector_01" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 0.0108 -0.0005" quat="0.9951847267 0 0 0.09801714033" material="A15_clear_polymer" />
+      <geom name="A15_socket_16_sector_02" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 0.0108 -0.0005" quat="0.9807852804 0 0 0.195090322" material="A15_clear_polymer" />
+      <geom name="A15_socket_16_sector_03" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 0.0108 -0.0005" quat="0.9569403357 0 0 0.2902846773" material="A15_clear_polymer" />
+      <geom name="A15_socket_16_sector_04" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 0.0108 -0.0005" quat="0.9238795325 0 0 0.3826834324" material="A15_clear_polymer" />
+      <geom name="A15_socket_16_sector_05" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 0.0108 -0.0005" quat="0.8819212643 0 0 0.4713967368" material="A15_clear_polymer" />
+      <geom name="A15_socket_16_sector_06" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 0.0108 -0.0005" quat="0.8314696123 0 0 0.555570233" material="A15_clear_polymer" />
+      <geom name="A15_socket_16_sector_07" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 0.0108 -0.0005" quat="0.7730104534 0 0 0.6343932842" material="A15_clear_polymer" />
+      <geom name="A15_socket_16_sector_08" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 0.0108 -0.0005" quat="0.7071067812 0 0 0.7071067812" material="A15_clear_polymer" />
+      <geom name="A15_socket_16_sector_09" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 0.0108 -0.0005" quat="0.6343932842 0 0 0.7730104534" material="A15_clear_polymer" />
+      <geom name="A15_socket_16_sector_10" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 0.0108 -0.0005" quat="0.555570233 0 0 0.8314696123" material="A15_clear_polymer" />
+      <geom name="A15_socket_16_sector_11" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 0.0108 -0.0005" quat="0.4713967368 0 0 0.8819212643" material="A15_clear_polymer" />
+      <geom name="A15_socket_16_sector_12" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 0.0108 -0.0005" quat="0.3826834324 0 0 0.9238795325" material="A15_clear_polymer" />
+      <geom name="A15_socket_16_sector_13" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 0.0108 -0.0005" quat="0.2902846773 0 0 0.9569403357" material="A15_clear_polymer" />
+      <geom name="A15_socket_16_sector_14" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 0.0108 -0.0005" quat="0.195090322 0 0 0.9807852804" material="A15_clear_polymer" />
+      <geom name="A15_socket_16_sector_15" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 0.0108 -0.0005" quat="0.09801714033 0 0 0.9951847267" material="A15_clear_polymer" />
+      <geom name="A15_socket_16_sector_16" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 0.0108 -0.0005" quat="6.123233996e-17 0 0 1" material="A15_clear_polymer" />
+      <geom name="A15_socket_16_sector_17" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 0.0108 -0.0005" quat="-0.09801714033 0 0 0.9951847267" material="A15_clear_polymer" />
+      <geom name="A15_socket_16_sector_18" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 0.0108 -0.0005" quat="-0.195090322 0 0 0.9807852804" material="A15_clear_polymer" />
+      <geom name="A15_socket_16_sector_19" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 0.0108 -0.0005" quat="-0.2902846773 0 0 0.9569403357" material="A15_clear_polymer" />
+      <geom name="A15_socket_16_sector_20" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 0.0108 -0.0005" quat="-0.3826834324 0 0 0.9238795325" material="A15_clear_polymer" />
+      <geom name="A15_socket_16_sector_21" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 0.0108 -0.0005" quat="-0.4713967368 0 0 0.8819212643" material="A15_clear_polymer" />
+      <geom name="A15_socket_16_sector_22" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 0.0108 -0.0005" quat="-0.555570233 0 0 0.8314696123" material="A15_clear_polymer" />
+      <geom name="A15_socket_16_sector_23" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 0.0108 -0.0005" quat="-0.6343932842 0 0 0.7730104534" material="A15_clear_polymer" />
+      <geom name="A15_socket_16_sector_24" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 0.0108 -0.0005" quat="-0.7071067812 0 0 0.7071067812" material="A15_clear_polymer" />
+      <geom name="A15_socket_16_sector_25" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 0.0108 -0.0005" quat="-0.7730104534 0 0 0.6343932842" material="A15_clear_polymer" />
+      <geom name="A15_socket_16_sector_26" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 0.0108 -0.0005" quat="-0.8314696123 0 0 0.555570233" material="A15_clear_polymer" />
+      <geom name="A15_socket_16_sector_27" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 0.0108 -0.0005" quat="-0.8819212643 0 0 0.4713967368" material="A15_clear_polymer" />
+      <geom name="A15_socket_16_sector_28" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 0.0108 -0.0005" quat="-0.9238795325 0 0 0.3826834324" material="A15_clear_polymer" />
+      <geom name="A15_socket_16_sector_29" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 0.0108 -0.0005" quat="-0.9569403357 0 0 0.2902846773" material="A15_clear_polymer" />
+      <geom name="A15_socket_16_sector_30" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 0.0108 -0.0005" quat="-0.9807852804 0 0 0.195090322" material="A15_clear_polymer" />
+      <geom name="A15_socket_16_sector_31" type="mesh" mesh="A15_socket_sector_mesh" pos="0.063 0.0108 -0.0005" quat="-0.9951847267 0 0 0.09801714033" material="A15_clear_polymer" />
+      <geom name="A15_socket_16_number_tab" type="box" pos="0.063 0.022 -0.0005" size="0.0033 0.0023 0.0015" material="A15_clear_polymer" />
+      <geom name="A15_label_16_0_b" type="capsule" fromto="0.062775 0.023 0.001075 0.062775 0.022 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_16_0_c" type="capsule" fromto="0.062775 0.022 0.001075 0.062775 0.021 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_16_1_a" type="capsule" fromto="0.063225 0.023 0.001075 0.064275 0.023 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_16_1_f" type="capsule" fromto="0.063225 0.023 0.001075 0.063225 0.022 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_16_1_g" type="capsule" fromto="0.063225 0.022 0.001075 0.064275 0.022 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_16_1_e" type="capsule" fromto="0.063225 0.022 0.001075 0.063225 0.021 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_16_1_c" type="capsule" fromto="0.064275 0.022 0.001075 0.064275 0.021 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <geom name="A15_label_16_1_d" type="capsule" fromto="0.063225 0.021 0.001075 0.064275 0.021 0.001075" size="0.000075" material="A15_ink" contype="0" conaffinity="0" mass="0" />
+      <site name="A15_socket_16_site" pos="0.063 0.0108 0.001" size="0.002" />
+    </body>
+  </worldbody>
+  <equality>
+    <weld name="A15_rack_base_weld" body1="A15_magnet_base" body2="A15_upper_rack" active="true" solref="0.004 1" solimp="0.98 0.995 0.001" />
+  </equality>
+</mujoco>

@@ -1,0 +1,159 @@
+{
+  "schema_version": "1.0",
+  "asset_ids": [
+    "A01"
+  ],
+  "parts": [
+    {
+      "id": "A01_sampler",
+      "body": "sampler_chassis"
+    },
+    {
+      "id": "A01_filter_clamp",
+      "body": "filter_clamp"
+    },
+    {
+      "id": "A01_quartz_filter",
+      "body": "quartz_filter_203x254"
+    },
+    {
+      "id": "A01_pm10_inlet",
+      "body": "pm10_inlet"
+    },
+    {
+      "id": "A01_lid",
+      "body": "sampler_lid"
+    }
+  ],
+  "interfaces": [
+    {
+      "id": "A01_grasp_filter",
+      "asset_id": "A01",
+      "kind": "grasp",
+      "body": "quartz_filter_203x254",
+      "site": "quartz_filter_grasp_site",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "A01_grasp_filter_clamp",
+      "asset_id": "A01",
+      "kind": "grasp",
+      "body": "filter_clamp",
+      "site": "filter_clamp_grasp_site",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "A01_insert_filter",
+      "asset_id": "A01",
+      "kind": "insert",
+      "body": "quartz_filter_203x254",
+      "site": "quartz_filter_grasp_site",
+      "approach_axis": [
+        0,
+        0,
+        -1
+      ]
+    },
+    {
+      "id": "A01_rotate_lid",
+      "asset_id": "A01",
+      "kind": "rotate",
+      "body": "sampler_lid",
+      "site": "lid_grasp_site",
+      "approach_axis": [
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "id": "A01_press_clamp_lock",
+      "asset_id": "A01",
+      "kind": "press",
+      "body": "filter_clamp",
+      "site": "filter_clamp_capture_site",
+      "approach_axis": [
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "id": "A01_cut_filter",
+      "asset_id": "A01",
+      "kind": "cut",
+      "body": "quartz_filter_203x254",
+      "site": "quartz_filter_cut_site",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    }
+  ],
+  "assumptions": [
+    "VFC PM10 sampler外形、工作高度及夹具锁止坐标未在资料中给出；采用约0.62 m宽、0.51 m深、0.96 m高的工程建模值。",
+    "PM10进样口采用矩形开放式框架表达，保留滤膜进入方向和空气通道；内部气动过程仅作为状态参数。",
+    "采样流量状态参数为1.13 m^3/min，未模拟气流或颗粒捕集。",
+    "滤膜初始姿态为平展状态，置于独立滤膜夹内；折叠和切割由刚体膜片近似，未模拟柔性变形。"
+  ],
+  "approximations": [
+    "滤膜使用有真实厚度的刚体薄片近似；切割使用预定义cut接口，不模拟材料断裂。",
+    "滤膜夹锁止使用短行程滑块近似真实压扣，夹具通过可释放weld表达安装状态。",
+    "进样器内部风道、流量控制和颗粒分离不进行生化或流体仿真。"
+  ],
+  "buttons": [
+    {
+      "id": "A01_clamp_lock_button",
+      "joint": "filter_clamp_lock_slide",
+      "geom": "filter_clamp_lock_button",
+      "pressed_at": 0.01,
+      "released_at": 0.0005,
+      "event": "A01_unlock_filter_clamp"
+    }
+  ],
+  "connections": [
+    {
+      "id": "A01_filter_clamp_connection",
+      "kind": "detachable",
+      "equality": "filter_clamp_installed_weld",
+      "release_event": "A01_unlock_filter_clamp",
+      "irreversible": false,
+      "attach_event": "A01_attach_filter_clamp",
+      "capture_sites": [
+        "sampler_clamp_mount_site",
+        "filter_clamp_capture_site"
+      ],
+      "position_tolerance_m": 0.005,
+      "angle_tolerance_rad": 0.2
+    }
+  ],
+  "mechanical_events": [
+    {
+      "id": "A01_attach_filter_clamp",
+      "interface": "A01_grasp_filter_clamp",
+      "action": "attach"
+    },
+    {
+      "id": "A01_unlock_filter_clamp",
+      "interface": "A01_press_clamp_lock",
+      "action": "release"
+    }
+  ],
+  "construction_records": [],
+  "state_parameters": {
+    "sampling_flow_m3_per_min": 1.13,
+    "filter_size_m": [
+      0.2032,
+      0.254
+    ]
+  }
+}

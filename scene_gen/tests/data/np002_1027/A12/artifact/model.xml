@@ -1,0 +1,92 @@
+<mujoco model="A12_TSX505GA_refrigerator">
+  <compiler angle="radian" autolimits="true"/>
+  <option gravity="0 0 -9.81" integrator="implicitfast"/>
+  <size njmax="200" nconmax="200"/>
+  <asset>
+    <material name="cabinet_white" rgba="0.82 0.84 0.82 1"/>
+    <material name="cabinet_dark" rgba="0.10 0.13 0.14 1"/>
+    <material name="metal" rgba="0.65 0.68 0.67 1"/>
+    <material name="shelf_wire" rgba="0.72 0.74 0.72 1"/>
+    <material name="glass" rgba="0.20 0.30 0.31 0.34"/>
+    <material name="blue_handle" rgba="0.02 0.30 0.55 1"/>
+    <material name="display_black" rgba="0.015 0.018 0.02 1"/>
+    <material name="display_green" rgba="0.08 0.85 0.60 1"/>
+    <material name="tube_clear" rgba="0.75 0.88 0.88 0.55"/>
+    <material name="tube_cap" rgba="0.12 0.16 0.17 1"/>
+    <material name="rack" rgba="0.28 0.31 0.30 1"/>
+  </asset>
+  <worldbody>
+    <body name="refrigerator_cabinet" pos="0 0 0.4065">
+      <!-- closed external shell; the front remains an actual opening -->
+      <geom name="cabinet_bottom" type="box" pos="0 0 0.025" size="0.30 0.3305 0.025" material="cabinet_dark"/>
+      <geom name="cabinet_left_wall" type="box" pos="-0.285 0 0.4065" size="0.015 0.3305 0.3815" material="cabinet_white"/>
+      <geom name="cabinet_right_wall" type="box" pos="0.285 0 0.4065" size="0.015 0.3305 0.3815" material="cabinet_white"/>
+      <geom name="cabinet_back" type="box" pos="0 0.315 0.4065" size="0.285 0.015 0.3815" material="cabinet_dark"/>
+      <geom name="cabinet_top" type="box" pos="0 0 0.788" size="0.30 0.3305 0.025" material="cabinet_white"/>
+      <geom name="cabinet_top_front" type="box" pos="0 -0.316 0.748" size="0.285 0.014 0.065" material="cabinet_white"/>
+      <geom name="cabinet_left_front_frame" type="box" pos="-0.270 -0.320 0.405" size="0.030 0.020 0.350" material="cabinet_dark"/>
+      <geom name="cabinet_right_front_frame" type="box" pos="0.270 -0.320 0.405" size="0.030 0.020 0.350" material="cabinet_dark"/>
+      <geom name="cabinet_lower_front_frame" type="box" pos="0 -0.320 0.065" size="0.270 0.020 0.055" material="cabinet_dark"/>
+      <geom name="cabinet_upper_front_frame" type="box" pos="0 -0.320 0.735" size="0.270 0.020 0.040" material="cabinet_dark"/>
+
+      <!-- three removable-looking but mechanically supported shelves -->
+      <body name="shelf_lower" pos="0 0 0.225">
+        <geom name="shelf_lower_panel" type="box" pos="0 0 0" size="0.255 0.270 0.008" material="shelf_wire"/>
+        <geom name="shelf_lower_front_rail" type="box" pos="0 -0.255 0.018" size="0.255 0.008 0.018" material="metal"/>
+      </body>
+      <body name="shelf_middle" pos="0 0 0.430">
+        <geom name="shelf_middle_panel" type="box" pos="0 0 0" size="0.255 0.270 0.008" material="shelf_wire"/>
+        <geom name="shelf_middle_front_rail" type="box" pos="0 -0.255 0.018" size="0.255 0.008 0.018" material="metal"/>
+      </body>
+      <body name="shelf_upper" pos="0 0 0.625">
+        <geom name="shelf_upper_panel" type="box" pos="0 0 0" size="0.255 0.270 0.008" material="shelf_wire"/>
+        <geom name="shelf_upper_front_rail" type="box" pos="0 -0.255 0.018" size="0.255 0.008 0.018" material="metal"/>
+      </body>
+
+      <!-- stable internal 2 ml tube rack, visibly supported by the lower shelf -->
+      <body name="tube_rack_2ml" pos="0.105 0.045 0.255">
+        <geom name="tube_rack_base" type="box" pos="0 0 0.018" size="0.105 0.105 0.018" material="rack"/>
+        <geom name="tube_rack_left_rail" type="box" pos="-0.095 0 0.060" size="0.010 0.105 0.045" material="rack"/>
+        <geom name="tube_rack_right_rail" type="box" pos="0.095 0 0.060" size="0.010 0.105 0.045" material="rack"/>
+        <geom name="tube_rack_front_rail" type="box" pos="0 -0.095 0.060" size="0.105 0.010 0.045" material="rack"/>
+        <geom name="tube_rack_back_rail" type="box" pos="0 0.095 0.060" size="0.105 0.010 0.045" material="rack"/>
+        <geom name="tube_rack_crossbar" type="box" pos="0 0 0.083" size="0.105 0.105 0.008" material="rack" contype="0" conaffinity="0"/>
+        <site name="tube_rack_grasp_site" pos="0 -0.125 0.075" size="0.012" rgba="0.1 0.8 0.2 1"/>
+        <body name="collection_tube_2ml" pos="0 0 0.102">
+          <geom name="collection_tube_body" type="cylinder" pos="0 0 0.050" size="0.009 0.050" material="tube_clear"/>
+          <geom name="collection_tube_cap" type="cylinder" pos="0 0 0.110" size="0.0105 0.010" material="tube_cap"/>
+          <site name="collection_tube_grasp_site" pos="0 -0.012 0.080" size="0.006" rgba="0.2 0.9 0.2 1"/>
+        </body>
+      </body>
+
+      <!-- fixed reference joint used to lock the hinged door in its initial closed state -->
+      <body name="door_lock_reference" pos="-0.270 -0.322 0.405">
+        <joint name="door_lock_ref" type="hinge" axis="0 0 1" range="0 0" limited="true" damping="1"/>
+        <geom name="door_lock_reference_geom" type="box" pos="0 0 0" size="0.002 0.002 0.002" material="cabinet_dark" contype="0" conaffinity="0"/>
+      </body>
+
+      <!-- independently articulated glass door; initial angle is zero (closed) -->
+      <body name="refrigerator_door" pos="-0.270 -0.322 0.405">
+        <joint name="door_hinge" type="hinge" axis="0 0 1" range="0 1.75" limited="true" damping="2" armature="0.002"/>
+        <geom name="door_outer_panel" type="box" pos="0.270 -0.022 0" size="0.270 0.022 0.365" material="cabinet_dark"/>
+        <geom name="door_glass_panel" type="box" pos="0.270 -0.048 0" size="0.240 0.006 0.300" material="glass" contype="1" conaffinity="1"/>
+        <geom name="door_left_frame" type="box" pos="0.030 -0.050 0" size="0.014 0.012 0.350" material="cabinet_white"/>
+        <geom name="door_right_frame" type="box" pos="0.510 -0.050 0" size="0.014 0.012 0.350" material="cabinet_white"/>
+        <geom name="door_top_frame" type="box" pos="0.270 -0.050 0.335" size="0.240 0.012 0.015" material="cabinet_white"/>
+        <geom name="door_bottom_frame" type="box" pos="0.270 -0.050 -0.335" size="0.240 0.012 0.015" material="cabinet_white"/>
+        <geom name="door_handle" type="box" pos="0.535 -0.080 0.205" size="0.018 0.018 0.115" material="blue_handle"/>
+        <geom name="door_handle_mount_upper" type="box" pos="0.510 -0.060 0.300" size="0.025 0.012 0.012" material="blue_handle"/>
+        <geom name="door_handle_mount_lower" type="box" pos="0.510 -0.060 0.110" size="0.025 0.012 0.012" material="blue_handle"/>
+        <site name="door_handle_grasp_site" pos="0.555 -0.082 0.205" size="0.018" rgba="0.1 0.7 0.9 1"/>
+      </body>
+
+      <!-- control fascia and display details -->
+      <geom name="control_fascia" type="box" pos="-0.040 -0.334 0.760" size="0.085 0.008 0.030" material="display_black"/>
+      <geom name="temperature_display" type="box" pos="-0.040 -0.343 0.760" size="0.030 0.003 0.016" material="display_green" contype="0" conaffinity="0"/>
+      <site name="door_operation_site" pos="0.285 -0.405 0.205" size="0.015" rgba="0.9 0.3 0.1 1"/>
+    </body>
+  </worldbody>
+  <equality>
+    <joint name="door_closed_latch" joint1="door_hinge" joint2="door_lock_ref" polycoef="0 1 0 0 0" solref="0.02 1" solimp="0.9 0.95 0.001"/>
+  </equality>
+</mujoco>

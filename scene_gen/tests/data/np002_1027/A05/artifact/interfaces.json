@@ -1,0 +1,127 @@
+{
+  "schema_version": "1.0",
+  "asset_ids": [
+    "A05"
+  ],
+  "parts": [
+    {
+      "id": "A05_sample_tube",
+      "body": "sample_tube_352070"
+    },
+    {
+      "id": "A05_sample_cap",
+      "body": "sample_cap_358206"
+    },
+    {
+      "id": "A05_balance_tube",
+      "body": "balance_tube_352070"
+    },
+    {
+      "id": "A05_balance_cap",
+      "body": "balance_cap_358206"
+    },
+    {
+      "id": "A05_support_stand",
+      "body": "support_stand"
+    }
+  ],
+  "interfaces": [
+    {
+      "id": "A05_sample_grasp",
+      "asset_id": "A05",
+      "kind": "grasp",
+      "body": "sample_tube_352070",
+      "site": "sample_tube_grasp",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "A05_sample_cap_rotate",
+      "asset_id": "A05",
+      "kind": "rotate",
+      "body": "sample_cap_358206",
+      "site": "sample_cap_grasp",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ],
+      "operation": {
+        "status": "declared",
+        "axis": [
+          0,
+          0,
+          1
+        ],
+        "joint": "sample_cap_free",
+        "range": [
+          -6.283,
+          6.283
+        ],
+        "clearance_m": 0.003,
+        "grasp_geoms": [
+          "sample_cap_shell"
+        ],
+        "basis": {
+          "axis": {
+            "kind": "assumption",
+            "reference": "cap rotational symmetry and screw-cap function"
+          }
+        }
+      }
+    },
+    {
+      "id": "A05_balance_grasp",
+      "asset_id": "A05",
+      "kind": "grasp",
+      "body": "balance_tube_352070",
+      "site": "balance_tube_grasp",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "A05_stand_mount",
+      "asset_id": "A05",
+      "kind": "mount",
+      "body": "support_stand",
+      "site": "stand_position_a",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "A05_pipette_mouth",
+      "asset_id": "A05",
+      "kind": "insert",
+      "body": "sample_tube_352070",
+      "site": "sample_tube_mouth",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    }
+  ],
+  "assumptions": [
+    "支撑孔采用两个开放式导向位置，名义导向间隙约0.8毫米；孔径、深度和导轨坐标为建模值而非厂家测量。",
+    "管体底部留在支撑架导向区域上方约32毫米局部承托高度，支撑架两侧导轨提供防旋转反力。",
+    "盖子的螺纹以同轴自由刚体和环形螺纹筋近似，未认证真实螺纹啮合、旋盖扭矩或密封。",
+    "平衡管为同型独立实体，用于离心配平；未生成液体或生化内容物。"
+  ],
+  "approximations": [
+    "透明管采用具有真实内腔的程序化薄壁网格，内底锥面和顶部开口保留。",
+    "358206盖采用薄壁裙边、顶盖和两道环形筋的刚体近似。",
+    "支撑架采用开放导轨和端挡块近似，可支持旋盖、取放和倾倒姿态；实际夹持力未验证。"
+  ],
+  "buttons": [],
+  "connections": [],
+  "construction_records": []
+}

@@ -1,4 +1,4 @@
-# NP-002 lab scene agent
+# lab-scene-gen
 
 An agent pipeline that turns a written lab protocol (NP-002, a nucleic-acid workflow) into a
 MuJoCo lab scene for a mobile dual-arm robot. It produces articulated instruments, consumables
@@ -88,9 +88,10 @@ Offline only (no model calls). A few tests fail on this machine for known enviro
 | Path | What |
 |---|---|
 | `src/asset_prep` | protocol and asset-package extraction |
-| `src/asset_generation` | author/review prompts, codex transport, sandboxed build, asset checks, presentation renders, author skills |
+| `src/asset_generation` | author/review prompts, codex transport, sandboxed build, asset checks, presentation renders, optional author skills (off by default) |
 | `src/scene_generation` | plan, arrangement, assembly, scene checks, review, repair scheduling, operation handoff |
 | `src/robot_operation` | task contracts, trajectory planning and diagnosis on the scene |
 | `benchmark/NP-002` | inputs; `rubric.json` is for evaluation only and is hidden from every model request |
 | `scripts` | batch runner, continuations, report |
 | `data/robots` | vendor robot models (ROBOTIS FFW-SG2, Franka FR3, TIAGo) |
+| `cases` | generated assets and scenes as MuJoCo packages, one folder per run |

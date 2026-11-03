@@ -23,6 +23,10 @@ class BackendExecutionError(ValidationError):
     """进程超时/传输/本地环境失败，不等同于模型生成了错误几何。"""
 
 
+class WorkerTimeout(BackendExecutionError):
+    """工作进程超出时间预算；对已通过准入的同一资产，复查超时由调用方按该资产处理。"""
+
+
 def extract_artifacts(stream, destination, config):
     """只拷贝有界普通文件；拒绝链接、设备、路径穿越，不使用extractall。"""
     destination = Path(destination)

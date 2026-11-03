@@ -34,12 +34,19 @@ interfaces.json 格式：
              "released_at":0.0005,"event":"按钮事件名"}],
  "connections":[{"id":"连接编号","kind":"detachable|latch","equality":"约束名称","release_event":"按钮、software或mechanical_events编号",
                  "irreversible":false}]}
-可选mechanical_events:[{"id":"机械事件编号","interface":"已声明的真实操作接口id","action":"release|attach"}]。
+可选mechanical_events:[{"id":"机械事件编号","interface":"已声明的真实操作接口id","action":"release|attach","joint":"可选：触发关节","at":0.0}]。
+由卡扣、拨杆、旋钮等关节动作触发的事件须给出joint与at（该关节越过at即触发），框架会真实驱动该关节越过阈值来验证；直接拔下附件的事件可省略。
 手动卡扣、拨杆和取下附件可以引用此类事件，不得伪造software接口。release_event/attach_event可引用动作相符的机械事件。
 按钮事件、software接口编号和mechanical_events编号共享事件名称空间，不能重复定义同一事件。
 这仅声明机械关系；框架会用外力实际拉开连接来验证锁合与释放。
 必须声明mechanisms:[{"id":"机构编号","requirement":"资料中对应的运动/交互要求原文","joints":["实现它的hinge/slide/ball关节"],
- "lock":"锁住它的equality名称或null","actuation":"gripper|button|software|gravity|manual","continuous":false}]。
+ "lock":"锁住它的equality名称或null","release_event":"有lock时：解除该锁的按钮事件、software接口或带joint的mechanical_events编号",
+ "actuation":"gripper|button|software|gravity|manual","continuous":false,"extends":false}]。
+有lock时框架不会直接关掉锁：它会驱动release_event的触发关节（或按钮）越过阈值，越过后才解锁；卡扣不能动、触发关节到不了阈值都判失败。
+只有直接操作被锁部件本身（按扣盖、止动）解除的机械事件可省略joint，其interface须在被锁部件上；独立卡扣、拨杆必须声明joint与at。
+滑动机构在两端限位时运动件质心越出导向的距离不得比初始位置多5 mm以上，门、盖板不得滑出导轨或外壳；资料要求拉出的抽屉/托盘声明extends=true，须保留≥15%导向啮合。
+设计滑动行程时先定导轨：凡资料写可拉出、抽出、延伸的抽屉、托盘、键盘托、货架都声明extends=true，且行程不超过导轨沿滑轴长度的85%；需要整体取出的部件做成detachable连接，不要用加长行程代替。
+按钮弹簧须带预载：springref取在行程起点之外（按下方向的反方向），由range下限挡住按钮，使stiffness×预压距离≥2×按钮子树质量×9.81 N；这样任何安装角度下重力静置位置都在0附近，远小于released_at。
 资料Required interactions与任务requirements中每一项本体运动（开合、滑动、旋转、摆动、按压、锁止/解锁、翻折）都要有真实关节实现并列入mechanisms；
 每个hinge/slide/ball关节都必须属于某个机构；连续旋转（转子等）声明continuous=true，其余关节必须有限位且行程与资料一致。
 框架会逐个机构：全行程扫描检查新增穿透；用有界广义力把机构驱动到两端限位（弹簧与重力已补偿，只有接触、限位和约束能挡住它）；

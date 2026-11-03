@@ -203,6 +203,36 @@ class GenerationCheckTests(unittest.TestCase):
         rows = interaction_probes(self.root,MANIFEST)
         self.assertEqual([r["status"] for r in rows],["fail","fail"])
 
+    def test_button_on_a_free_instrument_is_pressed_not_dropped_and_not_overdriven(self):
+        from asset_generation.probes import interaction_probes, PRESS_OVERTRAVEL
+        write_artifact(self.root,XML.replace('<body name="base">','<body name="base"><freejoint/>'))
+        button = interaction_probes(self.root,MANIFEST)[0]
+        self.assertEqual(button["status"],"pass",button)
+        self.assertTrue(button["triggered"])
+        self.assertLessEqual(button["peak_position"],.004+PRESS_OVERTRAVEL+1e-4)
+
+    def test_button_sagging_past_released_at_under_its_own_weight_fails(self):
+        from asset_generation.probes import interaction_probes
+        write_artifact(self.root,XML.replace('stiffness="400"','stiffness="100"'))
+        button = interaction_probes(self.root,MANIFEST)[0]
+        self.assertEqual(button["status"],"fail")
+        self.assertIn("静止位置",button["detail"])
+
+    def test_button_that_stays_pressed_after_retreat_fails(self):
+        from asset_generation.probes import interaction_probes
+        write_artifact(self.root,XML.replace('stiffness="400"','stiffness="0"'))
+        button = interaction_probes(self.root,MANIFEST)[0]
+        self.assertTrue(button["triggered"])
+        self.assertFalse(button["released_after_retreat"])
+        self.assertEqual(button["status"],"fail")
+        self.assertIn("未复位",button["detail"])
+
+    def test_probe_reads_the_configuration_model_file(self):
+        from asset_generation.probes import interaction_probes
+        (self.root/"model.xml").rename(self.root/"pump.xml")
+        rows = interaction_probes(self.root,MANIFEST,"pump.xml")
+        self.assertEqual([r["status"] for r in rows],["pass","pass"])
+
     def test_reconnection_requires_real_alignment_and_allows_later_release(self):
         xml = XML.replace('<body name="base">','<body name="base"><site name="socket" pos=".1 0 .07"/>')
         manifest = copy.deepcopy(MANIFEST)

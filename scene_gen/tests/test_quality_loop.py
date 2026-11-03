@@ -26,40 +26,58 @@ def material(bridge=False):
     return integrity(m,d)
 
 
+def precheck_run(root,recheck):
+    """A run whose last applied repair changed job a from stage old to new; recheck(artifact) gives each report."""
+    records={}
+    for key in ('old','new'):
+        artifact=root/key;artifact.mkdir();(artifact/'geometry').write_text(key)
+        records[key]={'directory':key,'artifact':key,
+            'assembly_readiness':{'loadable':True,'artifact_sha256':digest(snapshot(artifact))}}
+    entry={'status':'applied','baseline':{'scene':'scene','jobs':{'a':'old'}},
+        'action':{'jobs':['a'],'placements':[]},'target_checks':['material_integrity:x'],'call_start':0}
+    run=SimpleNamespace(root=root,contract={'jobs':{}},implementation_guard=SimpleNamespace(expected='code'),
+        state={'repair_history':[entry],'stages':[records['old']], 'jobs':{'a':records['new']},
+            'plan':{'jobs':[{'id':'a','asset_ids':['A01']}],'instances':[{'id':'x','job':'a'}]}},
+        store=SimpleNamespace(state={'calls':[]},save=lambda:None),repair_input_key=lambda:'candidate',
+        sandbox=SimpleNamespace(recheck_asset=lambda artifact,*args:recheck(artifact)),selected=[])
+    def begin(kind):
+        run.destination=root/('check'+str(len(run.state['stages'])))
+        run.destination.mkdir();return run.destination
+    def commit(kind,record):
+        stage={**record,'directory':run.destination.name,'files':snapshot(run.destination)}
+        run.state['stages'].append(stage);return stage
+    run.begin=begin
+    run.commit=commit
+    run.select_repair_candidate=lambda:run.selected.append(True)
+    return run,entry
+
+
 class QualityLoopTests(unittest.TestCase):
     def test_local_regression_stops_before_assembly_and_reuses_checks(self):
         from scene_generation.local_repair import precheck
         with tempfile.TemporaryDirectory() as directory:
-            root=Path(directory)
-            records={}
-            for key in ('old','new'):
-                artifact=root/key;artifact.mkdir();(artifact/'geometry').write_text(key)
-                records[key]={'directory':key,'artifact':key,
-                    'assembly_readiness':{'loadable':True,'artifact_sha256':digest(snapshot(artifact))}}
-            entry={'status':'applied','baseline':{'scene':'scene','jobs':{'a':'old'}},
-                'action':{'jobs':['a'],'placements':[]},'target_checks':['material_integrity:x'],'call_start':0}
-            run=SimpleNamespace(root=root,contract={'jobs':{}},implementation_guard=SimpleNamespace(expected='code'),
-                state={'repair_history':[entry],'stages':[records['old']], 'jobs':{'a':records['new']},
-                    'plan':{'jobs':[{'id':'a','asset_ids':['A01']}],'instances':[{'id':'x','job':'a'}]}},
-                store=SimpleNamespace(state={'calls':[]},save=lambda:None),repair_input_key=lambda:'candidate')
-            calls=[];selected=[]
-            def recheck(artifact,*args):
+            calls=[]
+            def recheck(artifact):
                 calls.append(artifact.name)
                 row=material(artifact.name=='old')
                 return {'checks':[row],'status':row['status']},None
-            run.sandbox=SimpleNamespace(recheck_asset=recheck)
-            def begin(kind):
-                run.destination=root/('check'+str(len(run.state['stages'])))
-                run.destination.mkdir();return run.destination
-            def commit(kind,record):
-                stage={**record,'directory':run.destination.name,'files':snapshot(run.destination)}
-                run.state['stages'].append(stage);return stage
-            run.begin=begin
-            run.commit=commit
-            run.select_repair_candidate=lambda:selected.append(True)
-            self.assertTrue(precheck(run));self.assertEqual(calls,['old','new']);self.assertTrue(selected)
+            run,entry=precheck_run(Path(directory),recheck)
+            self.assertTrue(precheck(run));self.assertEqual(calls,['old','new']);self.assertTrue(run.selected)
             entry['status']='applied'
             self.assertTrue(precheck(run));self.assertEqual(calls,['old','new'])
+
+    def test_repaired_asset_whose_recheck_times_out_is_rejected_without_pausing(self):
+        from scene_generation.local_repair import precheck
+        from asset_generation.sandbox import WorkerTimeout
+        with tempfile.TemporaryDirectory() as directory:
+            def recheck(artifact):
+                if artifact.name=='new':raise WorkerTimeout('本地工作进程 validate 超时')
+                row=material(True)
+                return {'checks':[row],'status':row['status']},None
+            run,entry=precheck_run(Path(directory),recheck)
+            self.assertTrue(precheck(run));self.assertTrue(run.selected)
+            self.assertEqual(entry['outcome'],'regressed')
+            self.assertEqual(entry['comparison']['new_defects'][0]['added'],['worker_timeout'])
 
     def test_recorded_candidates_retain_unknowns_while_improving(self):
         import json
@@ -119,12 +137,11 @@ class QualityLoopTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as root:
             config=Config(max_model_calls=10,max_reserved_tokens=1000)
             s=Store(root,{},config);enter(s,'scene')
-            for i in range(4):s.reserve(str(i),'model',100)
-            with self.assertRaises(PhaseBudgetExceeded):s.reserve('blocked','model',1)
+            for i in range(7):s.reserve(str(i),'model',100)
             s=Store(root,{},config,resume=True);enter(s,'scene')
-            with self.assertRaises(PhaseBudgetExceeded):s.reserve('still blocked','model',1)
+            s.reserve('7','model',100)
             enter(s,'operation')
-            for i in range(5):s.reserve('op'+str(i),'model',100)
+            s.reserve('op','model',100)
             with self.assertRaises(PhaseBudgetExceeded):s.reserve('final reserved','model',1)
             enter(s,'final');s.reserve('final','model',100)
             self.assertEqual(s.totals()['model_calls'],10)

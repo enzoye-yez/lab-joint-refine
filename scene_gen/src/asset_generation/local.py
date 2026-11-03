@@ -15,7 +15,7 @@ from defusedxml.common import DefusedXmlException
 
 from asset_prep.errors import ValidationError
 from .contracts import require
-from .sandbox import ExecutionBackend, SandboxUnavailable, BackendExecutionError
+from .sandbox import ExecutionBackend, SandboxUnavailable, BackendExecutionError, WorkerTimeout
 from .process_tree import ProcessTree
 
 RENDER_ENVIRONMENT = ("MUJOCO_GL", "PYOPENGL_PLATFORM", "EGL_PLATFORM", "__EGL_VENDOR_LIBRARY_FILENAMES",
@@ -32,6 +32,11 @@ def work_budget(mode, source, base_seconds):
         return {"seconds":base_seconds, "estimated_geoms":None}
     job = read_json(source/"job.json", 32000000)
     if mode != "scene" and job.get("scope") != "scene":
+        # Each declared configuration of an asset is loaded and checked on its own.
+        if mode == "validate" and (source/"artifact"/"interfaces.json").is_file():
+            from .configurations import catalogue
+            configurations = len(catalogue(source/"artifact"))
+            return {"seconds":base_seconds*min(8, configurations), "estimated_geoms":None, "configurations":configurations}
         return {"seconds":base_seconds, "estimated_geoms":None}
     paths = []
     if mode == "scene":
@@ -245,7 +250,7 @@ class LocalBackend(ExecutionBackend):
                 return [path.as_posix() for path in files]
         except subprocess.TimeoutExpired as exc:
             receipt["status"]="timeout"
-            raise BackendExecutionError(
+            raise WorkerTimeout(
                 f"本地工作进程 {mode} 超时：超过 {budget['seconds']} 秒未完成，已请求终止进程树；"
                 f"日志保留在 {log_path}（装配日志含阶段起止及耗时；有开始而无结束的阶段可能被超时中断）") from exc
         except OSError as exc:

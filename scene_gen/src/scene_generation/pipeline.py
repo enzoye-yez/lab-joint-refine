@@ -238,8 +238,22 @@ class SceneRun:
                 "expected_model_units":1 if job["role"] == "asset" and len(job["asset_ids"]) == 1 and len(instances) > 1 else None,
                 "rule":"每个场景实例复制一次本模型；不要在单模型中按场景总数量重复生成完整资产"}
 
+    def dependency_images(self, job, required=True):
+        """The first render of each dependency: what a tool is designed and judged against."""
+        images = []
+        for dependency_id in job["depends_on"]:
+            previews = self.state["jobs"][dependency_id].get("preview_paths",[])
+            require(not required or previews, "操作装置设计依赖缺少已验证渲染")
+            if previews:
+                images.append(image_record(safe_path(self.root,previews[0]),self.root,self.generation))
+        return images
+
     def review_asset(self, job, bundle, references, previews, report, destination, record):
         self.check_pause()
+        if job["role"] != "asset":
+            # The served instruments were judged against their photos in their own reviews; a
+            # tool is judged against them as built, one render each, not every original photo.
+            references, bundle = [], {**bundle, "images": self.dependency_images(job, required=False)}
         scene_images=[image_record(safe_path(self.root,path),self.root,self.generation)
                       for path in self.state.get("published_scene",{}).get("preview_paths",[])[:3]]
         images = list({im["sha256"]:im for im in references + bundle["images"] + previews + scene_images}.values())
@@ -284,8 +298,14 @@ class SceneRun:
         loop alternated indefinitely. Every attempt keeps its actionable reason here.
         """
         rows=[]
+        # Audits of a version are rejections too; only the last audit of each version counts.
+        audits={}
         for stage in self.state.get("stages",[]):
-            if stage.get("kind")!="asset" or stage.get("job")!=key:continue
+            if stage.get("kind")=="asset_review" and stage.get("job")==key:
+                audits[stage.get("artifact")]=stage
+        for stage in self.state.get("stages",[]):
+            if stage.get("job")!=key or not (stage.get("kind")=="asset" or
+                    stage.get("kind")=="asset_review" and audits.get(stage.get("artifact")) is stage):continue
             feedback=stage.get("feedback") or {}
             numerical=feedback.get("numerical") or {}
             reasons=[{"check":row.get("id"),"status":row.get("status"),
@@ -294,6 +314,9 @@ class SceneRun:
             if feedback.get("generation_error"):
                 reasons.append({"check":"generation_error","status":"error",
                                 "detail":str(feedback["generation_error"])[:600]})
+            visual=feedback.get("visual") or {}
+            if visual.get("verdict")=="repair" and visual.get("source")!="numeric":
+                reasons.extend({"check":"visual_review","status":"fail","detail":str(f)[:600]} for f in visual.get("findings",[])[:8])
             if feedback.get("task_deferred"):
                 reasons.append({"check":"task_deferred","status":"error",
                                 "detail":str(feedback["task_deferred"])[:600]})
@@ -322,13 +345,7 @@ class SceneRun:
         reference_policy = "仪器生成使用所选资产全部原始参考图"
         if job["role"] != "asset":
             bundle["original_image_inventory"] = [{k:v for k,v in im.items() if k != "data_url"} for im in bundle["images"]]
-            dependency_images = []
-            for dependency_id in job["depends_on"]:
-                previews = self.state["jobs"][dependency_id].get("preview_paths",[])
-                require(draft or previews, "操作装置设计依赖缺少已验证渲染")
-                if previews:
-                    dependency_images.append(image_record(safe_path(self.root,previews[0]),self.root,self.generation))
-            bundle["images"] = dependency_images
+            bundle["images"] = self.dependency_images(job, required=not draft)
             reference_policy = ("操作装置设计使用已生成依赖的实际渲染及接口；原图用于前序资产生成，质量将在场景保存后审查；缺图不代表质量通过"
                                 if draft else "操作装置设计使用每项已生成依赖的首个实际渲染视角及实测接口；原图由前序资产阶段完整审查，完整多视角证据保留在各版本")
         profile = check_profile({**self.contract["jobs"].get(job["id"],{}), "validation_mode":self.limits.validation_mode})

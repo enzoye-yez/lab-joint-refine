@@ -100,6 +100,18 @@ class CodexTransportTests(unittest.TestCase):
             with self.assertRaises(ProviderError):
                 transport.post("unused", self.author_payload(None), "codex-login", 30)
 
+    def test_agent_mode_moves_long_text_into_a_file(self):
+        payload = self.payload()
+        payload["messages"][1]["content"][0]["text"] = "x" * 70000
+        with tempfile.TemporaryDirectory() as folder:
+            transport = CodexTransport(self.fake(folder), agent=True)
+            self.assertTrue(transport.whole_context("asset_review:tool"))
+            transport.post("unused", payload, "codex-login", 30)
+            call = json.loads((Path(folder) / "call.json").read_text())
+        self.assertIn("input_1.txt", call["prompt"])
+        self.assertNotIn("x" * 70000, call["prompt"])
+        self.assertEqual(call["args"][call["args"].index("--sandbox") + 1], "read-only")
+
     def test_failure_is_retryable_provider_error(self):
         with tempfile.TemporaryDirectory() as folder:
             with self.assertRaises(ProviderError) as caught:

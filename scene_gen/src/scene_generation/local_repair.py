@@ -2,6 +2,7 @@
 from asset_prep.storage import digest, safe_path
 from asset_generation.check_report import complete
 from asset_generation.contracts import check_profile
+from asset_generation.sandbox import WorkerTimeout
 from .progress import repair_comparison
 
 
@@ -48,14 +49,24 @@ def precheck(run):
                 from time import monotonic
                 started=monotonic()
                 destination=run.begin('local_repair_check')
-                report,renders=run.sandbox.recheck_asset(safe_path(run.root,artifact),destination,jobs[key]['asset_ids'],profile)
+                try:
+                    report,renders=run.sandbox.recheck_asset(safe_path(run.root,artifact),destination,jobs[key]['asset_ids'],profile)
+                except WorkerTimeout as exc:
+                    # Only this asset's recheck stalled (e.g. an unstable model); the scene goes on.
+                    report,renders={'status':'timeout','checks':[],'detail':str(exc)},None
                 render_directory=str(renders.relative_to(run.root)) if renders else None
                 stage=run.commit('local_repair_check',{'job':key,'binding':binding,'report':report,
                     'render_directory':render_directory,'seconds':monotonic()-started})
                 cache[binding]={'report':report,'directory':stage['directory'],'render_directory':render_directory}
                 run.store.save()
             reports.append(cached_check(run,binding)['report'])
-        if len(reports)!=2 or any(r.get('status')=='error' for r in reports):continue
+        if len(reports)==2 and reports[1].get('status')=='timeout' and reports[0].get('status')!='timeout':
+            # The baseline finished the same recheck; the repaired model cannot, so it is not adopted.
+            comparisons.append({'job':key,'identical':False,'checks':[],'complete':False,
+                'comparison':{'outcome':'regressed','new_defects':[{'check':'local_validate','added':['worker_timeout'],
+                    'detail':reports[1]['detail'][:500]}]}})
+            continue
+        if len(reports)!=2 or any(r.get('status') in {'error','timeout'} for r in reports):continue
         comparison=repair_comparison(*reports)
         comparisons.append({'job':key,'comparison':comparison,
             'identical':old['assembly_readiness']['artifact_sha256']==new['assembly_readiness']['artifact_sha256'],

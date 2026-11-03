@@ -123,6 +123,28 @@ def prepare(project, source_name, target_name, before_file=None, kind="stage_rev
                        "src/scene_generation/contracts.py", "src/scene_generation/table.py", "src/scene_generation/assembly.py",
                        "src/scene_generation/checks.py", "src/scene_generation/prompts.py", "src/scene_generation/pipeline.py",
                        "src/scene_generation/cli.py"},
+                   "agent_context":{"src/asset_generation/model.py", "src/asset_generation/codex_transport.py",
+                       "src/scene_generation/scene_first.py"},
+                   "review_contract":{"src/scene_generation/review.py"},
+                   "phase_budget":{"src/asset_prep/phase_budget.py"},
+                   "budget_limits":{"src/scene_generation/scene_first.py",
+                       # presentation renders only; no check or review reads it
+                       "src/asset_generation/studio.py",
+                       # line endings only: restored to the repository's CRLF
+                       "src/asset_generation/model.py", "src/asset_generation/codex_transport.py",
+                       "src/scene_generation/review.py"},
+                   "repair_loop":{"src/asset_generation/probes.py", "src/asset_generation/motion.py",
+                       "src/asset_generation/checks.py", "src/asset_generation/prompts.py",
+                       "src/asset_generation/model.py", "src/asset_generation/review.py",
+                       "src/scene_generation/scene_first.py", "src/scene_generation/pipeline.py",
+                       "src/scene_generation/review.py",
+                       # a repaired asset whose recheck times out is rejected instead of pausing the scene
+                       "src/asset_generation/sandbox.py", "src/asset_generation/local.py",
+                       "src/scene_generation/local_repair.py",
+                       # presentation renders only; no check or review reads it
+                       "src/asset_generation/studio.py"},
+                   "asset_checks":{"src/asset_generation/probes.py", "src/asset_generation/motion.py",
+                       "src/asset_generation/checks.py", "src/asset_generation/local.py"},
                    "transport_recovery":{"src/asset_generation/contracts.py", "src/asset_generation/model.py",
                        "src/asset_generation/provider_diagnostics.py", "src/asset_generation/transport.py",
                        "src/asset_prep/network.py", "src/scene_generation/gallery.py", "src/scene_generation/pipeline.py"},
@@ -142,7 +164,7 @@ def prepare(project, source_name, target_name, before_file=None, kind="stage_rev
         require(archive_only or changed and {p.replace("\\", "/") for p in changed} <= allowed,
                 "存在阶段审查以外的源码变化，不支持本次升级")
         scene = state["scene"]
-        require(not scene.get("pending") or kind in {"evidence_recovery", "transport_recovery", "evidence_pipeline"}, "存在未归档工作区")
+        require(not scene.get("pending") or kind in {"evidence_recovery", "transport_recovery", "evidence_pipeline", "agent_context", "review_contract", "phase_budget", "budget_limits", "repair_loop"}, "存在未归档工作区")
         if kind in {'main_check_recovery', 'implementation_binding', 'archive_revalidation', 'evidence_pipeline'}:
             require(state['identity']['limits']['validation_mode']=='static'
                     and scene['status'] in {'needs_check_support','needs_environment','needs_review','paused',
@@ -156,6 +178,50 @@ def prepare(project, source_name, target_name, before_file=None, kind="stage_rev
         elif kind in {"evidence_recovery", "transport_recovery", "local_repair", "evidence_checks"}:
             require(state["identity"]["limits"]["validation_mode"] == "static"
                     and scene["status"] in {"needs_review","paused"}, "只允许续接静态证据不足或网络暂停运行")
+        elif kind == "budget_limits":
+            # The run limits become BUDGET (scripts/run_scene_batch.py); phase ceilings follow them.
+            from asset_prep.phase_budget import ceilings
+            from run_scene_batch import BUDGET
+            allocation = state.get("phase_budget")
+            if allocation:
+                allocation["ceilings"] = ceilings(allocation["entry"], {"model_calls": BUDGET["max_model_calls"],
+                                                                        "accounted_tokens": BUDGET["max_reserved_tokens"]})
+            # Key each standing asset review by what it judged, so the re-audit under the new
+            # implementation keeps verdicts whose checks and images come out unchanged. Tool jobs
+            # depend on the live layout context and are re-reviewed.
+            from scene_generation.scene_first import review_key
+            for plan_job in scene["plan"]["jobs"]:
+                job = scene["jobs"].get(plan_job["id"]) or {}
+                numerical = job.get("feedback", {}).get("numerical") or {}
+                visual = job.get("feedback", {}).get("visual") or {}
+                if plan_job["role"] != "asset" or numerical.get("status") == "fail" or visual.get("verdict") not in {"accept", "repair"}:
+                    continue
+                images = [file_hash(safe_path(source, path)) for path in job.get("preview_paths", [])]
+                dependencies = {k: scene["jobs"].get(k, {}).get("assembly_readiness") for k in plan_job["depends_on"]}
+                job["review_key"] = review_key(plan_job, job["assembly_readiness"], None, dependencies, numerical, images)
+        elif kind == "repair_loop":
+            # Checker and repair-loop change: the implementation digest re-audits every asset, and
+            # failed assets then go back to their authors within their own repair allowance.
+            scene.pop("scene_review_resume", None)
+        elif kind == "phase_budget":
+            # Only the scene share changed; the ceiling is recomputed from the saved entry totals
+            # and the run limits (the final ceiling), never from what has been spent since.
+            from asset_prep.phase_budget import ceilings
+            require(scene["status"] == "phase_budget_exhausted", "仅续接场景额度用尽的运行")
+            allocation = state["phase_budget"]
+            allocation["ceilings"] = ceilings(allocation["entry"], allocation["ceilings"]["final"])
+        elif kind == "asset_checks":
+            # Checker faults stopped the run; the new implementation digest re-audits every asset.
+            require(state["identity"]["limits"]["validation_mode"] == "static"
+                    and scene["status"] in {"needs_environment", "paused"}, "仅续接检查器故障停止的静态运行")
+            old_recovery = scene.pop("check_recovery", None)
+            if old_recovery:
+                scene.setdefault("check_recovery_history", []).append(old_recovery)
+            scene.pop("active_check_recovery", None)
+            scene.pop("scene_review_resume", None)
+        elif kind in {"agent_context", "review_contract"}:
+            # Only how author requests reach the agent changed; every asset decision carries over.
+            require(scene["status"] in {"generating_candidates", "reviewing_assets", "paused"}, "仅续接资产生成或审查阶段中断的运行")
         elif kind == "stage_review":
             require(not scene.get("rounds") and not scene.get("latest"), "阶段审查升级只支持尚未装配的运行")
         else:
@@ -172,7 +238,7 @@ def prepare(project, source_name, target_name, before_file=None, kind="stage_rev
             require(all(j["status"] in {"candidate_ready", "assembly_ready"} and not j.get("dirty")
                         for j in scene["jobs"].values()), "场景容量升级不改变任何资产审查结果")
         unknown = any(c["status"] == "pending" for c in state["calls"])
-        require(not unknown or kind in {"evidence_recovery", "transport_recovery", "evidence_pipeline"}, "存在结果不明请求，须先核对账单")
+        require(not unknown or kind in {"evidence_recovery", "transport_recovery", "evidence_pipeline", "agent_context", "review_contract", "phase_budget", "budget_limits", "repair_loop"}, "存在结果不明请求，须先核对账单")
         for call in state["calls"]:
             if call["status"] == "done":
                 require(file_hash(safe_path(source, call["file"])) == call["sha256"], "调用记录摘要不一致")
@@ -187,6 +253,8 @@ def prepare(project, source_name, target_name, before_file=None, kind="stage_rev
                     '归档重验只接受全部资产已归档、尚未通过完整场景验收的静态运行')
         recheck = []
         for key, job in scene["jobs"].items():
+            if kind in {"agent_context", "review_contract", "asset_checks", "phase_budget", "budget_limits", "repair_loop"}:
+                break  # no job is marked; asset_checks re-audits through the implementation digest
             if kind=="evidence_pipeline":
                 owner=job.get("artifact_stage",job["stage"]).replace("\\", "/")
                 require(owner in stages and job.get("artifact"),"待重验资产缺少归档版本")
@@ -279,6 +347,20 @@ def prepare(project, source_name, target_name, before_file=None, kind="stage_rev
                              if kind == "evidence_checks" else
                              "保留资产、审查、待完成阶段与调用账本；仅升级传输恢复及资产展示，不改变验收结论"
                              if kind == "transport_recovery" else
+                             "保留资产、检查、待完成阶段与调用账本；编码代理模式下请求整体交付上下文（超长部分写入文件）并并行预取，不改变验收结论"
+                             if kind == "agent_context" else
+                             "保留资产、检查与调用账本；审查延后项格式在提示中写明并接受同义键，格式失败的审查按原流程重审，不改变已有结论"
+                             if kind == "review_contract" else
+                             "保留资产、审查记录与调用账本；修正构型按钮探测、按钮复位判定、连接释放探测耗时与多构型检查时限，"
+                             "全部资产按新实现重新量测并复审，旧检查结论不继承"
+                             if kind == "asset_checks" else
+                             "保留资产、检查、审查与调用账本；总预算不变，场景阶段额度按新份额与操作阶段共用总额的90%"
+                             if kind == "phase_budget" else
+                             "保留资产、检查、审查与调用账本；模型调用次数与令牌总量上限改为原配置的两倍；未变化的资产审查结论沿用"
+                             if kind == "budget_limits" else
+                             "保留资产、审查记录与调用账本；修正探测误判、补充滑动保持与锁联动检查，失败资产在资产阶段直接修复；"
+                             "全部资产按新实现重新量测并复审"
+                             if kind == "repair_loop" else
                              "保留已有几何及账本，启用只读补证据后复审；未知请求保持pending且禁止自动重发"
                              if kind == "evidence_recovery" else
                              "保留已有几何和工程检查，重新执行按阶段审查；旧结论不自动升级为通过"
@@ -306,7 +388,7 @@ def prepare(project, source_name, target_name, before_file=None, kind="stage_rev
         implementation.archive_sources(project, target, state['identity']['implementation'])
         state.setdefault("implementation_history", []).append(receipt)
         scene["status"] = "paused"
-        if kind not in {"stage_review", "transport_recovery"}:
+        if kind not in {"stage_review", "transport_recovery", "agent_context", "review_contract", "phase_budget", "budget_limits", "repair_loop"}:
             scene.update(repair_pending=False, repair_error=None)
             scene.pop("feedback", None)
         write_state(target / "state.json", state)
@@ -328,6 +410,6 @@ if __name__ == "__main__":
     parser.add_argument("--source", required=True)
     parser.add_argument("--target", required=True)
     parser.add_argument("--before-sources", type=Path)
-    parser.add_argument("--kind", choices=("evidence_pipeline", "archive_revalidation", "implementation_binding", "stage_review", "scene_capacity", "scene_repair", "static_preview", "evidence_recovery", "transport_recovery", "local_repair", "evidence_checks", "main_check_recovery"), default="stage_review")
+    parser.add_argument("--kind", choices=("evidence_pipeline", "archive_revalidation", "implementation_binding", "stage_review", "scene_capacity", "scene_repair", "static_preview", "evidence_recovery", "transport_recovery", "local_repair", "evidence_checks", "main_check_recovery", "agent_context", "review_contract", "asset_checks", "phase_budget", "budget_limits", "repair_loop"), default="stage_review")
     args = parser.parse_args()
     print(json.dumps(prepare(PROJECT, args.source, args.target, args.before_sources, args.kind), ensure_ascii=False))

@@ -19,8 +19,9 @@ ASSET_SCOPE = '''
 当前阶段是单资产/装置的本体审查：外形、本体内部配合与全部本体运动机构都必须在本阶段判定完毕，不能延后。
 verdict只能是accept或repair。本体问题（缺件、外形或机构错误、可见穿模或悬空、与资料冲突、本体内部配合不当、
 机构缺失或运动不合理）一律repair。只有本资产内部已全部核对无误才accept。
-跨实例事项（与其他资产的插接、放入其他仪器、桌面支撑与整体遮挡）不属于本阶段，可在deferred中记录
-stage="scene"；机器人抓取、操作序列与轨迹记录为stage="operation"。这些记录可与accept共存，交由对应阶段完成，
+跨实例事项（与其他资产的插接、放入其他仪器、桌面支撑与整体遮挡）不属于本阶段，写入
+deferred:[{"stage":"scene|operation","detail":"具体待验证内容"}]（每项只有这两个键）：跨实例配合用stage="scene"，
+机器人抓取、操作序列与轨迹用stage="operation"。这些记录可与accept共存，交由对应阶段完成，
 但不能把本体缺陷写进deferred。
 必须返回motion_coverage:[{"requirement":"资料中的一条运动/交互要求原文","mechanism":"interfaces.json中实现它的机构id或null",
 "verdict":"ok|missing|wrong","evidence":"依据：机构扫描/驱动/锁止/释放检查编号与机构两端渲染图"}]，
@@ -90,11 +91,12 @@ def _scoped_review(value, stage, deferred=(), expected_units=None, preview=False
                 "单模型内资产数量不匹配，不能接受或延后")
     pending = value.get("deferred", [])
     require(isinstance(pending, list) and len(pending) <= 64, "待验证项必须为有界列表")
+    pending = value["deferred"] = [deferred_item(item) for item in pending]
     for item in pending:
-        require(isinstance(item, dict) and set(item) == {"stage", "detail"}
+        require(set(item) == {"stage", "detail"}
                 and isinstance(item["stage"], str) and item["stage"] in {"scene", "operation"}
                 and isinstance(item["detail"], str) and 0 < len(item["detail"].strip()) <= 4000,
-                "待验证项必须明确scene或operation阶段及具体内容")
+                '待验证项格式应为{"stage":"scene|operation","detail":"具体内容"}，收到：'+str(item)[:200])
     require(not pending or stage == "asset", "场景阶段不能再次延后事项")
     blocking = value.get("blocking", [])
     require(isinstance(blocking, list) and all(isinstance(x, str) and x.strip() for x in blocking), "阻断原因须为文本列表")
@@ -102,6 +104,10 @@ def _scoped_review(value, stage, deferred=(), expected_units=None, preview=False
             "uncertain须明确本阶段blocking原因；跨实例事项写入deferred，操作未验证写入unverified")
     require(value["verdict"] == "uncertain" or not blocking, "非uncertain结论不能包含阻断原因")
     require(value["verdict"] != "repair" or value["findings"], "repair必须列出本阶段具体缺陷")
+    if stage == "asset":
+        # The author edits from these lines alone: each must name the part, the evidence and the change.
+        vague = [f for f in value["findings"] if not ("：" in f and "依据" in f and "建议" in f)]
+        require(not vague, "每条finding须写成“部件/几何名：问题；依据（哪张图或哪条检查）；建议修改（方向、数值或结构）”，不合格："+str(vague[:3])[:600])
     if stage == "scene":
         affected = value.get("affected_instances",[])
         require(isinstance(affected,list) and len(affected) <= 128 and all(isinstance(i,str) for i in affected)
@@ -122,6 +128,14 @@ def _scoped_review(value, stage, deferred=(), expected_units=None, preview=False
     require(value["verdict"] != "accept" or all(r["status"] in {"resolved","out_of_scope"} for r in resolutions),
             "仍有未解决的场景事项，不能接受")
     return value
+
+
+def deferred_item(item):
+    """One deferred item as {stage, detail}; a quoted requirement is folded into the detail text."""
+    if not isinstance(item, dict) or not set(item) <= {"stage", "detail", "requirement"}:
+        return item
+    parts = [item[k].strip() for k in ("requirement", "detail") if isinstance(item.get(k), str) and item[k].strip()]
+    return {"stage": item.get("stage"), "detail": "：".join(parts)}
 
 
 def motion_coverage(value):

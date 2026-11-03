@@ -159,12 +159,14 @@ def collect(run):
                 "repair":run.state.get("repair_directive"),
                 "dependencies":{k:run.state["jobs"].get(k,{}).get("assembly_readiness") for k in required}})
             history=attempts.setdefault(key,[])
+            # A quality repair scheduled after the audit has its own allowance (schedule_asset_repairs).
+            quality=(old or {}).get("regenerate")=="quality"
             # Initial admission failures share one bounded allocation despite generated source changes.
             cycle=digest({"job":jobs[key],"repair":run.state.get("repair_directive"),
                 "dependencies":{k:run.state["jobs"].get(k,{}).get("assembly_readiness") for k in required}})
             pending=next((a for a in reversed(history) if a["cycle"]==cycle and a["status"]=="started"),None)
             # Asset allocations are cumulative; changing dependencies must not silently reset them.
-            if pending is None and len(history)>=run.generation.max_iterations:
+            if pending is None and not quality and sum(not a.get("quality") for a in history)>=run.generation.max_iterations:
                 record_job_exhausted(run,key,history)
                 continue
             binding=digest({"cycle":cycle,"implementation":run.implementation_guard.expected})
@@ -199,11 +201,15 @@ def collect(run):
                     continue
             elif blocked:
                 continue
-            entry=pending or {"cycle":cycle,"input_key":input_key,"binding":binding,"status":"started"}
+            entry=pending or {"cycle":cycle,"input_key":input_key,"binding":binding,"status":"started","quality":quality}
             if pending is None:history.append(entry)
             run.store.save()
             recovery=run.state.get("task_context_recoveries",{}).get(key+":"+binding)
             if recovery: recovery.update(status="started")
+            # Dependencies committed earlier in this sweep unlock new independent authors;
+            # send them together instead of one by one.
+            if jobs[key]["role"]=="asset":
+                prefetch(run,jobs,attempts)
             try:
                 if jobs[key]["role"]!="asset":
                     from .layout_planning import refine
@@ -338,12 +344,26 @@ def publish(run, missing):
     return run.state["published_scene"]
 
 
+# Sources that shape what an asset review sees and how it is judged; any change re-reviews.
+REVIEW_SOURCES = ("scene_generation/review.py", "scene_generation/prompts.py", "asset_generation/prompts.py")
+
+
+def review_key(job, readiness, layout, dependencies, report, image_hashes):
+    """What an asset review judged: the asset, its context, the check rows and the rendered
+    images. A checker or framework change that leaves all of these unchanged keeps the verdict."""
+    src = Path(__file__).resolve().parents[1]
+    sources = {name: digest((src/name).read_bytes().replace(b"\r\n", b"\n").decode()) for name in REVIEW_SOURCES}
+    return digest({"job": job, "asset": readiness, "layout": layout, "dependencies": dependencies,
+                   "checks": report.get("checks"), "images": sorted(image_hashes), "review_sources": sources})
+
+
 def audit_assets(run):
     for job in run.state["plan"]["jobs"]:
         key=job["id"]; current=run.state["jobs"].get(key)
         if not usable(run,current):continue
-        audit_key=digest({"asset":current["assembly_readiness"],"layout":run.layout_context() if job['role']!='asset' else None,
-            "dependencies":{k:run.state["jobs"].get(k,{}).get("assembly_readiness") for k in job["depends_on"]},
+        layout=run.layout_context() if job['role']!='asset' else None
+        dependencies={k:run.state["jobs"].get(k,{}).get("assembly_readiness") for k in job["depends_on"]}
+        audit_key=digest({"asset":current["assembly_readiness"],"layout":layout,"dependencies":dependencies,
             "implementation":run.implementation_guard.expected})
         if current.get("quality_key")==audit_key:continue
         destination=run.begin("asset_review")
@@ -378,19 +398,70 @@ def audit_assets(run):
         atomic_json(destination/"checks.json",report)
         if report["status"]=="fail":
             # Confirmed numerical defects go straight back to the author; a visual review
-            # cannot overrule them and would only spend a call.
-            review={"verdict":"repair","findings":failing_findings(report),"unverified":[],"motion_coverage":[]}
+            # cannot overrule them and would only spend a call. Findings of an earlier real
+            # review of this same artifact still apply and travel with them.
+            earlier=current.get("feedback",{}).get("visual") or {}
+            seen=earlier.get("verdict")=="repair" and earlier.get("source")!="numeric"
+            review={"verdict":"repair","source":"numeric","unverified":[],"motion_coverage":[],
+                    "findings":failing_findings(report)+(["视觉审查（同一版本此前）："+f for f in earlier.get("findings",[])] if seen else [])}
             atomic_json(destination/"review.json",review)
             record.update(feedback={"numerical":report,"visual":review},status="failed",deferred_checks=[])
         elif images:
-            bundle=task_bundle(run.catalogue,job)
-            save_review_checkpoint(run,"asset",record)
-            run.review_asset(job,bundle,bundle["images"],images,report,destination,record)
+            key_now=review_key(job,current["assembly_readiness"],layout,dependencies,report,[i["sha256"] for i in images])
+            visual=current.get("feedback",{}).get("visual") or {}
+            if current.get("review_key")==key_now and visual.get("verdict") in {"accept","repair"}:
+                # Nothing the last review judged has changed: its verdict and deferrals stand.
+                record.update(feedback={"numerical":report,"visual":visual},
+                              status="candidate_ready" if visual["verdict"]=="accept" else "failed")
+            else:
+                bundle=task_bundle(run.catalogue,job)
+                save_review_checkpoint(run,"asset",record)
+                run.review_asset(job,bundle,bundle["images"],images,report,destination,record)
+            record["review_key"]=key_now
         record["quality_key"]=audit_key
         run.commit("asset_review",record)
         run.state["jobs"][key]["dirty"]=False
         usable(run,run.state["jobs"][key])
         run.store.save()
+
+
+QUALITY_REPAIRS = 3
+
+
+def defect_score(record):
+    """Failed numeric rows plus one for a visual repair verdict; lower is better."""
+    feedback=record.get("feedback") or {}
+    rows=(feedback.get("numerical") or {}).get("checks",[])
+    return sum(r.get("status")=="fail" for r in rows)+((feedback.get("visual") or {}).get("verdict")=="repair")
+
+
+def schedule_asset_repairs(run):
+    """Send every audited, failed asset straight back to its author with the full evidence.
+
+    Each asset has QUALITY_REPAIRS repairs of its own, apart from the draft allocation and the
+    scene repair rounds. An asset whose last two repairs did not lower its defect score stops
+    early. Stopped assets are recorded with their reason and stay in the scene as they are."""
+    repairs=run.state.setdefault("asset_repairs",{})
+    unresolved=run.state.setdefault("asset_repairs_unresolved",{})
+    scheduled=[]
+    for job in run.state["plan"]["jobs"]:
+        key=job["id"]; current=run.state["jobs"].get(key)
+        if not usable(run,current) or current.get("status")!="failed" or current.get("regenerate") or key in unresolved:continue
+        history=repairs.setdefault(key,[])
+        score=defect_score(current)
+        if history:history[-1]["result_score"]=score
+        scores=[h["score"] for h in history]+[score]
+        if len(history)>=QUALITY_REPAIRS:
+            unresolved[key]={"reason":f"已用完 {QUALITY_REPAIRS} 次资产质量修复","scores":scores,"artifact":current["artifact"]}
+            continue
+        if len(scores)>=3 and scores[-1]>=scores[-2]>=scores[-3]:
+            unresolved[key]={"reason":"连续两次修复没有减少缺陷","scores":scores,"artifact":current["artifact"]}
+            continue
+        history.append({"artifact":current["artifact"],"score":score})
+        current["regenerate"]="quality"
+        scheduled.append(key)
+    if scheduled:run.store.save()
+    return scheduled
 
 
 def failing_findings(report, limit=24):
@@ -405,7 +476,12 @@ def failing_findings(report, limit=24):
                     ("geom1","geom2","body","joint","depth_mm","repair_hint","free_directions","displacement_mm","fraction")})
         for side in ("high","low"):
             if row.get(f"{side}_blocking_contacts"):evidence.append({f"{side}_blocking":row[f"{side}_blocking_contacts"]})
-        out.append(f"{row['id']}：检查失败；依据：{str(row.get('detail',''))[:160]}；证据：{evidence}"[:1600])
+        # Probe measurements: what the author has to change is in these numbers.
+        measured={k:row[k] for k in ("rest_position","peak_position","final_position","stroke","engagement","unlock",
+            "trigger","moved_when_active_mm","moved_when_released_mm","moved_when_all_released_mm","moved_after_opening_mm",
+            "requires_opening","trapped_by","high_error_fraction","low_error_fraction","locked_motion_fraction") if row.get(k) not in (None,[],{})}
+        if measured:evidence.append(measured)
+        out.append(f"{row['id']}：检查失败；依据：{str(row.get('detail',''))[:240]}；证据：{evidence}"[:1600])
         if len(out)>=limit:break
     return out
 
@@ -471,6 +547,10 @@ def assess_scene(run,published):
     run.state['status']='reviewing_assets'
     run.progress("asset_quality", "scene_measurement_saved")
     audit_assets(run)
+    # Assets are finished before the scene is judged: failed ones go straight back to their
+    # authors, and the scene review waits for the repaired versions.
+    if schedule_asset_repairs(run):
+        return None,None
     report["checks"]=report.get("checks",[])+inherited_checks(run)
     from .recovery import isolate_asset_failures
     report = isolate_asset_failures(report, run.state["plan"])
@@ -548,6 +628,7 @@ def run_static(run):
                 run.state["published_scene"]={**record,"directory":stage["directory"]}
         else:
             report,review=assess_scene(run,published)
+            if report is None:continue  # Failed assets went back to their authors first.
         if run.select_repair_candidate():continue
         action=decide(report,review)
         run.state["last_decision"]={"action":action,"scene":run.state["published_scene"]["directory"]}

@@ -69,6 +69,10 @@ class GenerationModel:
 
     manages_context = True
 
+    def whole_context(self, phase):
+        check = getattr(type(self.transport), "whole_context", None)
+        return check is not None and check(self.transport, phase) is True
+
     def ask(self, instruction, context, images, phase):
         from .request_context import RequestContext, measure
         self.execution_guard()
@@ -77,6 +81,10 @@ class GenerationModel:
         if not self.store.retry_uncertain and any(c["status"] == "pending" and c.get("index") not in inflight
                                                   for c in self.store.state["calls"]):
             raise UncertainRequest("账本存在未知请求，不能通过压缩或读取详情绕过显式恢复")
+        if self.whole_context(phase):
+            # The codex agent transport reads over-long context from files,
+            # so the request is neither projected nor paged.
+            return self._ask_once(instruction, context, images, phase)
         view = RequestContext(self.store.root, self.store.state.get("identity", {}),
                               instruction, context, images, phase, self.generation)
         self._context_binding = view.binding
@@ -127,7 +135,8 @@ class GenerationModel:
                     view.delivery_index += 1
                     view.set_delivery()
                     current = {**view.context,"context_working_notes":notes,
-                               "prior_batch_findings":view.fold(batch_findings,8192)}
+                               "prior_batch_findings":view.fold(batch_findings,8192),
+                               "prior_batch_rule":"prior_batch_findings是此前图片批次提出的缺陷。最终结论须结合全部批次逐条判断：仍成立的写入findings并给repair；被后续图片证据否定的不再列出。"}
                     stalled = 0
                     view.save("next_batch")
                     continue
@@ -140,7 +149,8 @@ class GenerationModel:
                     continue
                 if batch_findings and isinstance(value,dict) and "verdict" in value:
                     from .review import retain_batch_defects
-                    value = retain_batch_defects(batch_findings, value)
+                    value, superseded = retain_batch_defects(batch_findings, value)
+                    view.receipt["superseded_batch_findings"] = superseded
                 view.receipt["reported_usage"] = call.get("usage", {})
                 view.save("answered")
                 return value, {**call, "context_binding": view.binding}
@@ -227,9 +237,10 @@ class GenerationModel:
                    self.config.output_token_parameter: self.generation.max_output_tokens}
         metrics = measure(instruction, context, images, self.generation)
         estimate, required = metrics["input_upper_estimate"], metrics["required"]
-        if required > self.generation.max_context_tokens:
+        whole = self.whole_context(phase)
+        if required > self.generation.max_context_tokens and not whole:
             raise ContextLimitError(f"请求上下文预算不足：保守估计含输出和余量 {required}，上限 {self.generation.max_context_tokens}；未发送，不自动重试相同请求")
-        if len(encoded(payload)) > self.generation.max_request_bytes:
+        if len(encoded(payload)) > self.generation.max_request_bytes and not whole:
             raise ContextLimitError("图文请求字节超限；未发送，需调整上下文投影或任务范围")
         request_key = digest({"phase": phase, "payload": payload,
                               "implementation":self.store.state.get('identity',{}).get('implementation')})

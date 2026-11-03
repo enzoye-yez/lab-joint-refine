@@ -18,7 +18,7 @@ XML = '''<mujoco model="synthetic_button">
       <geom name="cap_bracket" type="box" pos="0.065 0 0.0575" size="0.025 0.012 0.0175"/>
       <geom name="button_guide" type="box" pos="0.015 0 0.055" size="0.005 0.01 0.01"/>
       <body name="button" pos="0 0 0.06">
-        <joint name="button_slide" type="slide" axis="0 0 -1" range="0 0.004" damping="1" stiffness="100"/>
+        <joint name="button_slide" type="slide" axis="0 0 -1" range="0 0.004" damping="1" stiffness="400"/>
         <geom name="button_geom" type="box" size="0.01 0.01 0.002" mass="0.01"/>
         <site name="press_site" pos="0 0 0.002" size="0.002"/>
       </body>

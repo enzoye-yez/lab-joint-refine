@@ -189,7 +189,7 @@ class RevisionTests(unittest.TestCase):
                 parts=payload["messages"][1]["content"]
                 requests.append(parts)
                 value=({"verdict":"repair","findings":["visible floating cap"],"unverified":[],
-                        "affected_instances":["station"]} if len(requests)==1 else ACCEPT)
+                        "affected_instances":["station"]} if len(requests)==1 else UNCERTAIN)
                 return {"choices":[{"message":{"content":json.dumps(value)}}]}
         model=self.model(Transport())
         value,_=model.ask("fixture",{},images,"scene_review")
@@ -204,7 +204,9 @@ class RevisionTests(unittest.TestCase):
         from asset_generation.review import retain_batch_defects
         earlier={**ACCEPT,"verdict":"repair","findings":["fixture defect"],"affected_layout":["table:invented"]}
         with self.assertRaises(ValidationError):
-            scoped_review(retain_batch_defects([earlier],ACCEPT),"scene",layout_targets=review_targets(self.plan))
+            scoped_review(retain_batch_defects([earlier],{**ACCEPT,"verdict":"repair","findings":["later"]})[0],"scene",layout_targets=review_targets(self.plan))
+        # The final page saw the earlier findings; its accept stands and the overruled ones are kept for the receipt.
+        self.assertEqual(retain_batch_defects([earlier],ACCEPT),(ACCEPT,["fixture defect"]))
         with self.assertRaises(ValidationError):
             retain_batch_defects([earlier],{**UNCERTAIN,"blocking":"invalid string"})
 

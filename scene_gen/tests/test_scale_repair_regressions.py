@@ -148,6 +148,17 @@ class WorkBudgetTests(unittest.TestCase):
             root=Path(directory);(root/'job.json').write_text('{"scope":"asset"}')
             self.assertEqual(work_budget('validate', root, 120)['seconds'],120)
 
+    def test_asset_validation_budget_covers_each_configuration(self):
+        from asset_generation.local import work_budget
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);(root/'artifact').mkdir()
+            (root/'job.json').write_text('{"scope":"asset"}')
+            variants={f'v{i}':{'file':f'v{i}.xml','interfaces_file':f'v{i}.json'} for i in range(3)}
+            for name in variants:
+                (root/'artifact'/f'{name}.xml').write_text('<mujoco/>');(root/'artifact'/f'{name}.json').write_text('{}')
+            (root/'artifact/interfaces.json').write_text(json.dumps({'configurations':variants,'selected_configuration':'v0'}))
+            self.assertEqual(work_budget('validate', root, 120)['seconds'],360)
+
     def test_repeated_instances_count_and_two_assembly_passes_are_bounded(self):
         from asset_generation.local import work_budget
         with tempfile.TemporaryDirectory() as directory:

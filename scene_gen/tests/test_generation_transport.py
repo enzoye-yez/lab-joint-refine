@@ -25,6 +25,22 @@ class TransportTests(unittest.TestCase):
     def model(self,transport):
         return GenerationModel(Config(),GenerationConfig(),{"HARNESS_MODEL_API_KEY":"synthetic-secret"},self.store,transport)
 
+    def test_agent_author_gets_the_whole_context_in_one_request(self):
+        from dataclasses import replace
+        class Agent:
+            sent=[]
+            def whole_context(self,phase):return phase.startswith("asset:")
+            def post(self,url,payload,key,timeout):
+                self.sent.append(json.loads(payload["messages"][1]["content"][0]["text"]))
+                return {"choices":[{"message":{"content":"{\"model_py\":\"x\"}"},"finish_reason":"stop"}],
+                        "usage":{"prompt_tokens":1,"completion_tokens":1}}
+        model=self.model(Agent())
+        model.generation=replace(model.generation,max_context_tokens=50000,max_request_bytes=60000)
+        context={"dependencies":{"A01":"x"*200000},"current_model_py":None,"profile":{}}
+        model.ask("author",context,[],"asset:tool_right")
+        self.assertEqual(len(Agent.sent),1)
+        self.assertEqual(Agent.sent[0]["dependencies"],context["dependencies"])
+
     def test_429_retries_are_bounded_and_recorded(self):
         class Limited:
             def post(self,*args):

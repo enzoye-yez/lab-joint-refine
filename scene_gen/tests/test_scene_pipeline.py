@@ -319,7 +319,7 @@ class ScenePipelineTests(unittest.TestCase):
         self.assertEqual(sandbox.scene_calls,0)
         self.assertEqual(len(transport.requests),4)
 
-    def test_device_review_has_original_pixels_and_dependency_context(self):
+    def test_device_review_judges_the_built_dependencies_not_their_photos(self):
         from PIL import Image
         Image.new("RGB",(20,20),"red").save(self.root/"reference.png")
         self.source.write_text("### A01｜合成仪器\n![照片](reference.png)",encoding="utf-8")
@@ -328,8 +328,11 @@ class ScenePipelineTests(unittest.TestCase):
         request = transport.requests[4]["messages"][1]["content"]
         context = json.loads(request[0]["text"])
         self.assertIn("instrument",context["dependencies"])
-        self.assertEqual(len(context["evidence"]["original_reference_images"]),1)
-        self.assertGreaterEqual(sum(x["type"] == "image_url" for x in request),2)
+        # The instrument's photo was judged in its own review; the device sees its render.
+        self.assertEqual(context["evidence"]["original_reference_images"],[])
+        self.assertEqual(len(context["evidence"]["design_reference_images"]),1)
+        # The fixture renders every model to the same bytes, so the two images collapse into one.
+        self.assertGreaterEqual(sum(x["type"] == "image_url" for x in request),1)
         for request in transport.requests[1:]:
             self.assertIn("不需要人工批准模型自己的设计值变更",request["messages"][0]["content"])
             context = json.loads(request["messages"][1]["content"][0]["text"])

@@ -1,13 +1,14 @@
-"""Private HTML report for one scene run: scene views, every asset with studio stills, its
-turntable video, mechanism-by-mechanism check results, review verdict and rubric evaluation.
+"""Private HTML report for one scene run: scene views, and per asset and configuration the
+studio stills, turntable video, mechanism-by-mechanism check results and review findings.
 
-Reads reports/<run>/figures/figures.json (render_figures.py) and, if present,
-reports/<run>/mechanism_eval.json (evaluate_mechanisms.py). Writes reports/<run>/index.html.
+Reads reports/<run>/figures/figures.json (render_figures.py), the run's check rows and review
+findings, and the benchmark reference images. Writes reports/<run>/index.html.
 Serve it only as described in .claude/skills/np002-private-html/SKILL.md.
 """
 import argparse
 import html
 import json
+import shutil
 import sys
 from pathlib import Path
 
@@ -73,36 +74,66 @@ def mechanism_table(mechanisms, rows):
     return "".join(out)
 
 
-def asset_card(record, job, plan_job, evaluation):
+def configuration_block(entry, rows, multiple):
+    prefix = entry["name"]+":" if multiple else ""
+    own = [dict(r, id=r["id"][len(prefix):]) for r in rows if r["id"].startswith(prefix)] if multiple else rows
+    stills = "".join(f'<img loading="lazy" src="{esc(p)}" alt="">' for p in entry.get("stills", []))
+    video = (f'<video controls loop muted playsinline preload="metadata" src="{esc(entry["video"])}"></video>'
+             if entry.get("video") else '<p class="muted">无视频</p>')
+    pairs = "".join(f'<div><div class="mono muted" style="font-size:12px">{esc(name)}</div><div class="pair">'
+                    + "".join(f'<img loading="lazy" src="{esc(p)}" alt="">' for p in paths) + "</div></div>"
+                    for name, paths in entry.get("mechanism_stills", {}).items())
+    mechanisms = entry.get("mechanisms") or []
+    title = f'<h3>配置 <span class="mono">{esc(entry["name"])}</span></h3>' if multiple else ""
+    return f"""{title}<div class="two"><div>{video}</div><div class="grid" style="grid-template-columns:1fr 1fr">{stills}</div></div>
+<p class="muted mono" style="font-size:12px;margin:0">MuJoCo：mujoco/{esc(entry.get('mujoco',''))}</p>
+{mechanism_table(mechanisms, own) if mechanisms else '<p class="muted">未声明机构</p>'}
+<details><summary>机构两端姿态（初始 / 极限）</summary><div class="grid">{pairs}</div></details>"""
+
+
+def assembled_block(record):
+    """The job's instances as placed together in the scene: connections between configurations
+    (hoses between a cooler and its host) are only visible here."""
+    paths = record.get("assembled") or []
+    if not paths:
+        return ""
+    images = "".join(f'<img loading="lazy" src="{esc(p)}" alt="">' for p in paths)
+    note = "，各配置之间的连接（如软管）只在这里可见" if len(record.get("configurations", [])) > 1 else ""
+    return f'<div><h3>场景中装配</h3><p class="muted" style="margin:0 0 6px">本资产在场景里的全部实例，其余物体隐藏{note}。</p><div class="grid">{images}</div></div>'
+
+
+def listing(items, empty):
+    return ("<ul>" + "".join(f"<li>{esc(i)}</li>" for i in items) + "</ul>") if items else f'<p class="muted">{empty}</p>'
+
+
+def asset_card(record, job, plan_job, references):
     numerical = job.get("feedback", {}).get("numerical", {})
     visual = job.get("feedback", {}).get("visual", {})
     rows = numerical.get("checks", [])
     failing = [r for r in rows if r.get("status") == "fail"]
     counts = {s: sum(r.get("status") == s for r in rows) for s in ("pass", "fail", "partial")}
-    stills = "".join(f'<img loading="lazy" src="{esc(p)}" alt="">' for p in record.get("stills", []))
-    video = (f'<video controls loop muted playsinline preload="metadata" src="{esc(record["video"])}"></video>'
-             if record.get("video") else '<p class="muted">无视频</p>')
-    pairs = "".join(f'<div><div class="mono muted" style="font-size:12px">{esc(name)}</div><div class="pair">'
-                    + "".join(f'<img loading="lazy" src="{esc(p)}" alt="">' for p in paths) + "</div></div>"
-                    for name, paths in record.get("mechanism_stills", {}).items())
+    configurations = record.get("configurations", [])
+    multiple = len(configurations) > 1
+    refs = "".join(f'<img loading="lazy" src="{esc(p)}" alt="">' for p in references)
     coverage = visual.get("motion_coverage") or []
-    coverage_html = ("<ul>" + "".join(f'<li>{pill(c["verdict"])} {esc(c["requirement"])} → <span class="mono">{esc(c["mechanism"])}</span></li>'
-                                      for c in coverage) + "</ul>") if coverage else '<p class="muted">无</p>'
-    fail_html = ("<ul>" + "".join(f'<li class="mono">{esc(r["id"])}：{esc(str(r.get("detail",""))[:140])}</li>' for r in failing[:20]) + "</ul>"
+    coverage_html = ("<ul>" + "".join(f'<li>{pill(c.get("verdict"))} {esc(c.get("requirement"))} → <span class="mono">{esc(c.get("mechanism"))}</span>'
+                                      f'<br><span class="muted">{esc(c.get("evidence",""))}</span></li>' for c in coverage) + "</ul>") if coverage else '<p class="muted">无</p>'
+    fail_html = ("<ul>" + "".join(f'<li><span class="mono">{esc(r["id"])}</span>：{esc(str(r.get("detail",""))[:240])}</li>' for r in failing[:40]) + "</ul>"
                  if failing else '<p class="muted">无失败条目</p>')
-    units = [e for e in evaluation if record["job"] in e.get("jobs", [])]
-    eval_html = ("<ul>" + "".join(f'<li>{pill(e["status"])} <span class="mono">{esc(e["unit"])}</span> {esc(e["requirement"])}</li>' for e in units) + "</ul>"
-                 if units else '<p class="muted">无对应 rubric 机构条目</p>')
+    deferred = [f'[{d.get("stage")}] {d.get("detail")}' for d in (job.get("deferred_checks") or []) if isinstance(d, dict)]
     return f"""<article class="card" id="{esc(record['job'])}">
 <div class="head"><h3>{esc(record['job'])} · {esc(', '.join(record['asset_ids']))}</h3>
-<span>{pill(job.get('status'))} 审查 {pill(visual.get('verdict','—'))}</span></div>
-<p class="muted" style="margin:0">{esc(plan_job.get('requirements',''))[:400]}</p>
+<span>{pill(job.get('status'))} 视觉审查 {pill(visual.get('verdict','—'))} 数值检查 {pill(numerical.get('status','—'))}</span></div>
+<details><summary>资料要求</summary><p class="muted" style="white-space:pre-wrap">{esc(plan_job.get('requirements',''))}</p></details>
 <div class="stats"><div><b>{counts['pass']}</b><span>检查通过</span></div><div><b>{counts['fail']}</b><span>检查失败</span></div>
-<div><b>{counts['partial']}</b><span>未完成</span></div><div><b>{len(record.get('mechanisms',[]))}</b><span>声明机构</span></div></div>
-<div class="two"><div>{video}</div><div class="grid" style="grid-template-columns:1fr 1fr">{stills}</div></div>
-<h3>机构</h3>{mechanism_table(record.get('mechanisms', []), rows) if record.get('mechanisms') else '<p class="muted">未声明机构</p>'}
-<details><summary>机构两端姿态（初始 / 极限）</summary><div class="grid">{pairs}</div></details>
-<div class="two"><div><h3>失败检查</h3>{fail_html}</div><div><h3>审查：运动要求覆盖</h3>{coverage_html}<h3>Rubric 机构条目</h3>{eval_html}</div></div>
+<div><b>{counts['partial']}</b><span>未完成</span></div><div><b>{len(configurations)}</b><span>配置</span></div>
+<div><b>{len(visual.get('findings') or [])}</b><span>审查意见</span></div></div>
+<details><summary>原始参考图（{len(references)} 张）</summary><div class="grid">{refs}</div></details>
+{assembled_block(record)}
+{''.join(configuration_block(e, rows, multiple) for e in configurations)}
+<div class="two"><div><h3>视觉审查意见</h3>{listing(visual.get('findings') or [], '无')}
+<h3>未核实</h3>{listing(visual.get('unverified') or [], '无')}<h3>留给后续阶段</h3>{listing(deferred, '无')}</div>
+<div><h3>失败检查</h3>{fail_html}<h3>审查：运动要求覆盖</h3>{coverage_html}</div></div>
 </article>"""
 
 
@@ -113,26 +144,39 @@ def main():
     run = args.run.resolve()
     report = PROJECT/"reports"/run.name
     figures = json.loads((report/"figures"/"figures.json").read_text(encoding="utf-8"))
-    eval_path = report/"mechanism_eval.json"
-    evaluation = json.loads(eval_path.read_text(encoding="utf-8")) if eval_path.exists() else {"results": []}
-    state = read_state(run/"state.json")["scene"]
+    state_all = read_state(run/"state.json")
+    state = state_all["scene"]
     plan = {j["id"]: j for j in state["plan"]["jobs"]}
-    assets = [a for a in figures["assets"]]
-    for a in assets:
-        a["stills"] = ["figures/"+p.split("figures/", 1)[-1] if not p.startswith("figures/") else p for p in a["stills"]]
+    catalogue = state_all["identity"]["catalogue"]["assets"]
+    benchmark = PROJECT/"benchmark"/"NP-002"
+    references = {}
+    for asset_id, entry in catalogue.items():
+        for image in entry.get("images", []):
+            source = benchmark/image["path"]
+            if source.is_file():
+                target = report/"references"/source.name
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(source, target)
+                references.setdefault(asset_id, []).append(f"references/{source.name}")
+    assets = figures["assets"]
     scene = figures.get("scene") or {}
     scene_html = "".join(f'<img loading="lazy" src="{esc(p)}" alt="">' for p in scene.get("views", []))
-    ready = sum(state["jobs"][a["job"]].get("status") == "candidate_ready" for a in assets if a["job"] in state["jobs"])
+    statuses = [state["jobs"].get(a["job"], {}).get("status") for a in assets]
     nav = "".join(f'<a href="#{esc(a["job"])}">{esc(a["job"])}</a>' for a in assets)
-    body = f"""<title>NP-002 资产与机构报告</title><meta name="viewport" content="width=device-width,initial-scale=1">
+    archive = figures.get("mujoco_archive")
+    body = f"""<title>NP-002 资产排查</title><meta name="viewport" content="width=device-width,initial-scale=1">
 <style>{CSS}</style><div class="wrap">
 <header><div class="mono muted">{esc(run.name)} · 场景状态 {esc(state.get('status'))}</div><h1>NP-002 场景、资产与机构</h1>
-<div class="stats"><div><b>{len(assets)}</b><span>资产任务</span></div><div><b>{ready}</b><span>资产验收通过</span></div>
-<div><b>{evaluation.get('by_status',{}).get('VERIFIED_PASS',0)}/{evaluation.get('units',0)}</b><span>rubric 机构条目通过</span></div>
-<div><b>{evaluation.get('points',0):.2f}/{evaluation.get('max_points',0):.2f}</b><span>机构条目得分</span></div></div></header>
-<section><h2>整体场景</h2><div class="grid">{scene_html or '<p class="muted">无场景渲染</p>'}</div></section>
+<div class="stats"><div><b>{len(assets)}</b><span>资产任务</span></div><div><b>{statuses.count('candidate_ready')}</b><span>资产验收通过</span></div>
+<div><b>{statuses.count('failed')}</b><span>待修复</span></div>
+<div><b>{sum(len(a.get('configurations', [])) for a in assets)}</b><span>配置</span></div></div>
+{f'<p><a href="{esc(archive)}" download>下载全部资产的 MuJoCo 包（{esc(archive)}）</a>：每个资产一个目录，'
+ '<span class="mono">&lt;配置&gt;_poses.xml</span> 含初始姿态及每个机构的极限姿态关键帧；'
+ '<span class="mono">python play_mechanisms.py &lt;配置&gt;_poses.xml</span> 依次播放各机构。</p>' if archive else ''}</header>
+<section><h2>整体场景</h2>{'<p class="muted">未发布的场景候选（' + esc(scene.get("directory")) + '），批次仍在修复，碰撞未清零。</p>' if scene.get("candidate") else ''}<div class="grid">{scene_html or '<p class="muted">无场景渲染</p>'}</div></section>
 <section><h2>资产</h2><nav>{nav}</nav></section>
-{''.join(asset_card(a, state['jobs'].get(a['job'], {}), plan.get(a['job'], {}), evaluation.get('results', [])) for a in assets)}
+{''.join(asset_card(a, state['jobs'].get(a['job'], {}), plan.get(a['job'], {}),
+                    [r for i in a['asset_ids'] for r in references.get(i, [])]) for a in assets)}
 </div>"""
     (report/"index.html").write_text("<!doctype html><meta charset=\"utf-8\">"+body, encoding="utf-8")
     print("wrote", report/"index.html")

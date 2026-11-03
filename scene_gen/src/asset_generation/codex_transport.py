@@ -24,6 +24,11 @@ from asset_prep.errors import ProviderError
 REPLY_RULES = ("You are called as a plain model endpoint, not as a coding agent. "
                "Do not run commands, read files or use tools. Answer only with the single JSON "
                "object the instructions below ask for, without Markdown fences or extra text.")
+FILE_RULES = ("You are called as a model endpoint. Long inputs are saved as files in the current directory "
+              "and named in the prompt; read them with read-only shell commands (cat, grep, jq, python). Do not modify "
+              "files or use other tools. Answer only with the single JSON object the instructions below ask for, "
+              "without Markdown fences or extra text.")
+INLINE_TEXT_BYTES = 60000  # longer text parts go to files a whole-context request reads on demand
 IMAGE_SUFFIX = {"image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp", "image/gif": ".gif"}
 
 AGENT_TASK = """# 资产建模任务（编码 agent 模式）
@@ -70,16 +75,24 @@ def author_context(payload):
     return context
 
 
-def prompt_and_images(messages, folder):
-    """把 system/user 消息拼成一段提示，并把 data URL 图片写成按顺序编号的附件。"""
-    sections, images = [REPLY_RULES], []
+def prompt_and_images(messages, folder, inline_limit=None):
+    """把 system/user 消息拼成一段提示，并把 data URL 图片写成按顺序编号的附件。
+
+    With inline_limit, a longer text part is written verbatim to input_<n>.txt and the prompt names the file.
+    """
+    sections, images, files = [REPLY_RULES], [], 0
     for message in messages:
         content = message["content"]
         parts = [{"type": "text", "text": content}] if isinstance(content, str) else content
         texts = []
         for part in parts:
             if part["type"] == "text":
-                texts.append(part["text"])
+                if inline_limit is not None and len(part["text"].encode("utf-8")) > inline_limit:
+                    files += 1
+                    (Path(folder) / f"input_{files}.txt").write_text(part["text"], encoding="utf-8")
+                    texts.append(f"[完整原文见当前目录文件 input_{files}.txt（{len(part['text'])} 字符），按需读取]")
+                else:
+                    texts.append(part["text"])
             elif part["type"] == "image_url":
                 header, _, data = part["image_url"]["url"].partition(",")
                 mime = header.removeprefix("data:").split(";")[0]
@@ -95,6 +108,8 @@ def prompt_and_images(messages, folder):
                 images.append(path)
                 texts.append(f"[attached image #{len(images)}]")
         sections.append(f"## {message['role']}\n" + "\n".join(texts))
+    if files:
+        sections[0] = FILE_RULES
     return "\n\n".join(sections), images
 
 
@@ -136,6 +151,11 @@ class CodexTransport:
         self.check_cancel = lambda: None
         self.phase = None  # GenerationModel sets the request phase before each post.
 
+    def whole_context(self, phase):
+        """In agent mode no request is paged: authors get context.json in their workspace and other
+        requests read over-long text from files in their request folder."""
+        return bool(self.agent)
+
     def command(self, model, folder, images, sandbox="read-only"):
         command = [self.executable, "exec", "--model", model, "--sandbox", sandbox, "--ephemeral",
                    "--skip-git-repo-check", "--ignore-user-config", "--json",
@@ -152,7 +172,8 @@ class CodexTransport:
         if context is not None:
             return self.author_session(payload, context, timeout)
         with tempfile.TemporaryDirectory(prefix="codex-request-") as folder:
-            prompt, images = prompt_and_images(payload["messages"], folder)
+            prompt, images = prompt_and_images(payload["messages"], folder,
+                                               INLINE_TEXT_BYTES if self.agent else None)
             stdout, stderr, code, elapsed = self.run(self.command(payload["model"], folder, images), folder, prompt, timeout)
         message, usage = self.reply(stdout, stderr, code)
         return self.response(payload, strip_fence(message), usage, elapsed)

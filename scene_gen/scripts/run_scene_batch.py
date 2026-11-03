@@ -22,6 +22,9 @@ from asset_prep.storage import atomic_json, run_lock, safe_path
 from scene_generation.contracts import SceneConfig, environment
 from scene_generation.gallery import export as export_assets
 
+# Per-run limits: twice the original 800 calls / 240M tokens, pending measured runs.
+BUDGET = {"max_model_calls": 1600, "max_reserved_tokens": 480000000}
+
 
 READY = {"static_preview_ready", "static_candidate_ready"}
 TERMINAL = {"completed", "failed", "preview_failed", "blocked_unknown_request", "diagnostic_available"}
@@ -237,6 +240,8 @@ def execute(manifest, root, project, runner=run_child):
             command.extend(['--protocol-pdf', entry['pdf']])
         if (run_root / "state.json").exists():
             command.append("--resume")
+        if entry.pop("retry_uncertain", False):
+            command.append("--retry-uncertain")
         rendering_resume = entry["status"] == "rendering"
         entry.update(status="running", started_at=now())
         manifest["status"] = "running"
@@ -308,12 +313,14 @@ def main(argv=None):
     parser.add_argument("--generation-config", type=Path, help="资产生成配置；相对路径以项目根目录为准，仅用于新批次")
     parser.add_argument("--provider-config", type=Path, help="显式服务配置；仅用于新批次，随后冻结并传给运行入口")
     parser.add_argument("--environment",type=Path,help="机器人及工作台环境配置；仅用于新批次，随后冻结")
-    parser.add_argument("--max-model-calls", type=int, default=800)
-    parser.add_argument("--max-reserved-tokens", type=int, default=240000000)
+    parser.add_argument("--max-model-calls", type=int, default=BUDGET["max_model_calls"])
+    parser.add_argument("--max-reserved-tokens", type=int, default=BUDGET["max_reserved_tokens"])
     parser.add_argument("--scene-iterations", type=int, default=80)
     parser.add_argument("--asset-iterations", type=int, default=60)
     parser.add_argument("--model", help="New batch model override, saved in frozen provider configuration")
     parser.add_argument("--execute", action="store_true")
+    parser.add_argument("--retry-uncertain", action="store_true",
+                        help="接续因结果不明请求而阻断的实验，并允许重发该请求；先确认原请求已终止")
     parser.add_argument("--resume", action="store_true", help="使用已存清单及预算；跳过已结束实验，不重试失败项")
     args = parser.parse_args(argv)
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,39}", args.batch):
@@ -337,6 +344,11 @@ def main(argv=None):
             print(f"批次 {args.batch}：{len(manifest['entries'])} 个实验，严格顺序执行。", flush=True)
             print(f"每个实验预算：{manifest['budgets']}；恢复时使用此已保存预算。", flush=True)
             print(f"汇总：{root / 'index.html'}", flush=True)
+            if args.retry_uncertain:
+                for entry in manifest["entries"]:
+                    if entry["status"] == "blocked_unknown_request":
+                        entry.update(status="queued", retry_uncertain=True)
+                save(root, manifest, project)
             if not args.execute:
                 print("仅准备清单，未调用模型。启动请在同一命令加 --resume --execute。")
                 return 0

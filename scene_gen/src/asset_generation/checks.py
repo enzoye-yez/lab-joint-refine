@@ -143,7 +143,13 @@ def validate_manifest(value, model, asset_ids):
         require(isinstance(mechanical,list) and len(mechanical)<=2048, "机械事件须为有界列表")
         by_id = {i["id"]:i for i in value["interfaces"]}
         for event in mechanical:
-            require(isinstance(event,dict) and set(event)=={"id","interface","action"}, "机械事件字段须为id/interface/action")
+            require(isinstance(event,dict) and set(event) in ({"id","interface","action"},{"id","interface","action","joint","at"}),
+                    "机械事件字段须为id/interface/action，可选同时给出触发关节joint与阈值at")
+            if "joint" in event:
+                trigger = model.joint(event["joint"])
+                require(trigger.type[0] in (mujoco.mjtJoint.mjJNT_HINGE, mujoco.mjtJoint.mjJNT_SLIDE) and trigger.limited[0]
+                        and finite(event["at"]) and trigger.range[0] <= event["at"] <= trigger.range[1],
+                        "机械事件触发关节须为有限位hinge/slide，阈值at须在其行程内")
             require(isinstance(event["id"],str) and event["id"] and event["id"] not in events, "机械事件编号重复或无效")
             interface = by_id.get(event["interface"]) if isinstance(event["interface"],str) else None
             require(interface is not None and interface["kind"] in {"grasp","press","rotate","insert","cut"},
@@ -341,7 +347,11 @@ def _validate_one(root, asset_ids, profile, render_dir=None, *, model_file="mode
         add("sampled_joint_sweep", "fail" if uncovered else "pass",
             "未归入机构的关节无法按机构扫描" if uncovered else "资产没有可动关节", unswept_joints=uncovered[:40])
     poses.extend(mechanism_poses[:8])
-    results.extend(motion.mechanism_drive(model, manifest, qpos0))
+    results.extend(motion.mechanism_retention(model, manifest, qpos0))
+    stops = []
+    results.extend(motion.mechanism_drive(model, manifest, qpos0, stops))
+    # Where a drive stopped short, the author and reviewer see that pose, blockers highlighted.
+    poses.extend(stops[:4])
     results.append(motion.settle(safe_path(Path(root), model_file), qpos0))
     mujoco.mj_resetData(model, data)
     mujoco.mj_forward(model, data)
@@ -357,7 +367,7 @@ def _validate_one(root, asset_ids, profile, render_dir=None, *, model_file="mode
                 "资料中未绑定只读数值检查的尺寸仍未获独立量测认证"]
     from .probes import interaction_probes
     try:
-        probe_rows = interaction_probes(root, manifest) if manifest["buttons"] or manifest["connections"] else []
+        probe_rows = interaction_probes(root, manifest, model_file) if manifest["buttons"] or manifest["connections"] else []
         probe_rows = [r for r in probe_rows if not (r["id"].startswith("release_probe:") and r.get("complete") is False)]
         probe_rows.extend(motion.release_probes(model, manifest, qpos0))
         add("interaction_probes", "fail" if any(r["status"] == "fail" for r in probe_rows) else "pass",
@@ -389,10 +399,14 @@ def render_views(model, poses, output, *, width=640, height=480):
     model.vis.headlight.diffuse[:] = [0.65, 0.65, 0.65]
     from .rendering import renderer as make_renderer
     with make_renderer(model, height=height, width=width) as renderer:
-        for index, (label, qpos) in enumerate(poses):
+        for index, (label, qpos, *rest) in enumerate(poses):
             data.qpos[:] = qpos
             from .static_state import geometry_state
             geometry_state(model, data)
+            # Optional third element: geoms to paint magenta (contacts that blocked a drive).
+            highlight = sorted(rest[0]) if rest else []
+            saved = model.geom_rgba[highlight].copy(), model.geom_matid[highlight].copy()
+            model.geom_rgba[highlight], model.geom_matid[highlight] = [1, 0, 1, 1], -1
             for azimuth in ([45, 135, 225] if index == 0 else [45]):
                 camera = mujoco.MjvCamera()
                 mujoco.mjv_defaultFreeCamera(model, camera)
@@ -402,6 +416,7 @@ def render_views(model, poses, output, *, width=640, height=480):
                 name = f"{label}_{azimuth}.png"
                 Image.fromarray(renderer.render()).save(output/name)
                 paths.append(name)
+            model.geom_rgba[highlight], model.geom_matid[highlight] = saved
     return paths
 
 

@@ -105,7 +105,7 @@ class SceneFirstTests(unittest.TestCase):
         self.assertTrue(result['assembly']['available']);self.assertFalse(result['assembly']['quality_accepted'])
         self.assertTrue((r.root/result['scene_artifact']/'model.xml').exists())
     def test_review_budget_exhaustion_happens_after_publication(self):
-        r,t=self.make([plan(),ASSET,TOOL],limits=SceneConfig(validation_mode='static',max_model_calls=8))
+        r,t=self.make([plan(),ASSET,TOOL],limits=SceneConfig(validation_mode='static',max_model_calls=4))
         self.assertEqual(r.run()['status'],'phase_budget_exhausted')
         result=json.loads((r.root/'result.json').read_text(encoding='utf-8'))
         self.assertTrue(result['assembly']['available']);self.assertFalse(result['assembly']['quality_accepted'])
@@ -159,7 +159,7 @@ class SceneFirstTests(unittest.TestCase):
         self.assertEqual(result['assembly']['missing_jobs'],['instrument','tool'])
 
     def test_generation_budget_preserves_partial_scene_without_more_calls(self):
-        r,t=self.make([plan(),ASSET],limits=SceneConfig(validation_mode='static',max_model_calls=5))
+        r,t=self.make([plan(),ASSET],limits=SceneConfig(validation_mode='static',max_model_calls=3))
         self.assertEqual(r.run()['status'],'phase_budget_exhausted')
         result=r.result()
         self.assertTrue(result['assembly']['available']);self.assertFalse(result['assembly']['complete'])

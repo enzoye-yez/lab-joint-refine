@@ -8,11 +8,14 @@ from .contracts import visual_result
 
 
 def retain_batch_defects(previous, current):
-    """A later image page cannot silently erase an earlier visible defect.
+    """The final page decides, having been shown every earlier page's findings.
 
-    Final stage validation still checks ids, units and the full response. This
-    merge grants no new edit rights and does not certify numerical evidence.
+    A final repair keeps the union of all pages' findings; a final accept stands, and the
+    earlier findings it overruled are returned for the call receipt. Final stage validation
+    still checks ids, units and the full response; this grants no new edit rights.
     """
+    if current.get("verdict") == "accept":
+        return current, [f for v in previous for f in v.get("findings", [])]
     result = dict(current)
     reviews = previous + [current]
     result["verdict"] = "repair"
@@ -26,7 +29,7 @@ def retain_batch_defects(previous, current):
     if not isinstance(blockers,list) or any(not isinstance(r,str) for r in blockers):
         raise ValidationError("跨图片批次审查字段无效：blocking")
     result.setdefault("unverified", []).extend(blockers)
-    return result
+    return result, []
 
 
 def ask_review(model, instruction, context, images, phase, destination, validator=visual_result, *, session=None, save=lambda:None):

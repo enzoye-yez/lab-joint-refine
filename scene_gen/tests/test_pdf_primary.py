@@ -68,12 +68,12 @@ class PDFPrimaryTests(TempCase):
 
     def test_unmatched_query_never_falls_back_to_whole_xml(self):
         pdf, xml = self.pair('<article><p>unrelated</p></article>')
-        with self.assertRaisesRegex(ValidationError, '未找到'):
+        with self.assertRaisesRegex(ValidationError, 'not found'):
             load_documents(pdf, xml, 10000, xml_reason='容量缺口', xml_queries=['capacity'])
 
     def test_overbroad_supplement_stops_instead_of_silent_truncation(self):
         pdf, xml = self.pair('<article><p>capacity '+ 'x'*24001 +'</p></article>')
-        with self.assertRaisesRegex(ValidationError, '缩小检索范围'):
+        with self.assertRaisesRegex(ValidationError, 'narrow the search terms'):
             load_documents(pdf, xml, 100000, xml_reason='容量缺口', xml_queries=['capacity'])
 
     def test_pdf_only_dataset_and_cli_skip_credentials(self):

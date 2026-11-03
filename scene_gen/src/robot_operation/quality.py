@@ -16,9 +16,9 @@ def check_node(session,node):
     names.update(i[k] for i in interfaces if i['id'] in used for k in ('body','site') if i.get(k))
     missing=[e for e in session.manifest.get('mechanical_events',[])
         if e['id'] in session.unbound_events and (e['interface'] in used or e['id'] in names)]
-    need(not missing,'当前操作接口缺少机械事件检测器','capability_missing')
+    need(not missing,'The current operation interface has no mechanical event detector','capability_missing')
     instances={i['id'] for i in session.meta['plan']['instances']
         if any(n==i['id'] or n.startswith(i['id']+'__') for n in names)}
     issues=quality_handoff(getattr(session,'quality_report',{}),None)['issues']
     blocked=[r for r in issues if r['global_fault'] or r['execution_requirement'] and instances.intersection(r['instances'])]
-    if blocked:raise OperationError('quality_prerequisite','当前操作依赖尚未通过的质量前置条件',{'issues':blocked})
+    if blocked:raise OperationError('quality_prerequisite','The current operation depends on quality prerequisites that have not passed',{'issues':blocked})

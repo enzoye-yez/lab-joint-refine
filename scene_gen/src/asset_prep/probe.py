@@ -1,4 +1,4 @@
-"""用户显式执行的小规模参数探测；不读规程，不自动选择模型参数。"""
+"""Small-scale parameter probe run explicitly by the user; does not read the protocol and does not choose model parameters automatically."""
 
 import sys
 
@@ -11,18 +11,18 @@ from .storage import Store, atomic_json, digest, encoded, safe_path
 def probe_limits(config, credentials, root, transport, *, resume=False, retry_uncertain=False, parameter=None):
     allowed = ('max_tokens', 'max_completion_tokens')
     if parameter is not None and parameter not in allowed:
-        raise ValidationError('不支持的探测参数')
+        raise ValidationError('unsupported probe parameter')
     parameters = (parameter,) if parameter else allowed
     key = config.model_key(credentials)
     if not key:
-        raise ProviderError('缺少模型密钥')
+        raise ProviderError('missing model API key')
     identity = {'mode':'output_limit_probe_v1','base_url':config.base_url,'model':config.model}
     if parameter:
         identity['parameters'] = list(parameters)
     store = Store(root, identity, config,
                   resume=resume, retry_uncertain=retry_uncertain)
     report = {'mode':'output_limit_probe', 'parameters':list(parameters), 'results':[], 'status':'in_progress',
-              'limitations':'只对本次小样本及服务自报用量进行比较；缺失用量不可验证，不证明长请求或真实计费上限。'}
+              'limitations':'Compares only this small sample and the usage self-reported by the service; missing usage cannot be verified; this does not prove limits for long requests or real billing limits.'}
     def save():
         report['budget'] = store.totals()
         atomic_json(safe_path(root, 'output_limit_probe.json'), report)
@@ -37,7 +37,7 @@ def probe_limits(config, credentials, root, transport, *, resume=False, retry_un
                     report['current_request'] = {'parameter':parameter,'requested':limit}
                     save()
                     call = store.reserve(request_key, 'model', len(encoded(payload)) + 256 + limit)
-                    print(f'接口探测：参数 {parameter}，请求输出上限 {limit}，等待上限 {config.timeout_seconds} 秒', file=sys.stderr, flush=True)
+                    print(f'API probe: parameter {parameter}, requested output limit {limit}, wait limit {config.timeout_seconds} s', file=sys.stderr, flush=True)
                     try:
                         response = redact(transport.post(config.base_url.rstrip('/')+'/chat/completions', payload,
                                                           key, config.timeout_seconds), credentials.values())
@@ -45,7 +45,7 @@ def probe_limits(config, credentials, root, transport, *, resume=False, retry_un
                     except ProviderError as exc:
                         store.record_error(call, exc)
                         if exc.uncertain:
-                            raise UncertainRequest('探测请求结果不明；已保留预算，核对诊断后再决定重试') from exc
+                            raise UncertainRequest('probe request outcome is uncertain; budget has been reserved; check the diagnostics before deciding whether to retry') from exc
                         store.fail(call, 'ProviderError')
                         report['results'].append({'parameter':parameter,'requested':limit,'status':'request_failed',
                                                   'diagnostics':exc.diagnostics})
@@ -68,7 +68,7 @@ def probe_limits(config, credentials, root, transport, *, resume=False, retry_un
                     audit['status'] = 'invalid_response'
                 report['results'].append(audit)
                 save()
-                # 已发现超限时不继续浪费请求；另一种参数可在人工检查后单独确认。
+                # Once an overrun is found, stop spending requests; the other parameter can be confirmed separately after manual inspection.
                 if audit['status'] == 'reported_violation':
                     report['status'] = 'violation_detected'
                     save()

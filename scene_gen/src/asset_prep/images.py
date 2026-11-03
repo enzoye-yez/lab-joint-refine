@@ -1,4 +1,4 @@
-"""按内容摘要保存参考图片；不执行网页脚本，不信任远程文件名。"""
+"""Store reference images by content digest; never execute page scripts or trust remote file names."""
 
 import base64
 import hashlib
@@ -16,7 +16,7 @@ def image_extension(data):
         return ".gif"
     if data.startswith(b"RIFF") and data[8:12] == b"WEBP":
         return ".webp"
-    raise ProviderError("图片响应不是允许的栅格格式")
+    raise ProviderError("image response is not an allowed raster format")
 
 
 def fetch_image(image, store, transport, config):
@@ -27,9 +27,9 @@ def fetch_image(image, store, transport, config):
         try:
             data, content_type = transport.request(image["url"], timeout=config.timeout_seconds, max_bytes=5_000_000)
             if not content_type.lower().startswith("image/"):
-                raise ProviderError("图片地址返回了非图片内容")
+                raise ProviderError("image URL returned non-image content")
             extension = image_extension(data)
-            # 记录包含内容，恢复时可重建被清理的图片，但不能悄悄接受被修改的文件。
+            # The record contains the content, so a cleaned-up image can be rebuilt on resume, but a modified file must never be silently accepted.
             record = {"sha256": hashlib.sha256(data).hexdigest(), "extension": extension,
                       "data_base64": base64.b64encode(data).decode("ascii")}
             store.finish(call, record)
@@ -38,12 +38,12 @@ def fetch_image(image, store, transport, config):
             raise
     data = base64.b64decode(record["data_base64"], validate=True)
     if hashlib.sha256(data).hexdigest() != record["sha256"]:
-        raise StaleEvidence("图片记录摘要不一致")
+        raise StaleEvidence("image record digest mismatch")
     relative = "images/" + record["sha256"] + record["extension"]
     path = safe_path(store.root, relative)
     path.parent.mkdir(parents=True, exist_ok=True)
     if path.exists() and hashlib.sha256(path.read_bytes()).hexdigest() != record["sha256"]:
-        raise StaleEvidence("参考图片被修改，旧证据失效")
+        raise StaleEvidence("reference image was modified; the old evidence is invalid")
     if not path.exists():
         temp = safe_path(store.root, relative + ".tmp")
         temp.write_bytes(data)

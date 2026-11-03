@@ -1,4 +1,4 @@
-"""仅保留有界且脱敏的服务错误字段，不保存完整响应或请求内容。"""
+"""Keep only bounded, redacted service error fields; never store the full response or request content."""
 
 import http.client
 import json
@@ -32,7 +32,7 @@ def safe_details(value, secrets=()):
 
 class DiagnosticTransport(Transport):
     def http_error(self, response, connection, key, deadline):
-        # 错误正文最多读取 32 KiB / 2 秒；慢速或损坏正文不能掩盖已收到的 HTTP 状态。
+        # Read at most 32 KiB / 2 s of the error body; a slow or corrupt body must not hide an HTTP status already received.
         details, data = {}, bytearray()
         deadline = min(deadline, time.monotonic() + 2)
         for header, field in (("x-request-id", "request_id"), ("retry-after", "retry_after")):
@@ -68,7 +68,7 @@ class DiagnosticTransport(Transport):
             details["error_body_status"] = "not_json"
         details["error_body_bytes"] = len(data)
         details = safe_details(details, [key])
-        message = f"服务返回 HTTP 状态 {response.status}"
+        message = f"Service returned HTTP status {response.status}"
         if details.get("message"):
-            message += "；服务说明：" + details["message"]
+            message += "; service message: " + details["message"]
         return ProviderError(message, uncertain=response.status >= 500, diagnostics={"provider_error": details})

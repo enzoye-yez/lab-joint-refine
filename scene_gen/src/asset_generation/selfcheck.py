@@ -1,7 +1,7 @@
-"""编码 agent 的本地自检工具：构建工作目录中的 model.py 并运行单资产检查。
+"""Local self-check tool for the coding agent: builds model.py in the work directory and runs the single-asset checks.
 
-只为作者自测提供快速反馈，不是验收：框架提交后仍独立重建、检查和审查。
-用法（在 agent 工作目录中）：./check  →  python -m asset_generation.selfcheck <工作目录>
+Only quick feedback for the author's own testing, not acceptance: after submission the framework still independently rebuilds, checks and reviews.
+Usage (in the agent work directory): ./check  ->  python -m asset_generation.selfcheck <work directory>
 """
 
 import json

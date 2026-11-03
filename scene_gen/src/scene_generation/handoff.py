@@ -1,4 +1,31 @@
 """Quality facts for operation planning; scheduling never grants execution."""
+
+
+def operation_obligations(scene):
+    """What the static stages handed to the robot-operation stage, as one checklist.
+
+    Asset reviews defer cross-instance handling, grasps, loads and sequences to stage="operation";
+    the scene review moves items it cannot judge statically to target_stage="operation"; the
+    layout assessment lists operation interfaces no dock reaches. Operation planning must verify
+    each one with a trajectory (or report it unresolved), and a failure found there is a concrete
+    scene or asset defect to route back for repair."""
+    rows=[]
+    for key,job in sorted(scene.get("jobs",{}).items()):
+        for item in job.get("deferred_checks",[]):
+            if item.get("stage")=="operation" and item.get("status")=="pending":
+                rows.append({"id":item["id"],"source":"asset_review","job":key,"detail":item["detail"]})
+    latest=scene.get("latest") or {}
+    for item in (latest.get("review") or {}).get("deferred_results",[]):
+        if item.get("target_stage")=="operation":
+            rows.append({"id":item["id"],"source":"scene_review","detail":item.get("evidence","")})
+    assessment=(latest.get("report") or {}).get("layout_assessment") or {}
+    for row in assessment.get("instances",[]):
+        for target in row.get("targets",[]):
+            if target.get("status")!="plausible":
+                rows.append({"id":"reach:"+row["instance"]+":"+str(target.get("target")),"source":"layout_assessment",
+                             "instance":row["instance"],"detail":"No declared dock reaches this operation interface "
+                             "(shoulder to gripper tip); verify with a trajectory or report it unreachable"})
+    return rows
 def quality_handoff(report, scene_sha256, schedule=()):
     deferred={t.get('check_id',t['id']):t for t in schedule if t['scheduling']['status']=='deferred'}
     rows=[]

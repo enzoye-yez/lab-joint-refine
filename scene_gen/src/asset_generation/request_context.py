@@ -11,25 +11,25 @@ from asset_prep.storage import encoded, digest, atomic_json, safe_path
 from asset_prep.errors import ContextLimitError, ValidationError, StaleEvidence
 
 POLICY = """
-_context_encoding="rows_v1"是无损列表表示：columns为字段名，rows按同一列顺序保存每条记录全部值；
-没有删掉任何接口或数值。literal_v1的items保存原始同名字段对象。坐标、单位和约束仍按原定义解释。
-上下文管理协议：context_ref指向本次输入绑定的完整只读资料。omitted=true表示未展开，
-绝不表示检查通过、没有缺陷或要求可以忽略。需要细节时，不输出最终任务结果，单独返回：
-{"context_read":{"reference":"context_ref原值","path":[],"offset":0,"limit":8}}
-path是逐层字段名或列表索引；可定位具体接口、构型、检查行。列表/对象按条目分页，
-字符串按字符分页（limit最大32768）；next_offset为下一页。context_page是当前页，context_pages保留预算内的近期已读原始页面，可直接跨页比较，无需重复请求；被移出的旧页仍可重新定位。
-读取下一页时可同时返回context_notes:[{"reference":"已知只读引用","text":"后续决策需要记住的摘要"}]，
-用于替换工作笔记（最多32条、合计8192字节），不是追加聊天记录。省略则保留现有笔记。
-笔记是模型自行归纳、未经检查器认证的线索，不能覆盖数值事实、未解决项或固定约束。
-允许从缓存重读旧页用于比较。读取资料与正式任务共享调用和令牌预算；读取窗口用于整理，不是总次数上限。context_read_progress会提示整理或结束无进展读取。资料足够后按原任务契约返回结果；
-若仍有必要证据缺失，明确保留不确定，不能把引用当作已经阅读或已验证。
+_context_encoding="rows_v1" is a lossless list representation: columns are the field names, and rows hold every value of each record in the same column order;
+no interface or value has been removed. items of literal_v1 hold the original objects with the same field names. Coordinates, units and constraints keep their original definitions.
+Context management protocol: context_ref points to the complete read-only materials bound to this input. omitted=true means not expanded;
+it never means a check passed, there is no defect, or a requirement may be ignored. When you need details, do not output the final task result; return only:
+{"context_read":{"reference":"original context_ref value","path":[],"offset":0,"limit":8}}
+path is a sequence of field names or list indices, one per level; it can locate a specific interface, configuration or check row. Lists/objects are paged by entry,
+strings by character (limit at most 32768); next_offset is the next page. context_page is the current page; context_pages keeps recently read raw pages within budget, so you can compare across pages directly without re-requesting; older pages that were evicted can still be located again.
+When reading the next page you may also return context_notes:[{"reference":"known read-only reference","text":"summary needed for later decisions"}],
+which replaces the working notes (at most 32 notes, 8192 bytes in total) rather than appending to a chat log. Omitting it keeps the existing notes.
+Notes are clues summarized by the model itself and not certified by the checker; they cannot override numeric facts, unresolved items or fixed constraints.
+Re-reading old pages from the cache for comparison is allowed. Reading materials shares the call and token budget with the real task; the read window is for consolidation, not a cap on the total count. context_read_progress will prompt you to consolidate or to stop reads that make no progress. Once the materials suffice, return the result under the original task contract;
+if necessary evidence is still missing, keep the uncertainty explicit; never treat a reference as already read or verified.
 """
 DELIVERY_POLICY = """
-context_delivery说明原始资料和图片的分批送达范围，每页仍属于同一次任务。
-remaining_batches>0时不要提交最终设计或验收，只返回{"context_notes":[{"reference":"当前合法只读引用","text":"需要跨页保留的要求、缺陷及对应图片编号"}]}。
-最后一页才按原任务契约提交结果；未看过的图片、原文引用不能当作已验证。笔记只是工作记忆，原始证据不变。
-需要跨页对照图片时可返回{"context_images":[图片索引,...],"context_notes":[...]}，
-索引来自image_catalog；单次不超过per_request_limit，图片不会被删除。其余资料仍可用context_read按原文分页。
+context_delivery describes which part of the original materials and images each batch delivers; every page still belongs to the same task.
+While remaining_batches>0 do not submit a final design or acceptance; return only {"context_notes":[{"reference":"currently valid read-only reference","text":"requirements, defects and corresponding image numbers to keep across pages"}]}.
+Submit the result under the original task contract only on the last page; images not seen and verbatim references cannot be treated as verified. Notes are only working memory; the original evidence is unchanged.
+When you need to compare images across pages you may return {"context_images":[image index,...],"context_notes":[...]},
+with indices from image_catalog; at most per_request_limit per request, and images are never deleted. Other materials can still be paged verbatim with context_read.
 """
 
 # These are decision/validation anchors, never byte-truncated or replaced by a summary.
@@ -87,7 +87,7 @@ def unpack_tables(value):
 def messages_for(instruction, context, images):
     content = [{"type": "text", "text": encoded(context).decode("utf-8")}]
     for im in images:
-        content.append({"type": "text", "text": "图片：" + im["path"]})
+        content.append({"type": "text", "text": "Image: " + im["path"]})
         content.append({"type": "image_url", "image_url": {"url": im["data_url"], "detail": "high"}})
     return [{"role": "system", "content": instruction}, {"role": "user", "content": content}]
 
@@ -162,7 +162,7 @@ class RequestContext:
             atomic_json(path, value)
         else:
             if digest(json.loads(previous)) != key:
-                raise StaleEvidence("上下文原文归档被修改")
+                raise StaleEvidence("Original context archive was modified")
         self.refs.add(key)
         return key
 
@@ -251,7 +251,7 @@ class RequestContext:
             row["context_ref"] = self.reference(entry)
             rows.append(row)
         return {"current_action_index": rows, "history_ref": self.reference(entries),
-                "policy": "当前检查和unresolved_checks为现状；旧观察保留溯源，不累计重发完整报告。"}
+                "policy": "Current checks and unresolved_checks are the current state; older observations are kept for provenance, and full reports are not cumulatively resent."}
 
     def dependency_snapshot(self, dependencies):
         """Keep actual interfaces/constraints/poses inline; bulk body detail is queryable."""
@@ -284,7 +284,7 @@ class RequestContext:
             self.materials.append({"reference":reference, "location":location, "characters":len(text),
                                    "encoding":"text" if isinstance(value,str) else "json"})
         return {**self.ref(value), "required_material":reference, "location":location,
-                "policy":"原文分批送达；不是删去要求，不能在资料未读完时提交最终结果"}
+                "policy":"Original text delivered in batches; no requirement removed; do not submit the final result before all materials are read"}
 
     def anchor_view(self, value, location):
         """Keep object ids, poses and numeric contracts; page long narrative requirements."""
@@ -349,7 +349,7 @@ class RequestContext:
         if self.after["required"] > self.config.max_context_tokens:
             self.save("blocked_mandatory_context_or_images")
             raise ContextLimitError(
-                "必要上下文或完整视觉证据仍超预算；已保存分项诊断，未删图、未截断约束或源码，未发送")
+                "Mandatory context or complete visual evidence still exceeds the budget; itemized diagnostics saved; no images removed, no constraints or source truncated; not sent")
         # Match the exact provider envelope, not only the context estimate.
         return self.after
 
@@ -395,7 +395,7 @@ class RequestContext:
             batch.append(im)
             if (measure(self.instruction+DELIVERY_POLICY,self.context,batch,self.config)["required"]+65536>self.config.max_context_tokens
                     or len(encoded(messages_for(self.instruction+DELIVERY_POLICY,self.context,batch)))+65536>self.config.max_request_bytes):
-                raise ContextLimitError("单张原始图片及必要上下文无法容纳；保留证据，不能通过删图或降低验收绕过")
+                raise ContextLimitError("A single original image plus mandatory context cannot fit; evidence kept; this cannot be bypassed by removing images or lowering acceptance")
         if batch:
             self.image_pages.append(batch)
         if whole_fits and self.all_images:
@@ -428,11 +428,11 @@ class RequestContext:
         if (not isinstance(indices,list) or not 0<len(indices)<=self.config.max_images
                 or any(type(i) is not int or not 0<=i<len(self.all_images) for i in indices)
                 or len(set(indices))!=len(indices)):
-            raise ValidationError("context_images须为当前图片清单内不重复且有界的索引")
+            raise ValidationError("context_images must be non-repeating, bounded indices within the current image list")
         selected = [self.all_images[i] for i in indices]
         if (measure(self.instruction,self.context,selected,self.config)["required"]+49152>self.config.max_context_tokens
                 or len(encoded(messages_for(self.instruction,self.context,selected)))+49152>self.config.max_request_bytes):
-            raise ValidationError("所选对照图片过大；请缩小本次对照集合，原图仍全部保留")
+            raise ValidationError("Selected comparison images are too large; shrink this comparison set; all original images are still kept")
         self.images = selected
         self.context = {**self.context, "context_image_selection":indices}
         if "context_delivery" in self.context:
@@ -446,26 +446,26 @@ class RequestContext:
 
     def notes(self, value):
         if not isinstance(value, list) or len(value) > 32 or len(encoded(value)) > 8192:
-            raise ValidationError("context_notes须为最多32条、8192字节的工作状态")
+            raise ValidationError("context_notes must be working state of at most 32 notes and 8192 bytes")
         for note in value:
             if (not isinstance(note, dict) or set(note) != {"reference", "text"}
                     or not isinstance(note["reference"], str) or note["reference"] not in self.refs
                     or not isinstance(note["text"], str) or not 0 < len(note["text"]) <= 2048):
-                raise ValidationError("context_notes须引用本次只读资料并附有限文本")
+                raise ValidationError("context_notes must reference this request's read-only materials and carry bounded text")
         return {"provenance": "model_working_notes_not_verified_evidence", "items": value}
 
     def read(self, request, budget=32768):
         if not isinstance(request, dict) or not {"reference"} <= set(request) <= {"reference", "path", "offset", "limit"}:
-            raise ValidationError("context_read字段无效")
+            raise ValidationError("Invalid context_read fields")
         key = request["reference"]
         if not isinstance(key, str) or not re.fullmatch("[0-9a-f]{64}", key) or key not in self.refs:
-            raise ValidationError("context_read引用不属于当前请求")
+            raise ValidationError("context_read reference does not belong to the current request")
         value = json.loads(reference_bytes(self.root, key))
         if digest(value) != key:
-            raise StaleEvidence("上下文详情原文已变化")
+            raise StaleEvidence("Original text of the context detail has changed")
         parts = request.get("path", [])
         if not isinstance(parts, list) or len(parts) > 32:
-            raise ValidationError("context_read路径无效")
+            raise ValidationError("Invalid context_read path")
         try:
             for part in parts:
                 if isinstance(value, dict) and isinstance(part, str):
@@ -475,10 +475,10 @@ class RequestContext:
                 else:
                     raise KeyError()
         except (KeyError, IndexError):
-            raise ValidationError("context_read路径不存在") from None
+            raise ValidationError("context_read path does not exist") from None
         start, limit = request.get("offset", 0), request.get("limit", 8)
         if type(start) is not int or start < 0 or type(limit) is not int or not 1 <= limit <= 32768:
-            raise ValidationError("context_read分页无效")
+            raise ValidationError("Invalid context_read paging")
         if isinstance(value, str):
             items, unit = value, "characters"
         elif isinstance(value, dict):
@@ -488,7 +488,7 @@ class RequestContext:
         else:
             items, unit = [value], "items"
         if budget < 1024:
-            raise ContextLimitError("当前请求不足以容纳详情页，保留原文和约束，未发送")
+            raise ContextLimitError("Current request cannot fit the detail page; original text and constraints kept; not sent")
         limit = min(limit, 16) if unit != "characters" else limit
         while True:
             end = min(len(items), start + limit)
@@ -499,5 +499,5 @@ class RequestContext:
             if len(encoded(page)) <= budget:
                 return page
             if limit <= 1:
-                raise ContextLimitError("单个详情条目的索引也超出剩余预算，未发送")
+                raise ContextLimitError("Even the index of a single detail entry exceeds the remaining budget; not sent")
             limit = max(1, limit // 2)

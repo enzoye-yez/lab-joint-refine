@@ -85,7 +85,7 @@ class FakeTransport:
             raise value
         value = copy.deepcopy(value)
         # 合并接口的外层映射由合成传输构造；不是模型生成结果。
-        data = json.loads(payload["messages"][1]["content"].split("\n以下是任务数据：\n", 1)[1])
+        data = json.loads(payload["messages"][1]["content"].split("\nTask data follows:\n", 1)[1])
         if data.get('operation')=='local_extract' and isinstance(value,dict) and 'assets' in value:
             value={'inventory':value,'consumed_units':len(data['units'])}
         if 'incoming_assets' in data and isinstance(value, dict) and ('assets' in value or 'inventory' in value):

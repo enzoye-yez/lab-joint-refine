@@ -50,41 +50,41 @@ def mechanism_contract(model, manifest):
     """Deterministic coverage of real joints by declared, requirement-bound mechanisms."""
     problems, mechanisms = [], declared(manifest)
     if "mechanisms" in manifest and not isinstance(manifest["mechanisms"], list):
-        problems.append("mechanisms 必须是列表")
+        problems.append("mechanisms must be a list")
     names = {model.joint(j).name for j in movable(model)}
     equalities = {model.equality(e).name for e in range(model.neq)}
     covered, ids = set(), set()
     for m in mechanisms:
         mid = m.get("id") if isinstance(m, dict) else None
         if not isinstance(mid, str) or not mid or mid in ids:
-            problems.append(f"机构编号缺失或重复：{mid!r}"); continue
+            problems.append(f"Mechanism id missing or duplicated: {mid!r}"); continue
         ids.add(mid)
         if not isinstance(m.get("requirement"), str) or len(m["requirement"].strip()) < 4:
-            problems.append(f"{mid}: requirement 须引用资料中的运动要求原文")
+            problems.append(f"{mid}: requirement must quote the motion requirement verbatim from the materials")
         joints = m.get("joints")
         if not isinstance(joints, list) or not joints or not all(isinstance(j, str) for j in joints):
-            problems.append(f"{mid}: joints 须为非空关节名列表"); continue
+            problems.append(f"{mid}: joints must be a non-empty list of joint names"); continue
         for name in joints:
             if name not in names:
-                problems.append(f"{mid}: 关节 {name} 不存在或不是 hinge/slide/ball"); continue
+                problems.append(f"{mid}: joint {name} does not exist or is not hinge/slide/ball"); continue
             covered.add(name)
             j = model.joint(name).id
             if model.jnt_type[j] in (HINGE, SLIDE):
                 lo, hi = model.jnt_range[j]
                 if not model.jnt_limited[j] and not m.get("continuous"):
-                    problems.append(f"{mid}: {name} 无限位；连续旋转须声明 continuous=true")
+                    problems.append(f"{mid}: {name} has no limits; continuous rotation must declare continuous=true")
                 elif model.jnt_limited[j] and not hi-lo > 1e-6:
-                    problems.append(f"{mid}: {name} 行程为零，固定连接不能用零行程关节冒充")
+                    problems.append(f"{mid}: {name} has zero travel; a fixed connection must not be faked with a zero-travel joint")
         lock = m.get("lock")
         if lock is not None and lock not in equalities:
-            problems.append(f"{mid}: lock {lock!r} 不是已命名的 equality")
+            problems.append(f"{mid}: lock {lock!r} is not a named equality")
         if m.get("actuation") not in ACTUATIONS:
-            problems.append(f"{mid}: actuation 须为 {sorted(ACTUATIONS)} 之一")
+            problems.append(f"{mid}: actuation must be one of {sorted(ACTUATIONS)}")
     missing = sorted(names-covered)
     if missing:
-        problems.append("以下可动关节未归入任何机构：" + ", ".join(missing[:40]))
+        problems.append("The following movable joints are not assigned to any mechanism: " + ", ".join(missing[:40]))
     return {"id": "mechanism_contract", "status": "fail" if problems else "pass",
-            "detail": "可动关节全部归入引用资料要求的机构，关节存在且限位有效",
+            "detail": "All movable joints belong to mechanisms citing material requirements; joints exist and their limits are valid",
             "mechanism_count": len(mechanisms), "movable_joint_count": len(names), "problems": problems[:60]}
 
 
@@ -163,7 +163,7 @@ def mechanism_sweep(model, manifest, qpos0, tol):
                 poses.append((f"mech_{m['id']}_{'low' if t == 0 else 'high'}", data.qpos.copy()))
         unique = {(h["geom1"], h["geom2"]): h for h in hits}
         rows.append({"id": f"sampled_joint_sweep:{m['id']}", "status": "fail" if unique else "pass",
-                     "detail": f"机构全行程 {SWEEP_SAMPLES} 点运动学扫描；相对初始姿态新增的碰撞体穿透",
+                     "detail": f"Kinematic sweep of {SWEEP_SAMPLES} points over the full mechanism travel; new collision-geometry penetration relative to the initial pose",
                      "joints": [model.joint(j).name for j, _, _ in ranges],
                      "collisions": list(unique.values())[:30], "collision_count": len(unique)})
     return rows, poses
@@ -243,21 +243,21 @@ def mechanism_retention(model, manifest, qpos0):
                 name = model.joint(part["joint"]).name
                 if part["home"] <= 1e-6:
                     if side == "low":
-                        problems.append(f"{name}: 初始姿态下活动件没有贴合任何导向材料（{GUIDE_GAP_M*1000:g} mm 内）")
+                        problems.append(f"{name}: in the initial pose the moving part touches no guide material (within {GUIDE_GAP_M*1000:g} mm)")
                     continue
                 guide = _interval(model, data, part["guides"], part["axis"])
                 share = float(_overlap(_interval(model, data, part["moving"], part["axis"]), guide)/part["home"])
                 overrun = _outside(model, data, part)-part["outside"]
                 kept[f"{name}:{side}"] = {"engagement": round(share, 3), "overrun_mm": round(overrun*1000, 1),
                                           "guide_mm": [round(guide[0]*1000, 1), round(guide[1]*1000, 1)]}
-                span = f"导向沿轴范围 {guide[0]*1000:.1f}–{guide[1]*1000:.1f} mm"
+                span = f"guide range along the axis {guide[0]*1000:.1f}–{guide[1]*1000:.1f} mm"
                 if extends and share < EXTEND_FRACTION:
-                    problems.append(f"{name} 在 {side} 端只保留 {share:.0%} 的导向啮合（拉出件需≥{EXTEND_FRACTION:.0%}），{span}")
+                    problems.append(f"{name} keeps only {share:.0%} guide engagement at the {side} end (pull-out parts need >={EXTEND_FRACTION:.0%}), {span}")
                 elif not extends and overrun > OVERRUN_M:
-                    problems.append(f"{name} 在 {side} 端质心比初始位置多越出导向 {overrun*1000:.1f} mm（{span}，允许 {OVERRUN_M*1000:g} mm）；"
-                                    "门、盖板不得滑出导轨；资料要求拉出的抽屉/托盘须声明 extends=true")
+                    problems.append(f"{name} at the {side} end: centre of mass overruns the guide by {overrun*1000:.1f} mm more than at the initial position ({span}, allowed {OVERRUN_M*1000:g} mm); "
+                                    "doors and cover plates must not slide out of their rails; drawers/trays that the materials require to pull out must declare extends=true")
         rows.append({"id": f"mechanism_retention:{m['id']}", "status": "fail" if problems else "pass",
-                     "detail": f"滑动件在两端限位质心越出导向的距离不得比初始位置多 {OVERRUN_M*1000:g} mm 以上（声明 extends=true 的抽屉/托盘须保留≥{EXTEND_FRACTION:.0%} 啮合）",
+                     "detail": f"At both limits, a sliding part's centre-of-mass overrun beyond the guide must not exceed that at the initial pose by more than {OVERRUN_M*1000:g} mm (drawers/trays declaring extends=true must keep >={EXTEND_FRACTION:.0%} engagement)",
                      "engagement": kept, "problems": problems[:20],
                      "guides": {model.joint(p["joint"]).name: [model.geom(g).name for g in p["guides"]][:12] for p in parts}})
     return rows
@@ -356,7 +356,7 @@ def _trigger(model, manifest, event):
         return model.joint(mechanical["joint"]).id, float(mechanical["at"])
     if mechanical:
         return ("manual", mechanical["interface"])
-    return f"锁没有声明解除事件（mechanisms.release_event，或同一 equality 的 connection.release_event）"
+    return f"The lock declares no release event (mechanisms.release_event, or connection.release_event of the same equality)"
 
 
 def _unlock(model, data, manifest, m, lock, mass, steps):
@@ -379,9 +379,9 @@ def _unlock(model, data, manifest, m, lock, mass, steps):
         except KeyError:
             on_part = False
         if not on_part:
-            return False, {"unlock": f"机械解锁事件 {event} 的操作接口不在被锁部件上；独立卡扣/拨杆须声明触发关节 joint 与阈值 at，框架据此真实驱动解锁"}
+            return False, {"unlock": f"Mechanical unlock event {event} has its operating interface off the locked part; a separate catch/lever must declare a trigger joint (joint) and threshold (at), which the framework uses to really drive the unlock"}
         data.eq_active[lock] = 0
-        return True, {"unlock": {"manual_on_locked_part": trigger[1], "approximation": "直接操作被锁部件解除（按扣/止动近似），未模拟解除力阈值"}}
+        return True, {"unlock": {"manual_on_locked_part": trigger[1], "approximation": "Released by directly operating the locked part (snap/stop approximation); release force threshold not simulated"}}
     crossed, evidence = _drive_past(model, data, *trigger, mass, steps)
     if crossed:
         data.eq_active[lock] = 0
@@ -439,7 +439,7 @@ def mechanism_drive(model, manifest, qpos0, stops=None):
             if not released:
                 evidence["reached"] = {}
                 rows.append({"id": f"mechanism_drive:{m['id']}", "status": "fail",
-                             "detail": "锁未能由其声明的解除事件通过真实动作解除，机构未继续驱动",
+                             "detail": "The lock could not be released by real motion of its declared release event; the mechanism was not driven further",
                              "joints": [model.joint(j).name for j, _, _ in ranges], **evidence})
                 continue
         reached = {}
@@ -459,7 +459,7 @@ def mechanism_drive(model, manifest, qpos0, stops=None):
             ok &= reached[side]
         evidence["reached"] = reached
         rows.append({"id": f"mechanism_drive:{m['id']}", "status": "pass" if ok else "fail",
-                     "detail": f"饱和 PD 广义力（滑动≤{DRIVE_FORCE_N:g} N、转动≤{DRIVE_TORQUE_NM:g} N·m，已补偿重力与弹簧，不直接写关节位置）驱动到两端限位；声明的锁须在相同力下保持，并由其解除事件（触发关节越过阈值、按钮或软件）解除",
+                     "detail": f"Saturated PD generalized force (slide <={DRIVE_FORCE_N:g} N, hinge <={DRIVE_TORQUE_NM:g} N*m, gravity and springs compensated, joint positions never written directly) drives to both limits; a declared lock must hold under the same force and be released by its release event (trigger joint past threshold, button or software)",
                      "joints": [model.joint(j).name for j, _, _ in ranges], **evidence})
     return rows
 
@@ -593,7 +593,7 @@ def release_probes(model, manifest, qpos0):
         try:
             e = model.equality(connection["equality"]).id
         except KeyError:
-            rows.append({"id": "release_probe:"+connection["id"], "status": "fail", "detail": "连接引用的 equality 不存在"})
+            rows.append({"id": "release_probe:"+connection["id"], "status": "fail", "detail": "The equality referenced by the connection does not exist"})
             continue
         a, b = int(model.eq_obj1id[e]), int(model.eq_obj2id[e])
         if model.eq_type[e] == mujoco.mjtEq.mjEQ_JOINT:
@@ -712,8 +712,8 @@ def release_probes(model, manifest, qpos0):
             measure([t])
     for t in targets:
         rows.append({"id": "release_probe:"+t["connection"]["id"], "status": "pass" if t["pass"] else "fail",
-                     "detail": ("拉动探测时仿真发散；" if t["diverged"] else "")+("释放事件的触发关节未能越过阈值；" if t["trigger"] and not t["trigger"]["crossed"] else "")+"以 3 倍重力外力沿竖直向上及远离锚定件方向拉动至多 0.5 s，位移相对锚定件计：连接生效时≤2 mm；解除后明显移动；"
-                               "全部连接解除后可移出≥5 mm；被可动部件挡住时先把这些机构打开到远端再拉，拉得出才算（移动达 5 mm 或静止即停止，记录值为下限）；拉力按其承载的焊接部件总质量计",
+                     "detail": ("Simulation diverged during the pull probe; " if t["diverged"] else "")+("Trigger joint of the release event did not pass its threshold; " if t["trigger"] and not t["trigger"]["crossed"] else "")+"Pulled for up to 0.5 s with an external force of 3x gravity vertically upward and away from the anchor, displacement measured relative to the anchor: <=2 mm while the connection is active; clear movement after release; "
+                               ">=5 mm removable after all connections are released; if blocked by movable parts, those mechanisms are first opened to their far end before pulling, and it counts only if it pulls out (stops at 5 mm of movement or when at rest, so the recorded value is a lower bound); pull force is based on the total mass of the welded parts it carries",
                      "moved_when_active_mm": _mm(t["held"]), "moved_when_released_mm": _mm(t["released"]),
                      "moved_when_all_released_mm": _mm(t["all"]), "diverged": t["diverged"],
                      "blocked_by_other_parts": bool(t["removable"] and t["released"] < .005),

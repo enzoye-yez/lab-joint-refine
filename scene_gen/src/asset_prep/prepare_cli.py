@@ -1,4 +1,4 @@
-"""任务资料准备入口；预检不加载凭据或创建网络客户端。"""
+"""Task material preparation entry point; preflight loads no credentials and creates no network clients."""
 
 import argparse
 import json
@@ -21,15 +21,15 @@ def inspect(documents, config, environment):
     from .prepare_prompts import INDEX
     from .workflow import plan_tasks
     extraction_blocks = len(plan_tasks(documents,config))
-    # 尚无任务时无法估算实例、交互和检索的实际数量；只计算确定会遍历的阶段。
+    # Without a task the actual numbers of instances, interactions and searches cannot be estimated; only stages that will certainly be traversed are counted.
     requests = [len(encoded(model_messages(config,INDEX,{'operation':'protocol_index',
         'sources':excerpts(c['units'],documents,context=0)}))) for c in chunks]
     base_calls = 4*len(chunks)+extraction_blocks
     warnings = list(documents['warnings'])
     if base_calls > config.max_model_calls:
-        warnings.append('当前调用上限小于全文遍历的基础需求；完成实例分配、身份匹配和审查还需额外调用。')
+        warnings.append('the current call limit is below the base requirement for a full-text pass; instance assignment, identity matching and review need additional calls.')
     if max(requests,default=0)>min(config.max_input_bytes,96000):
-        warnings.append('至少一个索引请求超过输入上限，需要减小分段配置。')
+        warnings.append('at least one index request exceeds the input limit; reduce the segmentation settings.')
     return {'status':'input_checked', 'workflow':'asset_workflow_v3', 'network_calls':0,
             'provider':config.provider, 'model':config.model, 'base_url':config.base_url,
             'scope':BOUNDARY, 'environment_sha256':public['sha256'],
@@ -40,11 +40,11 @@ def inspect(documents, config, environment):
             'initial_index_token_reserve':sum(n+512+config.max_output_tokens for n in requests),
             'warnings':warnings,
             'budget':{k:getattr(config,k) for k in ('max_model_calls','max_reserved_tokens','max_search_calls')},
-            'estimate_basis':'基础调用=4×索引块数+初始提取块数；不含细分、身份及字段匹配、实例分配、交互、终检、检索和修订。词元预留为字节上界估计，不是费用。'}
+            'estimate_basis':'base calls = 4 x index blocks + initial extraction blocks; excludes subdivision, identity and field matching, instance assignment, interactions, final review, search and revisions. Token reservation is a byte-based upper-bound estimate, not cost.'}
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description='选择规程执行流程并准备移动双臂任务资料')
+    parser = argparse.ArgumentParser(description='Select the protocol execution flow and prepare mobile dual-arm task materials')
     parser.add_argument('--pdf', type=Path, required=True)
     parser.add_argument('--xml', type=Path)
     parser.add_argument('--xml-reason')
@@ -59,9 +59,9 @@ def main(argv=None):
     for name in ('max-model-calls','max-reserved-tokens','max-search-calls'):
         parser.add_argument('--'+name,type=int)
     args = parser.parse_args(argv)
-    if args.preflight and (args.resume or args.retry_uncertain): parser.error('预检使用新运行，不恢复网络请求')
+    if args.preflight and (args.resume or args.retry_uncertain): parser.error('preflight uses a new run and does not resume network requests')
     if (args.xml_reason or args.xml_query) and not (args.xml and args.xml_reason and args.xml_query):
-        parser.error('XML 定向补证须同时提供文件、原因及检索词')
+        parser.error('targeted XML supplementation requires the file, the reason and search terms together')
     project = Path(__file__).resolve().parents[2]
     try:
         config = Config.load(args.config or project/'config/default.json')
@@ -73,7 +73,7 @@ def main(argv=None):
         root = run_directory(project, args.run)
         with run_lock(root):
             if args.preflight:
-                if any(p.name!='.lock' for p in root.iterdir()): raise PrepError('预检目录已存在，请使用新名称')
+                if any(p.name!='.lock' for p in root.iterdir()): raise PrepError('preflight directory already exists; use a new name')
                 result = inspect(documents, config, environment)
                 atomic_json(root/'preflight.json', result)
             else:
@@ -86,9 +86,9 @@ def main(argv=None):
     except PrepError as error:
         print(str(error)); return 2
     except KeyboardInterrupt:
-        print('任务准备已中断，进度与请求预算保留。'); return 130
+        print('Task preparation interrupted; progress and request budget are kept.'); return 130
     except (OSError, ValueError, KeyError) as error:
-        print('任务资料读取或保存失败：'+type(error).__name__); return 2
+        print('Failed to read or save task materials: '+type(error).__name__); return 2
 
 
 if __name__ == '__main__':

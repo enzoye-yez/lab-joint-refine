@@ -1,4 +1,4 @@
-"""按原文行/段落组织有界任务；区间为事实，邻接文字只提供语境。"""
+"""Organize bounded tasks by source lines/paragraphs; the span is the fact, adjacent text only provides context."""
 
 import re
 from .contracts import require
@@ -6,9 +6,9 @@ from .storage import digest
 
 
 def balanced_parts(source, limit):
-    """尽量在换行或空白处分割，避免固定步长产生单字符余数。"""
+    """Split at line breaks or whitespace where possible, so a fixed stride does not leave single-character remainders."""
     text = source['text']
-    require(limit >= 2, '结构块字符上限至少为2')
+    require(limit >= 2, 'structural block character limit must be at least 2')
     result, start = [], 0
     while len(text) - start > limit:
         remaining = len(text) - start
@@ -27,7 +27,7 @@ def balanced_parts(source, limit):
 
 def units(sources, limit):
     result = []
-    # 空行、材料清单行与表格文本行保留其原文分隔，不据字符长度删除内容。
+    # Blank lines, material-list lines and table text lines keep their original separators; content is never dropped based on character length.
     for source in sources:
         start = 0
         local = []
@@ -37,7 +37,7 @@ def units(sources, limit):
             start += len(line)
         if not local and source['text']:
             local = balanced_parts(source,limit)
-        # 换行、单字符行并入同来源相邻行；不丢弃字符或跨来源拼造引文。
+        # Line breaks and single-character lines are merged into adjacent lines of the same source; no characters are dropped and no quotes are fabricated across sources.
         merged=[]
         for part in local:
             if merged and (len(part['text'].strip())<=1 or len(merged[-1]['text'].strip())<=1):
@@ -90,5 +90,5 @@ def split_task(block):
         middle=len(parts)//2
         return [task(parts[:middle]),task(parts[middle:])]
     source=parts[0]
-    require(len(source['text'])>200, '单个最小结构块仍无法产生有界候选；保留任务供检查，不无限拆分')
+    require(len(source['text'])>200, 'a single minimal structural block still cannot produce bounded candidates; the task is kept for inspection instead of splitting indefinitely')
     return [task([part]) for part in balanced_parts(source,(len(source['text'])+1)//2)]

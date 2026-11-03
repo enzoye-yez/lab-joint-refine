@@ -1,4 +1,4 @@
-"""后端启动的独立工作进程；容器和显式本地模式共用同一构建检查入口。"""
+"""Standalone worker process launched by the backend; container and explicit local mode share the same build-and-check entry point."""
 
 import argparse
 import contextlib
@@ -18,16 +18,16 @@ def main():
     parser.add_argument("--checkpoints", type=Path, default=None)
     args = parser.parse_args()
     mode, source, output = args.mode, args.input, args.output
-    # 工作进程只信任显式传入并已与磁盘核对的实现身份；不读环境变量或缓存推断。
+    # The worker trusts only an implementation identity passed explicitly and verified against disk; it never infers it from environment variables or caches.
     from asset_prep import implementation as binding
-    expected = binding.require_identity(args.implementation, where="工作进程启动")
-    binding.verify(expected, base=Path(__file__).resolve().parents[1], where="工作进程启动")
+    expected = binding.require_identity(args.implementation, where="worker startup")
+    binding.verify(expected, base=Path(__file__).resolve().parents[1], where="worker startup")
     if mode != 'build':
         job = json.loads((source/'job.json').read_text(encoding='utf-8'))
         if job.get('implementation') != expected:
-            raise binding.ImplementationDrift('工作进程作业与实际执行版本不一致')
+            raise binding.ImplementationDrift('Worker job does not match the implementation version actually executing')
     if mode == "build":
-        # 容器日志由临时文件系统限额，本地日志由父进程有界收集。
+        # Container logs are limited by the tmpfs quota; local logs are collected with bounds by the parent process.
         with (open("/tmp/model.log", "w", encoding="utf-8") if source == Path("/input")
               else contextlib.nullcontext(sys.stdout)) as log:
             with contextlib.redirect_stdout(log), contextlib.redirect_stderr(log):
@@ -114,8 +114,8 @@ def main():
             (output/"build_error.json").write_text(json.dumps({"detail":traceback.format_exc()[-5000:]}),encoding="utf-8")
             raise
     else:
-        raise ValueError("无效工作进程模式")
-    binding.verify(expected, base=Path(__file__).resolve().parents[1], where='工作进程提交')
+        raise ValueError("Invalid worker mode")
+    binding.verify(expected, base=Path(__file__).resolve().parents[1], where='worker submission')
 
 
 if __name__ == "__main__":

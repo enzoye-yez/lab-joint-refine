@@ -1,4 +1,4 @@
-"""有界单资产/配合组件组闭环；不运行正式机器人任务。"""
+"""Bounded closed loop for a single asset / group of mating components; does not run real robot tasks."""
 
 import shutil
 from dataclasses import replace
@@ -22,33 +22,33 @@ def implementation_identity(project):
 
 
 def snapshot(root):
-    require(not Path(root).is_symlink(), "资产版本目录不能为链接")
+    require(not Path(root).is_symlink(), "Asset version directory must not be a link")
     result = {}
     for path in sorted(Path(root).rglob("*")):
-        require(not path.is_symlink(), "运行产物不能包含符号链接")
+        require(not path.is_symlink(), "Run artifacts must not contain symlinks")
         if path.is_file():
             result[path.relative_to(root).as_posix()] = file_hash(path)
     return result
 
 
 def clean_pending(root, pending):
-    """只移除账本明确标记、尚未提交的本轮目录，保留所有已提交版本。"""
+    """Remove only this round's directories that the ledger explicitly marks as not yet committed; keep every committed version."""
     relative = pending["directory"]
-    require(relative == f"revisions/{pending['iteration']:04d}", "待恢复工作区记录无效")
+    require(relative == f"revisions/{pending['iteration']:04d}", "Invalid record of the workspace awaiting recovery")
     target = safe_path(root, relative)
-    require(target.resolve().is_relative_to(Path(root).resolve()) and not target.is_symlink(), "清理范围越界")
+    require(target.resolve().is_relative_to(Path(root).resolve()) and not target.is_symlink(), "Cleanup scope out of bounds")
     if target.exists():
-        require(not any(p.is_symlink() for p in target.rglob("*")), "待恢复目录含链接，拒绝清理")
+        require(not any(p.is_symlink() for p in target.rglob("*")), "Directory awaiting recovery contains links; refusing to clean up")
         if pending.get("source_sha256"):
             script = target/"model.py"
             if not script.is_file() or file_hash(script) != pending["source_sha256"]:
-                raise StaleEvidence("未完成脚本被外部修改；保留现场，不自动清理")
+                raise StaleEvidence("Unfinished script was modified externally; keeping the state, no automatic cleanup")
         shutil.rmtree(target)
 
 
 def execute(bundle, profile, config, generation, keys, run_root, transport, sandbox, project,
             *, resume=False, retry_uncertain=False, provenance="model_generated"):
-    # 必须先验证所选执行环境，避免付费生成后才发现完全无法构建。
+    # The chosen execution environment must be verified first, so we do not discover after paid generation that it cannot build at all.
     backend = sandbox.preflight()
     identity = {"input": bundle["identity"], "profile": profile, "generation": generation.identity(),
                 "provider": config.provider, "base_url": config.base_url, "model": config.model,
@@ -58,15 +58,15 @@ def execute(bundle, profile, config, generation, keys, run_root, transport, sand
                             max_reserved_tokens=generation.max_reserved_tokens)
     store = Store(run_root, identity, ledger_config, resume=resume, retry_uncertain=retry_uncertain)
     if any(call["status"] == "pending" for call in store.state["calls"]) and not retry_uncertain:
-        raise UncertainRequest("账本存在结果不明的请求；核对后显式重试，不能通过改变上下文绕过")
+        raise UncertainRequest("The ledger has a request with unknown outcome; retry explicitly after verifying; changing the context cannot bypass this")
     state = store.state.setdefault("generation", {"status": "running", "revisions": []})
     for entry in state["revisions"]:
         if snapshot(safe_path(run_root, entry["directory"])) != entry["files"]:
-            raise StaleEvidence("已提交的资产版本被修改，拒绝复用检查证据")
+            raise StaleEvidence("A committed asset version was modified; refusing to reuse its check evidence")
     for relative, expected in store.state.get("generation_outputs", {}).items():
         path = safe_path(run_root, relative)
         if not path.is_file() or file_hash(path) != expected:
-            raise StaleEvidence("生成输入快照或验收配置被修改，拒绝复用")
+            raise StaleEvidence("Generation input snapshot or acceptance config was modified; refusing to reuse")
     resume_numerical=bool(state["revisions"] and (state["status"] in {"needs_check_support","needs_environment"} or
         state.get("pending",{}).get("numerical_recovery")))
     resume_review = (state.get("pending") or {}).get("review_checkpoint")
@@ -76,7 +76,7 @@ def execute(bundle, profile, config, generation, keys, run_root, transport, sand
         if any(actual.get(name) != sha for name,sha in expected.items()) or any(
                 name not in expected and name != "visual_review.json" and not name.startswith("review_format_")
                 for name in actual):
-            raise StaleEvidence("待审查资产检查点发生变化，保留现场并停止恢复")
+            raise StaleEvidence("Checkpoint of the asset awaiting review changed; keeping the state and stopping recovery")
     elif state.get("pending"):
         clean_pending(run_root, state["pending"])
         state.pop("pending")
@@ -102,13 +102,13 @@ def execute(bundle, profile, config, generation, keys, run_root, transport, sand
             relative = f"revisions/{iteration:04d}"
             destination = safe_path(run_root, relative)
             if resume_review:
-                require(state["pending"]["directory"] == relative,"审查检查点轮次与账本不一致")
+                require(state["pending"]["directory"] == relative,"Review checkpoint round does not match the ledger")
                 entry = dict(resume_review["entry"])
                 report = resume_review["report"]
                 previous = safe_path(run_root,entry["source"]).read_text(encoding="utf-8")
                 preview_images = load_previews(run_root,entry,generation)
             else:
-                require(not destination.exists(), "发现未归档的版本目录；保留现场，请使用新运行名称")
+                require(not destination.exists(), "Found an unarchived version directory; keeping the state, use a new run name")
                 state["pending"] = {"iteration": iteration, "directory": relative, "numerical_recovery":resume_numerical}
                 store.save()
                 destination.mkdir(parents=True)
@@ -203,7 +203,7 @@ def execute(bundle, profile, config, generation, keys, run_root, transport, sand
         try:
             store.save()
         except Exception as secondary:
-            original.add_note("保存暂停状态也发生异常："+type(secondary).__name__)
+            original.add_note("Saving the paused state also raised: "+type(secondary).__name__)
         raise
 
 
@@ -216,9 +216,9 @@ def summary(store):
     latest = state["revisions"][-1] if state["revisions"] else None
     feedback = (latest or {}).get("feedback", {})
     unverified = (feedback.get("numerical", {}).get("coverage", []) + feedback.get("visual", {}).get("unverified", [])
-                  + ["检查未完成（量测或探测能力不足）："+c for c in (latest or {}).get("unverified_checks", [])])
+                  + ["Check not finished (insufficient measurement or probing capability): "+c for c in (latest or {}).get("unverified_checks", [])])
     return {"status": state["status"], "provenance": store.state["identity"]["provenance"],
             "iterations": len(state["revisions"]), "latest_revision": latest["directory"] if latest else None,
             "budget": store.totals(), "asset_ids": store.state["identity"]["input"]["asset_ids"],
-            "qualification": "候选资产；通过已列检查不等于完整尺寸、动力学或机器人任务验收",
+            "qualification": "Candidate asset; passing the listed checks is not full acceptance of dimensions, dynamics or robot tasks",
             "unverified": unverified, "last_feedback": feedback}

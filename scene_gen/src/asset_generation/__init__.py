@@ -1,3 +1,3 @@
-"""交互资产生成；与资产提取模块通过导出的资料包连接。"""
+"""Interactive asset generation; connects to the asset extraction module through its exported package."""
 
 __version__ = "0.1.0"

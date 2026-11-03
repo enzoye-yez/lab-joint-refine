@@ -14,7 +14,7 @@
       "distribution": "Optional development archive outside the benchmark release; no runtime dependency.",
       "mobile_overlay": "../_dev/mobile_revision.py; immutable pre-mobile baseline plus reviewed semantic overlay"
     },
-    "public_environment_sha256": "8d23f626aaadaba6a8893e63d876449447d6e02fd3a1410a17c9d42b67b23a09",
+    "public_environment_sha256": "fc2e7ad1bbb3bfc4ebb7a28c32c71a33901a560dd947212fa28d3a7b9b2afd73",
     "stage_register_sha256": "3c21ae1f19b67fdfc99ed265bad49e916f2a3882ade9584cdbcd073e5e7796c9"
   },
   "task": {

@@ -12,7 +12,7 @@ def capabilities(generation, backend):
                     "attach(source_position,source_rotation,target_position,target_rotation) -> position,rotation"],
                 "units":"metres and radians; compiler angle=radian; emit records as manifest.construction_records",
                 "slide_rule":"max(abs(limits))+width/2 < rail_length/2; rails and end stops derive from same dimensions"},
-            "guidance":["同一网格和纹理复用资源文件；不要为每个重复零件输出一个副本。",
-                        "碰撞网格须具有有效体积；薄面可用有真实厚度的几何表达，不用零体积网格。",
-                        "活动部件须有有效质量和惯量；保留真实孔槽、接口和承托结构。",
-                        "缺少可选依赖时改用已声明能力，不联网安装；完整原图仍用于视觉核查。"]}
+            "guidance":["Reuse resource files for identical meshes and textures; do not emit a copy for every repeated part.",
+                        "Collision meshes must have valid volume; express thin faces with geometry of real thickness, never zero-volume meshes.",
+                        "Moving parts must have valid mass and inertia; keep real holes, slots, interfaces and supporting structures.",
+                        "When an optional dependency is missing, use a declared capability instead and do not install from the network; the full original images are still used for visual verification."]}

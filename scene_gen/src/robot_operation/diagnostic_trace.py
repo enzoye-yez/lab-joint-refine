@@ -1,4 +1,4 @@
-"""流式读取已签名轨迹；只输出有界窗口，保留原始记录定位。"""
+"""Stream a signed trajectory; emit only bounded windows and keep locators into the original record."""
 from collections import deque
 import gzip
 import json
@@ -7,13 +7,13 @@ from .common import need, read
 
 
 def inspect_trace(context, query):
-    need(context.run_root is not None and context.record is not None, "没有可复用的执行记录", "missing_evidence")
+    need(context.run_root is not None and context.record is not None, "No reusable execution record", "missing_evidence")
     path = context.run_root/"steps.jsonl.gz"
-    need(path.is_file(), "执行未产生逐步轨迹", "missing_evidence")
+    need(path.is_file(), "Execution produced no per-step trajectory", "missing_evidence")
     graph = read(context.run_root/"graph.json")
     outcome = read(context.run_root/"result.json")
     if query.get("node"):
-        need(query["node"] in {n["id"] for n in graph["nodes"]}, "轨迹查询节点不存在")
+        need(query["node"] in {n["id"] for n in graph["nodes"]}, "Trajectory query node does not exist")
     model, settings = context.model, context.settings
     bodies = query["bodies"]
     bids = {name: model.body(name).id for name in bodies}
@@ -31,13 +31,13 @@ def inspect_trace(context, query):
     first, count, scanned, maximum_force, penetration = None, 0, 0, 0.0, 0.0
     contact_pairs, positions, last_positions, conditions = {}, {}, {}, {}
     failure_step = context.failure.get("sim_steps") if context.failure else None
-    def reject(value): raise ValueError("轨迹包含非有限数字："+value)
+    def reject(value): raise ValueError("Trajectory contains a non-finite number: "+value)
     with gzip.open(path, "rt", encoding="utf-8") as stream:
         for line in stream:
             context.cancel_guard()
             scanned += 1
             need(scanned <= settings.diagnostic_trace_steps and len(line) <= 32_000_000,
-                 "轨迹分析预算耗尽，不能把未覆盖部分标为通过", "diagnostic_budget")
+                 "Trajectory analysis budget exhausted; the uncovered part must not be marked as passing", "diagnostic_budget")
             row = json.loads(line, parse_constant=reject)
             if failure_step is not None and row["step"] > failure_step: break
             if query.get("node") and row["node"] != query["node"]: continue
@@ -93,7 +93,7 @@ def inspect_trace(context, query):
                              "window": window},
             "coverage": {"kind": "trace", "node": query.get("node"), "bodies": bodies, "steps": count,
                          "through_failure_step": failure_step, "window_limit": query["window"]},
-            "limitations": ["工程阈值候选不等于根因；物体整体位移不等于相对夹具滑移；完整数据保留在原始逐步记录"],
+            "limitations": ["An engineering-threshold candidate is not a root cause; whole-object displacement is not slip relative to the gripper; full data remains in the original per-step record"],
             "source": {"path": str(path), "sha256": context.files["steps.jsonl.gz"]},
             "rows": [{"kind": "trace_contact", "status": "confirmed_observation", "repair_authorized": False,
                       "instances": p["instances"], "observation": p} for p in pairs[:128]]}

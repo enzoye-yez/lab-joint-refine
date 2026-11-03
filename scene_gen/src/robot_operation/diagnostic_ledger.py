@@ -1,4 +1,4 @@
-"""持久证据账本：量测事实与模型解释分离，不依靠模型自评信息价值。"""
+"""Persistent evidence ledger: measured facts are kept separate from model interpretation; never relies on the model's self-assessed information value."""
 from copy import deepcopy
 from pathlib import Path
 from asset_prep.storage import atomic_json, file_hash
@@ -36,21 +36,21 @@ class EvidenceLedger:
                     records[key]=rebound;self.save()
                     return {**deepcopy(rebound),"delivery":"local_dependency_reused"}
         spent=sum("rebound_from" not in r for r in records.values())
-        need(spent < self.settings.diagnostic_queries, "诊断量测预算耗尽", "diagnostic_budget")
+        need(spent < self.settings.diagnostic_queries, "Diagnostic measurement budget exhausted", "diagnostic_budget")
         need(self.state["sim_seconds_reserved"] + sim_seconds <= self.settings.diagnostic_total_sim_seconds,
-             "局部试探仿真预算耗尽", "diagnostic_budget")
+             "Local probe simulation budget exhausted", "diagnostic_budget")
         self.state["sim_seconds_reserved"] += sim_seconds
         row = {"id": key, "query": deepcopy(query), "binding": deepcopy(binding),
                "status": "interrupted", "result": None, "information_gain": False,
                "sim_seconds_reserved": sim_seconds}
         records[key] = row
-        self.save()  # 中断请求不自动重试；预留消耗不能在恢复时清零。
+        self.save()  # Interrupted requests are not retried automatically; reserved spend must not be reset on resume.
         try:
             result = measure()
             need(isinstance(result, dict) and result.get("status") in {"valid", "unknown", "invalid"},
-                 "量测工具返回格式错误", "measurement_error")
+                 "Measurement tool returned a malformed result", "measurement_error")
             row["status"], row["result"] = result["status"], result
-            # 新的提问措辞、编号和返回路径不算信息；覆盖范围本身属于有效量测内容。
+            # New question wording, numbering and return paths are not information; the coverage itself is valid measurement content.
             facts = {k: result.get(k) for k in ("observations", "coverage", "limitations", "rows")}
             def semantic(value):
                 if isinstance(value, dict): return {k: semantic(v) for k, v in value.items() if k not in {"directory", "source"}}
@@ -87,7 +87,7 @@ class EvidenceLedger:
         path=Path(reference["path"])
         need(self.archive_root is not None and path.resolve().parent==self.archive_root.resolve()
              and path.is_file() and file_hash(path)==reference["sha256"],
-             "既有证据归档缺失或被修改，不能静默复用", "stale_evidence")
+             "Existing evidence archive is missing or modified; cannot be reused silently", "stale_evidence")
 
     def finish_batch(self, binding, records):
         context = digest(binding)
@@ -97,7 +97,7 @@ class EvidenceLedger:
         receipt = {"context": context, "evidence_ids": [r["id"] for r in records],
                    "information_gain": gain, "consecutive_stalls": count,
                    "exhausted": count >= self.settings.diagnostic_stalls}
-        # 请求回执也是有界的；不会为缓存命中建立无穷历史。
+        # Request receipts are bounded too; cache hits never build an unbounded history.
         self.state["attempts"].append(receipt)
         self.state["attempts"] = self.state["attempts"][-self.settings.diagnostic_queries:]
         self.save()
@@ -109,7 +109,7 @@ class EvidenceLedger:
 
 
 def covers(existing, requested):
-    """只复用可证明的覆盖关系，不使用文字相似度推断量测等价。"""
+    """Reuse only provable coverage relations; never infer measurement equivalence from text similarity."""
     if not existing.get("kind") or existing.get("kind") != requested.get("kind"): return False
     kind = existing["kind"]
     field = {"mechanism": "samples", "fit": "samples", "contacts": "bodies", "joint_state": "joints", "trace": "window"}.get(kind)

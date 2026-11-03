@@ -39,7 +39,7 @@ class WorkflowTransport:
     def __init__(self,draft=None,target=None): self.model=SyntheticModel(draft,target); self.calls=0
     def post(self,url,payload,key,timeout):
         self.calls+=1
-        data=json.loads(payload['messages'][1]['content'].split('\n以下是任务数据：\n',1)[1])
+        data=json.loads(payload['messages'][1]['content'].split('\nTask data follows:\n',1)[1])
         result=self.model.structured('',data,lambda v:v)
         return {'model':'fixture','choices':[{'finish_reason':'stop','message':{'content':json.dumps(result)}}],
                 'usage':{'total_tokens':50}}
@@ -158,7 +158,7 @@ class WorkflowTests(TempCase):
         result=run_workflow(docs,Config(),SyntheticModel(),state)
         self.assertEqual(len(result['assets']),1)
         self.assertEqual(result['assets'][0]['category'],'accessory')
-        self.assertTrue(any('跨类别' in i for i in result['issues']))
+        self.assertTrue(any('across categories' in i for i in result['issues']))
 
     def test_field_pagination_and_same_rank_conflict_are_independent(self):
         docs=documents(); asset=inventory()['assets'][0]; old=copy.deepcopy(asset)
@@ -323,7 +323,7 @@ class WorkflowTests(TempCase):
     def test_oversized_atomic_card_stops_without_discarding_requirements(self):
         card=identity_card(inventory()['assets'][0]); card['aliases']=['x'*30000]
         original=copy.deepcopy(card); model=SyntheticModel()
-        with self.assertRaisesRegex(ValidationError,'不截断规格'):
+        with self.assertRaisesRegex(ValidationError,'specifications are not truncated'):
             bounded_scan(identity_card(inventory()['assets'][0]),[card],{},model,Config(),lambda:None)
         self.assertEqual(card,original); self.assertEqual(model.requests,[])
 

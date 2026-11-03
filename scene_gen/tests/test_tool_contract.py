@@ -112,18 +112,18 @@ class ToolContractTests(unittest.TestCase):
         with self.assertRaisesRegex(ValidationError,"固定安装主体"):
             inspect_candidate(self.tool,["A01"],{"assembly_role":"tool"})
         self.write(XML.replace('<body name="tip"', '<body name="tip"').replace('<freejoint name="tip_free"/>',''))
-        with self.assertRaisesRegex(ValidationError,"自由运动能力"):
+        with self.assertRaisesRegex(ValidationError,"neither end can move freely"):
             inspect_candidate(self.tool,["A01"],{"assembly_role":"tool"})
 
     def test_general_connection_constraints_are_not_relaxed(self):
-        for change,match in ((lambda m:m["connections"][0].update(position_tolerance_m=.02),"公差"),
-                             (lambda m:m["connections"][0].update(release_event="invented"),"释放事件")):
+        for change,match in ((lambda m:m["connections"][0].update(position_tolerance_m=.02),"tolerance"),
+                             (lambda m:m["connections"][0].update(release_event="invented"),"release_event")):
             m=copy.deepcopy(MANIFEST);change(m);self.write(manifest=m)
             with self.assertRaisesRegex(ValidationError,match):inspect_candidate(self.tool,["A01"],{"assembly_role":"tool"})
 
     def test_delivered_scope_feedback_names_expected_and_actual_ids(self):
         m=copy.deepcopy(MANIFEST);m["asset_ids"]=["tool"]
-        with self.assertRaisesRegex(ValidationError,"A01.*tool.*服务范围"):
+        with self.assertRaisesRegex(ValidationError,"A01.*tool.*service scope"):
             validate_manifest(m,load_model(self.tool),["A01"])
 
     def test_coupled_tool_cannot_receive_false_kinematic_acceptance(self):
@@ -151,5 +151,5 @@ class ToolContractTests(unittest.TestCase):
         xml=XML.replace('<body name="tip" pos="0 0 .04"><freejoint name="tip_free"/>', '<body name="tip" pos="0 0 .04"><joint name="tip_hinge" range="0 .1"/>')
         xml=xml.replace('</body></body>\n<body name="tip"','</body>\n<body name="tip"').replace('</worldbody>','</body></worldbody>')
         self.write(xml)
-        with self.assertRaisesRegex(ValidationError,"同一永久运动树"):
+        with self.assertRaisesRegex(ValidationError,"same permanent kinematic tree"):
             inspect_candidate(self.tool,["A01"],{"assembly_role":"tool"})

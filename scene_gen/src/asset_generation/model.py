@@ -1,4 +1,4 @@
-"""复用原项目传输与账本；实际图片像素进入多模态请求。"""
+"""Reuses the original project's transport and ledger; actual image pixels go into the multimodal requests."""
 
 import json
 from contextlib import contextmanager
@@ -10,7 +10,7 @@ from asset_prep.storage import digest, encoded
 from .provider_diagnostics import safe_details
 
 
-# 传输重试独立于模型几何修复轮次，但每次仍扣除调用与令牌预算。
+# Transport retries are independent of model geometry-repair rounds, but every attempt still consumes call and token budget.
 TRANSPORT_RETRY_DELAYS = (15, 30, 60, 60, 60)
 
 
@@ -35,7 +35,7 @@ def transient_error(error):
 
 
 def request_failure_kind(error):
-    """服务明确拒绝不盲目重发；无说明的 400 只作有限诊断重试。"""
+    """Explicit service rejections are not blindly resent; an unexplained 400 gets only limited diagnostic retries."""
     details = error.diagnostics.get("provider_error", {})
     if not isinstance(details, dict):
         details = {}
@@ -80,7 +80,7 @@ class GenerationModel:
         inflight = getattr(self.store, "inflight", set())
         if not self.store.retry_uncertain and any(c["status"] == "pending" and c.get("index") not in inflight
                                                   for c in self.store.state["calls"]):
-            raise UncertainRequest("账本存在未知请求，不能通过压缩或读取详情绕过显式恢复")
+            raise UncertainRequest("The ledger has a request with unknown outcome; compaction or detail reads cannot bypass explicit recovery")
         if self.whole_context(phase):
             # The codex agent transport reads over-long context from files,
             # so the request is neither projected nor paged.
@@ -103,7 +103,7 @@ class GenerationModel:
                     "context_images" in value or set(value)=={"context_notes"}):
                 try:
                     if not set(value) <= {"context_images","context_notes"}:
-                        raise ValidationError("图片读取或分页笔记不能混入最终结果")
+                        raise ValidationError("Image reads or paging notes must not be mixed into the final result")
                     if "context_notes" in value:
                         notes = view.notes(value["context_notes"])
                     if "context_images" in value:
@@ -112,7 +112,7 @@ class GenerationModel:
                         stalled = stalled+1 if signature in pages else 0
                         pages[signature] = True
                         if stalled >= self.generation.max_context_reads:
-                            raise ContextLimitError("图片对照持续无新内容；保留当前任务和全部原图")
+                            raise ContextLimitError("Image comparison keeps producing nothing new; keeping the current task and all original images")
                         view.receipt["reads"].append({"request":value,"call":call,"kind":"image_comparison"})
                         current = {**view.context,"context_working_notes":notes}
                         view.save("image_read")
@@ -120,7 +120,7 @@ class GenerationModel:
                 except ValidationError as exc:
                     stalled += 1
                     if stalled > self.generation.max_context_reads:
-                        raise ContextLimitError("分页协议持续无效；保留资料，不认证未完成结果") from exc
+                        raise ContextLimitError("Paging protocol keeps being invalid; keeping the materials and not certifying the unfinished result") from exc
                     current = {**view.context,"context_working_notes":notes,
                                "context_delivery_error":{"attempt":stalled,"error":str(exc)}}
                     continue
@@ -136,16 +136,16 @@ class GenerationModel:
                     view.set_delivery()
                     current = {**view.context,"context_working_notes":notes,
                                "prior_batch_findings":view.fold(batch_findings,8192),
-                               "prior_batch_rule":"prior_batch_findings是此前图片批次提出的缺陷。最终结论须结合全部批次逐条判断：仍成立的写入findings并给repair；被后续图片证据否定的不再列出。"}
+                               "prior_batch_rule":"prior_batch_findings are defects raised by earlier image batches. The final verdict must weigh all batches item by item: those still valid go in findings with repair; those refuted by later image evidence are no longer listed."}
                     stalled = 0
                     view.save("next_batch")
                     continue
                 if view.paged and isinstance(value,dict) and set(value)=={"context_notes"}:
                     stalled += 1
                     if stalled > self.generation.max_context_reads:
-                        raise ContextLimitError("资料已送达，整理后仍未提交任务结果；保留任务")
+                        raise ContextLimitError("Materials delivered, but no task result submitted even after consolidation; keeping the task")
                     current = {**view.context,"context_working_notes":notes,
-                               "context_delivery_error":{"attempt":stalled,"instruction":"所有批次已送达，请按原任务契约给出结论"}}
+                               "context_delivery_error":{"attempt":stalled,"instruction":"All batches have been delivered; give the verdict under the original task contract"}}
                     continue
                 if batch_findings and isinstance(value,dict) and "verdict" in value:
                     from .review import retain_batch_defects
@@ -157,17 +157,17 @@ class GenerationModel:
             # A complete window without new usable evidence asks for a decision first.
             if stalled >= self.generation.max_context_reads:
                 view.save("detail_task_deferred")
-                raise ContextLimitError("详情读取持续无新增内容，整理提示后仍未提交结论；暂挂当前任务，其他任务可继续")
+                raise ContextLimitError("Detail reads keep adding nothing new and no verdict was submitted even after the consolidation prompt; suspending the current task, other tasks can continue")
             request = value.get("context_read")
             signature = digest(request)
             number = len(view.receipt["reads"])
             progress = {"completed": number + 1, "window": self.generation.max_context_reads,
                         "previous_requests": [entry["request"] for entry in view.receipt["reads"][-8:]],
-                        "instruction": "可重读缓存核对；窗口结束时整理工作笔记并尽量提交当前任务结论。"}
+                        "instruction": "You may re-read the cache to verify; when the window ends, consolidate your working notes and submit the current task's verdict if at all possible."}
             reused = signature in pages
             try:
                 if not {"context_read"} <= set(value) <= {"context_read", "context_notes"}:
-                    raise ValidationError("读取详情时不得同时提交任务结果")
+                    raise ValidationError("Do not submit a task result while reading details")
                 if "context_notes" in value:
                     notes = view.notes(value["context_notes"])
                 skeleton = {**view.context, "context_working_notes": notes,
@@ -185,12 +185,12 @@ class GenerationModel:
                 retained_pages[page_key] = page
             except (ValidationError, ContextLimitError) as exc:
                 page = {"error": str(exc), "request": request,
-                        "instruction": "缩小字段路径或分页；若已有证据足够则提交结果，否则明确未解决项。"}
+                        "instruction": "Narrow the field path or page; if the evidence is already sufficient submit the result, otherwise state the unresolved items explicitly."}
                 fresh = False
             stalled = 0 if fresh else stalled + 1
             progress.update(reused=reused, stalled=stalled)
             if stalled >= self.generation.max_context_reads:
-                progress["instruction"] = "本窗口没有新增可用详情。请按原任务契约提交结论；证据不足明确保留未知，不再重读同一内容。"
+                progress["instruction"] = "This window added no new usable details. Submit the verdict under the original task contract; where evidence is insufficient keep it explicitly unknown, and do not re-read the same content."
             view.receipt["reads"].append({"request": request, "call": call, "page_sha256": digest(page),
                                           "working_notes": notes, "reused": reused, "new_information": fresh})
             view.save("detail_read")
@@ -239,13 +239,13 @@ class GenerationModel:
         estimate, required = metrics["input_upper_estimate"], metrics["required"]
         whole = self.whole_context(phase)
         if required > self.generation.max_context_tokens and not whole:
-            raise ContextLimitError(f"请求上下文预算不足：保守估计含输出和余量 {required}，上限 {self.generation.max_context_tokens}；未发送，不自动重试相同请求")
+            raise ContextLimitError(f"Request context budget insufficient: conservative estimate including output and margin {required}, limit {self.generation.max_context_tokens}; not sent, the same request is not retried automatically")
         if len(encoded(payload)) > self.generation.max_request_bytes and not whole:
-            raise ContextLimitError("图文请求字节超限；未发送，需调整上下文投影或任务范围")
+            raise ContextLimitError("Image-and-text request exceeds the byte limit; not sent, adjust the context projection or task scope")
         request_key = digest({"phase": phase, "payload": payload,
                               "implementation":self.store.state.get('identity',{}).get('implementation')})
         if any(c.get("key")==request_key and c.get("failure_kind")=="context_limit" for c in self.store.state["calls"]):
-            raise ContextLimitError("相同请求已被服务明确拒绝为上下文超限；保留账本，需改变上下文后才能再发")
+            raise ContextLimitError("The same request was already explicitly rejected by the service as exceeding the context; ledger kept, the context must change before resending")
         response = self.store.cached(request_key)
         previous_calls = ([call for call in self.store.state["calls"]
                            if call["status"] == "pending" and call.get("phase") == phase]
@@ -263,7 +263,7 @@ class GenerationModel:
             self.execution_guard()
             if response is not None:
                 break
-            # 图像由服务分词，不能用base64字节当作精确令牌；保留显式工程估计。
+            # Images are tokenized by the service, so base64 bytes are not exact tokens; keep the explicit engineering estimate.
             reserve = estimate + self.generation.max_output_tokens
             call = self.store.reserve(request_key, "model", reserve, defer_send=True)
             call.update(phase=phase, provider=self.config.provider, requested_model=self.config.model,
@@ -276,12 +276,12 @@ class GenerationModel:
             for previous_call in previous_calls:
                 previous_call["retried_by"] = call["index"]
                 if previous_call["status"] == "pending":
-                    # 未知结果不伪装成服务端失败；只有下一次成功预留后才解除阻塞。
+                    # An unknown outcome is not disguised as a server-side failure; only the next successful reservation lifts the block.
                     previous_call.update(status="unknown_retried", outcome_unknown=True)
             self.execution_guard()
             self.store.mark_sent(call)
             self.progress(phase, "request_sent")
-            print(f"模型请求 #{call['index']+1}：{phase}，传输尝试 {retry+1}，图片 {len(images)} 张", flush=True)
+            print(f"Model request #{call['index']+1}: {phase}, transport attempt {retry+1}, {len(images)} images", flush=True)
             try:
                 # Transports that act differently per phase (codex agent author) read this.
                 self.transport.phase = phase
@@ -298,7 +298,7 @@ class GenerationModel:
                 response = redact(response, self.credentials.values())
                 self.store.finish(call, response)
                 self.progress(phase, "response_saved")
-                # 先保存已付费响应，再拒绝消费漂移版本下的结果；恢复不丢账本。
+                # Save the paid response first, then refuse to consume a result produced under a drifted version; recovery loses no ledger entries.
                 self.execution_guard()
             except ProviderError as exc:
                 details = safe_details(exc.diagnostics.get("provider_error"), self.credentials.values())
@@ -323,15 +323,15 @@ class GenerationModel:
                                                "limit": retry_limit, "failure_kind":failure_kind}
                     self.store.save()
                     status = exc.diagnostics.get("http_status")
-                    reason = f"服务状态码{status}" if status else "连接中断、超时或响应异常"
-                    uncertainty = "上次请求结果未知，可能重复计费；" if exc.uncertain else ""
-                    print(f"{reason}；{delay}秒后进行第{retry+1}/{retry_limit}次自动重试。"
-                          f"{uncertainty}每次尝试保留预算记录。", flush=True)
+                    reason = f"Service status code {status}" if status else "Connection dropped, timed out or abnormal response"
+                    uncertainty = "Previous request outcome unknown, possibly billed twice; " if exc.uncertain else ""
+                    print(f"{reason}; automatic retry {retry+1}/{retry_limit} in {delay} s. "
+                          f"{uncertainty}Every attempt keeps its budget record.", flush=True)
                     previous_calls = [call]
                     self.progress(phase, "retry_wait")
                     remaining = delay
                     while remaining > 0:
-                        # 长冷却保持可中断；每分钟有进度消息。
+                        # Long cooldowns stay interruptible; a progress message every minute.
                         self.cancel_guard()
                         interval = min(remaining, 1)
                         with self._unlocked():
@@ -339,11 +339,11 @@ class GenerationModel:
                         self.cancel_guard()
                         remaining -= interval
                         if remaining and remaining % 60 == 0:
-                            print(f"等待服务恢复；距重试约 {remaining:.0f} 秒", flush=True)
+                            print(f"Waiting for the service to recover; about {remaining:.0f} s until retry", flush=True)
                     continue
                 self.store.save()
                 if exc.uncertain:
-                    raise UncertainRequest("生成请求结果未知，预留预算和现场已保存；不自动重发，核对后可显式使用 --retry-uncertain") from exc
+                    raise UncertainRequest("Generation request outcome unknown; reserved budget and state saved; not resent automatically; after verifying, you may explicitly use --retry-uncertain") from exc
                 raise
         # Paid, archived responses are consumable even if reported usage exceeds
         # the reservation. Store.reserve enforces the total budget BEFORE any new
@@ -351,7 +351,7 @@ class GenerationModel:
         try:
             choice = response["choices"][0]
             if choice.get("finish_reason") == "length":
-                raise ValidationError("生成响应被截断；不执行不完整代码")
+                raise ValidationError("Generation response truncated; incomplete code is not executed")
             usage = response.get("usage", {})
             completion = usage.get("completion_tokens") if isinstance(usage, dict) else None
             usage_observation = None
@@ -369,4 +369,4 @@ class GenerationModel:
                            "usage": usage, "usage_verified": type(completion) is int,
                            "usage_observation":usage_observation}
         except (KeyError, IndexError, TypeError, ValueError) as exc:
-            raise ValidationError("模型返回的结构化内容无效，原响应已归档") from exc
+            raise ValidationError("Structured content returned by the model is invalid; the original response is archived") from exc

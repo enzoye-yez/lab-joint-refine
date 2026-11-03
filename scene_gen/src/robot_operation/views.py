@@ -11,8 +11,8 @@ def render_current(scene,sha,directory):
     directory=Path(directory);root=directory.parent.parent
     if (directory/"receipt.json").exists():
         receipt=read(directory/"receipt.json")
-        need(receipt["scene_sha256"]==sha,"预览属于其他场景版本")
-        for row in receipt["images"]:need(file_hash(safe_path(root,row["path"]))==row["sha256"],"场景预览证据被修改")
+        need(receipt["scene_sha256"]==sha,"Preview belongs to a different scene version")
+        for row in receipt["images"]:need(file_hash(safe_path(root,row["path"]))==row["sha256"],"Scene preview evidence was modified")
         return receipt["images"],receipt["error"]
     directory.mkdir(parents=True,exist_ok=True);rows=[];error=None;renderer=None
     try:
@@ -25,7 +25,7 @@ def render_current(scene,sha,directory):
             renderer.update_scene(data,camera=camera)
             path=directory/(str(i)+".png");Image.fromarray(renderer.render()).save(path)
             rows.append({"path":path.relative_to(root).as_posix(),"sha256":file_hash(path)})
-    except Exception as exc:error="场景预览未完整生成："+type(exc).__name__+": "+str(exc)[:500]
+    except Exception as exc:error="Scene preview was not fully generated: "+type(exc).__name__+": "+str(exc)[:500]
     finally:
         if renderer is not None:renderer.close()
     atomic_json(directory/"receipt.json",{"scene_sha256":sha,"images":rows,"error":error})

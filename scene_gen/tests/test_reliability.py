@@ -72,7 +72,7 @@ class RepairTests(TempCase):
         result = self.extract(model)
         self.assertEqual(result, inventory())
         self.assertEqual(transport.model_calls, 2)
-        data = json.loads(transport.requests[1][1]['messages'][1]['content'].split('\n以下是任务数据：\n',1)[1])
+        data = json.loads(transport.requests[1][1]['messages'][1]['content'].split('\nTask data follows:\n',1)[1])
         self.assertIn('evidence_errors', data)
         self.assertNotIn('assets', data)
         self.assertEqual(data['evidence_errors'][0]['paths'], [['assets',0,'evidence',0]])
@@ -113,7 +113,7 @@ class AdaptiveTests(TempCase):
         docs={'sources':[source],'warnings':[],'files':{'pdf':{'name':'fixture.pdf','sha256':'fixture'}}}
         class Dynamic(FakeTransport):
             def post(self,url,payload,key,timeout):
-                data=json.loads(payload['messages'][1]['content'].split('\n以下是任务数据：\n',1)[1])
+                data=json.loads(payload['messages'][1]['content'].split('\nTask data follows:\n',1)[1])
                 if data.get('operation')=='local_extract' and sum(u['length'] for u in data['units'])>400:
                     self.model_calls+=1
                     return {'model':'fixture','usage':{'total_tokens':10},'choices':[{'finish_reason':'length','message':{'content':'{"assets":['}}]}
@@ -161,7 +161,7 @@ class AdaptiveTests(TempCase):
                 self.calls+=1
                 raise OutputTooLarge('too much')
         model=TooLarge()
-        with self.assertRaisesRegex(ValidationError,'最小'):
+        with self.assertRaisesRegex(ValidationError,'smallest'):
             extract_inventory({'sources':[{'id':'pdf:p1','kind':'pdf','text':'x'*100}]},Config(),model)
         self.assertEqual(model.calls,1)
 

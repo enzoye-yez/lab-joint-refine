@@ -1,4 +1,4 @@
-"""非敏感配置与仅限项目根目录的凭据读取。"""
+"""Non-sensitive configuration, and credential reading restricted to the project root."""
 
 import json
 import os
@@ -17,7 +17,7 @@ class Config:
     api_key_env: str = "CODEX_LOGIN"
     search_provider: str = "model_web"
     search_url: str = "https://api.tavily.com/search"
-    scope: str = "根据输入的完整实验规程提取仪器、容器、耗材和必要配件及其要求，不把试剂作为待生成资产。不预设实验类型、结束步骤或排除的实验阶段。"
+    scope: str = "From the complete input experimental protocol, extract the instruments, containers, consumables and necessary accessories together with their requirements; reagents are not assets to be generated. Do not presuppose the experiment type, the final step, or any excluded experimental stage."
     chunk_chars: int = 4000
     max_document_chars: int = 1000000
     max_input_bytes: int = 160000
@@ -49,39 +49,39 @@ class Config:
         for name, value in asdict(self).items():
             if name in {"download_images", "codex_agent_author"}:
                 if type(value) is not bool:
-                    raise ValidationError(f"{name} 必须是布尔值")
+                    raise ValidationError(f"{name} must be a boolean")
             elif isinstance(getattr(type(self), name, None), int):
                 if type(value) is not int or value < (0 if name == "repair_attempts" else 1):
-                    raise ValidationError(f"配置 {name} 必须是有效整数")
+                    raise ValidationError(f"config {name} must be a valid integer")
             elif not isinstance(value, str) or not value.strip():
-                raise ValidationError(f"配置 {name} 必须是非空字符串")
+                raise ValidationError(f"config {name} must be a non-empty string")
         if self.codex_agent_author and self.provider != "codex":
-            raise ValidationError("codex_agent_author 只适用于 codex 服务")
+            raise ValidationError("codex_agent_author applies only to the codex provider")
         if self.provider == "codex":
-            # Codex CLI 使用本机 ChatGPT 登录态，不读取 API 密钥。
+            # Codex CLI uses the local ChatGPT login session and reads no API key.
             if self.api_key_env != "CODEX_LOGIN":
-                raise ValidationError("codex 服务使用本机登录态，api_key_env 必须为 CODEX_LOGIN")
+                raise ValidationError("the codex provider uses the local login session; api_key_env must be CODEX_LOGIN")
         elif self.api_key_env not in {"HARNESS_MODEL_API_KEY", "HARNESS_MODEL_API_KEY2", "OPENAI_API_KEY"}:
-            raise ValidationError("模型密钥变量必须是项目支持的凭据名称")
+            raise ValidationError("the model key variable must be a credential name supported by the project")
         if self.search_provider not in {"model_web", "tavily"}:
-            raise ValidationError("检索适配器只支持 model_web 或 tavily")
+            raise ValidationError("the search adapter supports only model_web or tavily")
         if self.output_token_parameter not in {'max_tokens', 'max_completion_tokens'}:
-            raise ValidationError('不支持的输出令牌参数名称')
+            raise ValidationError('unsupported output-token parameter name')
         for value in (self.base_url, self.search_url):
             parsed = urlsplit(value)
             if (parsed.scheme != "https" or not parsed.hostname or parsed.username
                     or parsed.password or parsed.query or parsed.fragment):
-                raise ValidationError("服务地址必须为不含凭据、查询参数的 HTTPS 地址")
+                raise ValidationError("the service URL must be an HTTPS URL without credentials or query parameters")
 
     @classmethod
     def load(cls, path: Path):
         try:
             return cls(**json.loads(path.read_text(encoding="utf-8-sig")))
         except (TypeError, ValueError, OSError) as exc:
-            raise ValidationError("无法读取非敏感配置或存在未知配置字段") from exc
+            raise ValidationError("cannot read the non-sensitive configuration, or it contains unknown fields") from exc
 
     def identity(self):
-        # 只允许恢复时提高调用预算；更换模型、范围、提示参数必须新建运行。
+        # On resume only the call budget may be raised; changing the model, scope or prompt parameters requires a new run.
         result = {k: v for k, v in asdict(self).items() if k not in {
             "max_model_calls", "max_search_calls", "max_image_downloads",
             "max_reserved_tokens", "max_page_fetches", "timeout_seconds"}}
@@ -97,7 +97,7 @@ class Config:
             return "codex-login"
         key = values.get(self.api_key_env)
         if not key or not key.strip():
-            raise ProviderError(f"缺少配置指定的 {self.api_key_env}；不会回退使用其他服务密钥")
+            raise ProviderError(f"missing {self.api_key_env} required by the configuration; will not fall back to another service key")
         return key
 
 
@@ -106,7 +106,7 @@ def credentials(root: Path) -> dict[str, str]:
     values = {}
     path = root / ".env.local"
     if path.is_symlink() or (path.exists() and path.resolve().parent != root.resolve()):
-        raise ValidationError("拒绝读取指向项目外的凭据文件")
+        raise ValidationError("refusing to read a credential file that points outside the project")
     if path.exists():
         for line in path.read_text(encoding="utf-8-sig").splitlines():
             key, sep, value = line.strip().partition("=")

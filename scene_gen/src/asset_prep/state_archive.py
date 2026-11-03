@@ -20,7 +20,7 @@ def _load(path, sha, modified, size):
     with gzip.open(path, 'rb') as stream:
         raw = stream.read()
     if hashlib.sha256(raw).hexdigest() != sha:
-        raise StaleEvidence('历史报告摘要不一致：' + str(path))
+        raise StaleEvidence('historical report digest mismatch: ' + str(path))
     return json.loads(raw)
 
 

@@ -11,7 +11,7 @@ from .improve import open_run
 
 
 def main(argv):
-    p=argparse.ArgumentParser(description="联合资产与操作修复；默认仅离线请求和导入")
+    p=argparse.ArgumentParser(description="Joint asset and operation repair; offline request and import only by default")
     p.add_argument("command",choices=("improve","improve-import","improve-page","improve-status","improve-pause","diagnose-run","diagnose-tools","diagnose-query"))
     p.add_argument("--run",type=Path)
     p.add_argument("--output",type=Path)
@@ -30,14 +30,14 @@ def main(argv):
             from .diagnostic_tools import CATALOG
             print(json.dumps({"tools":CATALOG,"states":["initial","node_start","failure"]},ensure_ascii=False,indent=2))
             return 0
-        need(args.run is not None,"需要 --run 指定运行")
+        need(args.run is not None,"--run is required to select the run")
         if args.command=="improve-status":result=read(args.run/"progress.json")
         elif args.command=="diagnose-query":
             from .diagnostic_service import query_run
-            need(args.query is not None and args.output is not None,"补查需要 --query 与独立 --output")
+            need(args.query is not None and args.output is not None,"A follow-up query requires --query and a separate --output")
             result=query_run(args.run,args.output,read(args.query),resume=args.resume)
         elif args.command=="improve-pause":
-            atomic_json(args.run/"pause.request",{"reason":"用户显式暂停联合运行"})
+            atomic_json(args.run/"pause.request",{"reason":"Joint run paused explicitly by the user"})
             result={"status":"pause_requested"}
         elif args.command=="diagnose-run":
             from .diagnosis import diagnose_run
@@ -46,12 +46,12 @@ def main(argv):
             with run_lock(args.run):
                 if args.command=="improve-import":
                     from .requests import import_exchange
-                    need(args.response is not None,"需要 --response")
+                    need(args.response is not None,"--response is required")
                     result=import_exchange(args.run,args.response)
                 elif args.command=="improve-page":
                     from .requests import read_page
-                    need(args.request is not None and args.query is not None,"需要请求文件和分页查询")
-                    need(args.request.resolve().parent==args.run.resolve()/"requests","请求不属于运行")
+                    need(args.request is not None and args.query is not None,"A request file and a page query are required")
+                    need(args.request.resolve().parent==args.run.resolve()/"requests","Request does not belong to this run")
                     result=read_page(args.request,read(args.query))
                 else:
                     project=Path(__file__).resolve().parents[2]
@@ -61,8 +61,8 @@ def main(argv):
                         options={k:saved[k] for k in ("seed_run","package","protocol","backend","developer")}
                         options.update(provider=Config(**saved["provider"]),generation=GenerationConfig(**saved["generation"]),settings=Settings(**saved["settings"]))
                     else:
-                        need(args.scene and args.expected_sha and args.task_root and args.public_profile,"新联合运行需要场景摘要、任务资料和公共环境")
-                        need(not args.continue_paused,"继续暂停仅适用于显式恢复")
+                        need(args.scene and args.expected_sha and args.task_root and args.public_profile,"A new joint run requires the scene and its expected digest, task materials and the public environment")
+                        need(not args.continue_paused,"--continue-paused applies only to an explicit resume")
                         scene,sha,task,profile=args.scene,args.expected_sha,args.task_root,args.public_profile
                         options=dict(seed_run=args.seed_run,package=args.package,protocol=args.protocol_pdf,backend=args.backend,developer=args.developer_fixture,
                             provider=Config.load(args.provider_config) if args.provider_config else None,

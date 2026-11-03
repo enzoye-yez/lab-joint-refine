@@ -1,1 +1,1 @@
-"""离线机器人操作基础设施；不自动发起模型请求或正式实验。"""
+"""Offline robot-operation infrastructure; never issues model requests or formal experiments automatically."""

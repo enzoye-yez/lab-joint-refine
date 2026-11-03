@@ -1,4 +1,4 @@
-"""有限操作图和任务契约；不解释任意代码或模型成功断言。"""
+"""Bounded operation graphs and task contracts; never interprets arbitrary code or model success claims."""
 from .common import digest, need, number
 
 OPERATIONS = {"observe", "check", "navigate", "dock", "joint_move", "cartesian", "grasp", "place",
@@ -17,13 +17,13 @@ PREDICATE_FIELDS = {"all":["items"],"any":["items"],"not":["item"],"joint_range"
 
 
 def predicate(value, depth=0):
-    need(depth <= 12 and isinstance(value, dict), "条件树无效或过深")
+    need(depth <= 12 and isinstance(value, dict), "Condition tree is invalid or too deep")
     kind = value.get("kind")
-    need(kind in PREDICATES, "未知状态检测器")
-    need(set(PREDICATE_FIELDS[kind])<=set(value), "检测条件缺少必要字段")
+    need(kind in PREDICATES, "Unknown state detector")
+    need(set(PREDICATE_FIELDS[kind])<=set(value), "Detector condition is missing required fields")
     number(value.get("duration", 0), 0, 60)
     if kind in {"all", "any"}:
-        need(isinstance(value.get("items"), list) and 0 < len(value["items"]) <= 100, "组合条件不能为空")
+        need(isinstance(value.get("items"), list) and 0 < len(value["items"]) <= 100, "Composite condition must not be empty")
         for item in value["items"]: predicate(item, depth+1)
     elif kind == "not":
         predicate(value["item"], depth+1)
@@ -31,69 +31,69 @@ def predicate(value, depth=0):
 
 
 def validate_task(task):
-    need(isinstance(task, dict) and task.get("version") == 1, "任务契约版本无效")
-    need(task.get("input_sha256") and task.get("public_profile_sha256"), "缺少输入或公共环境版本")
-    need(task.get("provenance") in {"developer_fixture", "model_generated"}, "缺少任务来源")
-    need(isinstance(task.get("stages"), list) and task["stages"], "任务阶段不能为空")
+    need(isinstance(task, dict) and task.get("version") == 1, "Invalid task contract version")
+    need(task.get("input_sha256") and task.get("public_profile_sha256"), "Missing input or public environment version")
+    need(task.get("provenance") in {"developer_fixture", "model_generated"}, "Missing task provenance")
+    need(isinstance(task.get("stages"), list) and task["stages"], "Task stages must not be empty")
     ids = set()
     for stage in task["stages"]:
-        need(isinstance(stage.get("id"), str) and stage["id"] not in ids, "阶段编号重复")
-        need(stage.get("source"), "阶段必须附输入依据")
-        need(set(stage.get("depends_on", [])) <= ids, "阶段依赖须引用已有阶段")
+        need(isinstance(stage.get("id"), str) and stage["id"] not in ids, "Duplicate stage id")
+        need(stage.get("source"), "Each stage must cite its input source")
+        need(set(stage.get("depends_on", [])) <= ids, "Stage dependencies must reference existing stages")
         predicate(stage["goal"])
         ids.add(stage["id"])
     predicate(task["initial"])
     predicate(task["final"])
-    need(isinstance(task.get("bindings"), dict), "任务必须提供对象身份绑定")
+    need(isinstance(task.get("bindings"), dict), "The task must provide object identity bindings")
     for rule in task.get("invariants", []): predicate(rule)
     for event in task.get("mechanical_detectors", []):
-        need(event.get("event") and event.get("source"), "机械检测器须有事件名与输入依据")
+        need(event.get("event") and event.get("source"), "A mechanical detector requires an event name and an input source")
         predicate(event["condition"])
-        need(event["condition"].get("duration", 0) > 0, "机械事件须持续证据")
+        need(event["condition"].get("duration", 0) > 0, "A mechanical event requires sustained evidence")
     for device in task.get("devices", []):
-        need(device.get("interface") and device.get("id"), "设备必须绑定软件接口")
+        need(device.get("interface") and device.get("id"), "A device must be bound to a software interface")
         predicate(device["start_condition"])
         predicate(device["running_condition"])
         number(device["duration_seconds"], 0, 1e9)
-    need(len({d["id"] for d in task.get("devices",[])})==len(task.get("devices",[])), "设备编号重复")
-    need(len({d["interface"] for d in task.get("devices",[])})==len(task.get("devices",[])), "软件启动接口重复绑定")
-    need(len({d["event"] for d in task.get("mechanical_detectors",[])})==len(task.get("mechanical_detectors",[])), "机械事件检测器重复")
+    need(len({d["id"] for d in task.get("devices",[])})==len(task.get("devices",[])), "Duplicate device id")
+    need(len({d["interface"] for d in task.get("devices",[])})==len(task.get("devices",[])), "Software start interface is bound more than once")
+    need(len({d["event"] for d in task.get("mechanical_detectors",[])})==len(task.get("mechanical_detectors",[])), "Duplicate mechanical event detector")
     return task
 
 
 def validate_graph(graph, task, scene_hash, settings):
     validate_task(task)
-    need(graph.get("version") == 1 and graph.get("scene_sha256") == scene_hash, "操作图场景版本过期", "stale_scene")
-    need(graph.get("task_sha256") == digest(task), "操作图任务版本过期")
-    need(graph.get("provenance") in {"developer_fixture", "model_generated"}, "操作图必须标明来源")
+    need(graph.get("version") == 1 and graph.get("scene_sha256") == scene_hash, "Operation graph scene version is stale", "stale_scene")
+    need(graph.get("task_sha256") == digest(task), "Operation graph task version is stale")
+    need(graph.get("provenance") in {"developer_fixture", "model_generated"}, "Operation graph must declare its provenance")
     nodes = graph.get("nodes")
-    need(isinstance(nodes, list) and 0 < len(nodes) <= settings.max_total_nodes, "节点数超限")
+    need(isinstance(nodes, list) and 0 < len(nodes) <= settings.max_total_nodes, "Too many nodes")
     by_id = {}
     for node in nodes:
-        need(isinstance(node.get("id"), str) and node["id"] not in by_id and node["id"] not in {"success", "failed"}, "节点编号无效")
-        need(node.get("operation") in OPERATIONS, "不支持的操作类型", "capability_missing")
-        need(isinstance(node.get("parameters"), dict), "节点参数必须是对象")
-        need(set(PARAMETERS[node["operation"]])<=set(node["parameters"]), "操作缺少必要参数")
+        need(isinstance(node.get("id"), str) and node["id"] not in by_id and node["id"] not in {"success", "failed"}, "Invalid node id")
+        need(node.get("operation") in OPERATIONS, "Unsupported operation type", "capability_missing")
+        need(isinstance(node.get("parameters"), dict), "Node parameters must be an object")
+        need(set(PARAMETERS[node["operation"]])<=set(node["parameters"]), "Operation is missing required parameters")
         if "stop_when" in node["parameters"]:
-            need(node["operation"] in {"press","insert","cartesian","dual_arm"},"此动作不支持接触停止条件")
-            need(node["operation"]!="cartesian" or node["parameters"].get("contact") is True,"停止条件仅用于有界接触路径")
+            need(node["operation"] in {"press","insert","cartesian","dual_arm"},"This operation does not support a contact stop condition")
+            need(node["operation"]!="cartesian" or node["parameters"].get("contact") is True,"A stop condition is allowed only on a bounded contact path")
             predicate(node["parameters"]["stop_when"])
         number(node.get("timeout"), .001, settings.max_sim_seconds)
         visits = node.get("max_visits", 1)
-        need(type(visits) is int and 1 <= visits <= settings.max_node_visits, "循环次数无效")
+        need(type(visits) is int and 1 <= visits <= settings.max_node_visits, "Invalid visit count")
         predicate(node["precondition"])
         predicate(node["completion"])
-        need(node.get("stage") in {s["id"] for s in task["stages"]}, "节点未绑定任务阶段")
+        need(node.get("stage") in {s["id"] for s in task["stages"]}, "Node is not bound to a task stage")
         by_id[node["id"]] = node
-    need(graph.get("entry") in by_id, "操作图入口缺失")
+    need(graph.get("entry") in by_id, "Operation graph entry is missing")
     for node in nodes:
         for edge in ("on_success", "on_failure"):
-            need(node.get(edge) in set(by_id)|{"success", "failed"}, "转移目标不存在")
+            need(node.get(edge) in set(by_id)|{"success", "failed"}, "Transition target does not exist")
     reachable, queue = set(), [graph["entry"]]
     while queue:
         key = queue.pop()
         if key in reachable or key not in by_id: continue
         reachable.add(key)
         queue.extend([by_id[key]["on_success"], by_id[key]["on_failure"]])
-    need(reachable == set(by_id), "存在不可达操作节点")
+    need(reachable == set(by_id), "Unreachable operation nodes exist")
     return by_id

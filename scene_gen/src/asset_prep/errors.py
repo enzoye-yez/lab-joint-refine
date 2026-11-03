@@ -1,4 +1,4 @@
-"""可恢复错误；信息中不得包含凭据或完整服务响应。"""
+"""Recoverable errors; messages must not contain credentials or full service responses."""
 
 
 class PrepError(Exception):
@@ -29,7 +29,7 @@ class StaleEvidence(PrepError):
 
 
 class ReferenceUnavailable(ProviderError):
-    """服务已完成响应，但未提供可验证检索证据；不是凭据或传输失败。"""
+    """The service completed its response but provided no verifiable search evidence; not a credential or transport failure."""
     pass
 
 

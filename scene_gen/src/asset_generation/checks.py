@@ -1,4 +1,4 @@
-"""独立加载实际MJCF并检查；不执行生成脚本或模型自写测试。"""
+"""Independently load the actual MJCF and check it; never execute the generation script or tests the model wrote itself."""
 
 import math
 from pathlib import Path
@@ -14,35 +14,35 @@ from .contracts import finite, read_json, require
 
 def _load_model(root, *, scope="asset", model_file="model.xml", enforce_geom_limit=True, enforce_solver_limit=True):
     import mujoco
-    require(scope in {"asset", "scene"}, "模型加载范围无效")
+    require(scope in {"asset", "scene"}, "Invalid model loading scope")
     max_geoms = 50000 if scope == "scene" else 10000
     max_xml_bytes = 32000000 if scope == "scene" else 8000000
     root = Path(root)
     xml = safe_path(root, model_file)
-    require(xml.is_file() and xml.stat().st_size <= max_xml_bytes, "缺少或过大的 model.xml")
+    require(xml.is_file() and xml.stat().st_size <= max_xml_bytes, "Missing or oversized model.xml")
     tree = ET.parse(xml)
-    require(tree.getroot().tag == "mujoco", "根节点必须为 mujoco")
+    require(tree.getroot().tag == "mujoco", "Root element must be mujoco")
     for node in tree.iter():
-        require(node.tag not in {"include", "plugin", "extension", "attach"}, "第一版不支持外部包含或插件")
+        require(node.tag not in {"include", "plugin", "extension", "attach"}, "External includes and plugins are not supported in this version")
         if node.tag == "compiler":
-            require(not any(k in node.attrib for k in ("assetdir", "meshdir", "texturedir")), "资源直接使用产物内相对路径")
-            require(node.get("angle", "degree") == "radian", "必须明确使用弧度")
+            require(not any(k in node.attrib for k in ("assetdir", "meshdir", "texturedir")), "Resources must use paths relative to the artifact directly")
+            require(node.get("angle", "degree") == "radian", "Radians must be set explicitly")
         if node.tag == "flag":
             require(all(node.get(key) != "disable" for key in ("contact", "constraint", "equality", "limit")),
-                    "不能关闭接触、约束或关节限位以绕过检查")
+                    "Contacts, constraints or joint limits must not be disabled to bypass checks")
         for key,value in node.attrib.items():
             if key.startswith("file"):
                 target = safe_path(root, value)
-                require(target.is_file(), "引用的资源不存在")
-    require(tree.find("compiler") is not None, "必须明确提供 compiler angle=radian")
+                require(target.is_file(), "Referenced resource does not exist")
+    require(tree.find("compiler") is not None, "Must explicitly provide compiler angle=radian")
     model = mujoco.MjModel.from_xml_path(str(xml))
     require(0 < model.ngeom and (not enforce_geom_limit or model.ngeom <= max_geoms),
-            f"模型几何规模超限：scope={scope}, ngeom={model.ngeom}/{max_geoms}, "
+            f"Model geometry size exceeds limit: scope={scope}, ngeom={model.ngeom}/{max_geoms}, "
             f"nbody={model.nbody}/4096, nv={model.nv}/2048")
     if enforce_solver_limit:
         require(model.nbody <= 4096 and model.nv <= 2048,
-                f"资产准入或动力学检查资源超限：nbody={model.nbody}/4096, nv={model.nv}/2048；静态场景入口不使用全局动力学求解器")
-    require(0.000001 <= model.opt.timestep <= 0.01, "仿真步长超出工程检查范围")
+                f"Resources for asset admission or dynamics checks exceed limit: nbody={model.nbody}/4096, nv={model.nv}/2048; the static scene entry does not use the global dynamics solver")
+    require(0.000001 <= model.opt.timestep <= 0.01, "Simulation timestep outside the engineering check range")
     return model
 
 
@@ -85,47 +85,47 @@ def scale_limits(model, scope="scene"):
 def validate_manifest(value, model, asset_ids):
     import mujoco
     import numpy as np
-    require(isinstance(value, dict) and value.get("schema_version") == "1.0", "交互清单版本无效")
-    require(value.get("asset_ids") == asset_ids, f"清单 asset_ids 必须与任务输入完全相同：期望 {asset_ids!r}，实际 {value.get('asset_ids')!r}；tool/fixture 中这些编号表示服务范围，不要求重复交付仪器")
+    require(isinstance(value, dict) and value.get("schema_version") == "1.0", "Invalid interaction manifest version")
+    require(value.get("asset_ids") == asset_ids, f"manifest asset_ids must be exactly identical to the task input: expected {asset_ids!r}, got {value.get('asset_ids')!r}; for tool/fixture these ids denote the service scope and do not require re-delivering the instruments")
     for key in ("parts", "interfaces", "assumptions", "approximations", "buttons", "connections"):
-        require(isinstance(value.get(key), list) and len(value[key]) <= 2048, f"{key} 必须为有界列表")
-    require(value["parts"], "至少声明一个语义部件")
+        require(isinstance(value.get(key), list) and len(value[key]) <= 2048, f"{key} must be a bounded list")
+    require(value["parts"], "Declare at least one semantic part")
     records=value.get("construction_records",[])
-    require(isinstance(records,list) and len(records)<=2048,"构建记录须为有界列表")
+    require(isinstance(records,list) and len(records)<=2048,"Construction records must be a bounded list")
     for record in records:
         require(isinstance(record,dict) and isinstance(record.get("tool"),str) and type(record.get("version")) is int
                 and isinstance(record.get("parameters"),dict) and record.get("provenance")=="engineering_constructor"
-                and record.get("certified") is False,"构建工具记录不得伪装为模型自主设计或质量认证")
+                and record.get("certified") is False,"Construction tool records must not masquerade as the model's own design or as quality certification")
     for key in ("assumptions", "approximations"):
-        require(all(isinstance(x, str) for x in value[key]), "假设和近似须为文本")
+        require(all(isinstance(x, str) for x in value[key]), "Assumptions and approximations must be text")
     for key in ("parts", "interfaces", "buttons", "connections"):
         ids = [entry.get("id") for entry in value[key] if isinstance(entry, dict)]
         require(len(ids) == len(value[key]) and all(isinstance(i, str) and i for i in ids)
-                and len(set(ids)) == len(ids), f"{key} 编号缺失或重复")
+                and len(set(ids)) == len(ids), f"{key} ids missing or duplicated")
     for collection,fields in (('parts',('body',)),('interfaces',('asset_id','kind','body')),
                               ('buttons',('joint','geom','event')),('connections',('equality','release_event'))):
         for entry in value[collection]:
             require(all(isinstance(entry.get(field),str) and entry[field] for field in fields),
-                    f'{collection} 的引用必须是非空名称，不能是数字索引')
+                    f'{collection} references must be non-empty names, not numeric indices')
     for interface in value['interfaces']:
         require(interface['kind']=='software' or isinstance(interface.get('site'),str) and interface['site'],
-                '接口坐标系必须按名称引用')
+                'Interface frames must be referenced by name')
     try:
         for part in value["parts"]:
-            require(model.body(part["body"]).id > 0, "语义部件不能引用世界根节点")
+            require(model.body(part["body"]).id > 0, "A semantic part must not reference the world root")
         for interface in value["interfaces"]:
             require(interface["asset_id"] in asset_ids and interface["kind"] in {
-                "grasp", "press", "rotate", "insert", "mount", "cut", "software"}, "接口类别或资产编号无效")
+                "grasp", "press", "rotate", "insert", "mount", "cut", "software"}, "Invalid interface kind or asset id")
             body = model.body(interface["body"]).id
             if interface["kind"] != "software":
                 site = model.site(interface["site"]).id
                 require(model.site_bodyid[site] == body,
-                        f"接口坐标系不属于声明的部件：接口 {interface['id']}，site={interface['site']}，"
-                        f"实际body={model.body(int(model.site_bodyid[site])).name}，声明body={interface['body']}")
+                        f"Interface frame does not belong to the declared part: interface {interface['id']}, site={interface['site']}, "
+                        f"actual body={model.body(int(model.site_bodyid[site])).name}, declared body={interface['body']}")
                 if "approach_axis" in interface:
                     axis=interface["approach_axis"]
                     require(isinstance(axis,list) and len(axis)==3 and all(finite(v) for v in axis)
-                            and abs(sum(v*v for v in axis)-1)<1e-5, "approach_axis须为接口坐标系中指向操作侧的单位向量")
+                            and abs(sum(v*v for v in axis)-1)<1e-5, "approach_axis must be a unit vector in the interface frame pointing toward the operating side")
         from .operation_interface import validate_operation
         for interface in value["interfaces"]:
             validate_operation(interface, model, {i["id"] for i in value["interfaces"]})
@@ -133,28 +133,28 @@ def validate_manifest(value, model, asset_ids):
         for button in value["buttons"]:
             joint = model.joint(button["joint"])
             geom = model.geom(button["geom"])
-            require(joint.type[0] == mujoco.mjtJoint.mjJNT_SLIDE and joint.limited[0], "按钮需有限位移动关节")
-            require(geom.bodyid[0] == joint.bodyid[0], "按钮接触面和关节不属于同一部件")
+            require(joint.type[0] == mujoco.mjtJoint.mjJNT_SLIDE and joint.limited[0], "A button needs a limited slide joint")
+            require(geom.bodyid[0] == joint.bodyid[0], "Button contact face and joint do not belong to the same part")
             require(finite(button["pressed_at"]) and finite(button["released_at"])
-                    and joint.range[0] <= button["released_at"] < button["pressed_at"] <= joint.range[1], "按钮触发范围无效")
-            require(isinstance(button["event"], str) and button["event"] and button["event"] not in events, "按钮事件重复或无效")
+                    and joint.range[0] <= button["released_at"] < button["pressed_at"] <= joint.range[1], "Invalid button trigger range")
+            require(isinstance(button["event"], str) and button["event"] and button["event"] not in events, "Button event duplicated or invalid")
             events.add(button["event"])
         mechanical = value.get("mechanical_events", [])
-        require(isinstance(mechanical,list) and len(mechanical)<=2048, "机械事件须为有界列表")
+        require(isinstance(mechanical,list) and len(mechanical)<=2048, "Mechanical events must be a bounded list")
         by_id = {i["id"]:i for i in value["interfaces"]}
         for event in mechanical:
             require(isinstance(event,dict) and set(event) in ({"id","interface","action"},{"id","interface","action","joint","at"}),
-                    "机械事件字段须为id/interface/action，可选同时给出触发关节joint与阈值at")
+                    "Mechanical event fields must be id/interface/action, optionally with both a trigger joint (joint) and a threshold (at)")
             if "joint" in event:
                 trigger = model.joint(event["joint"])
                 require(trigger.type[0] in (mujoco.mjtJoint.mjJNT_HINGE, mujoco.mjtJoint.mjJNT_SLIDE) and trigger.limited[0]
                         and finite(event["at"]) and trigger.range[0] <= event["at"] <= trigger.range[1],
-                        "机械事件触发关节须为有限位hinge/slide，阈值at须在其行程内")
-            require(isinstance(event["id"],str) and event["id"] and event["id"] not in events, "机械事件编号重复或无效")
+                        "Mechanical event trigger joint must be a limited hinge/slide, and threshold at must lie within its travel")
+            require(isinstance(event["id"],str) and event["id"] and event["id"] not in events, "Mechanical event id duplicated or invalid")
             interface = by_id.get(event["interface"]) if isinstance(event["interface"],str) else None
             require(interface is not None and interface["kind"] in {"grasp","press","rotate","insert","cut"},
-                    "机械事件须引用真实操作接口，不能用装配点或软件接口占位")
-            require(event["action"] in {"release","attach"}, "机械事件动作须为release或attach")
+                    "Mechanical events must reference a real operating interface, not an assembly point or software interface as a placeholder")
+            require(event["action"] in {"release","attach"}, "Mechanical event action must be release or attach")
             events.add(event["id"])
         mechanical_actions = {e["id"]:e["action"] for e in mechanical}
         def under(body, root):
@@ -165,60 +165,60 @@ def validate_manifest(value, model, asset_ids):
         def attach_contract(connection, sides, kind):
             """Shared re-attachment contract; sides are the two units the sites must belong to."""
             require(not connection["irreversible"] and connection["attach_event"] in events
-                    and connection["attach_event"] != connection["release_event"], "不可逆连接不能重新接合；接合事件须独立声明")
+                    and connection["attach_event"] != connection["release_event"], "An irreversible connection cannot re-engage; the attach event must be declared separately")
             sites = connection.get("capture_sites")
-            require(isinstance(sites,list) and len(sites) == 2 and len(set(sites)) == 2,"重新接合须有两个不同定位坐标")
+            require(isinstance(sites,list) and len(sites) == 2 and len(set(sites)) == 2,"Re-engagement requires two distinct locating sites")
             require(finite(connection.get("position_tolerance_m")) and 0 < connection["position_tolerance_m"] <= .005
                     and finite(connection.get("angle_tolerance_rad")) and 0 < connection["angle_tolerance_rad"] <= .2,
-                    "重新接合捕获公差无效")
+                    "Invalid re-engagement capture tolerance")
             site_ids = [model.site(n).id for n in sites]
             if kind == "latch":
-                # 一个坐标在盖体上，另一个在盖体之外：锁止对不要求两坐标分属不同运动树。
+                # One site on the lid, the other outside the lid: a lock pair does not require the two sites to be in different kinematic trees.
                 lid, base = sides
                 require(under(int(model.site_bodyid[site_ids[0]]),lid) != under(int(model.site_bodyid[site_ids[1]]),lid),
-                        "铰链锁止的两个接合定位坐标须一个属于被锁部件、另一个位于其支撑侧，不能同在盖体一侧")
+                        "For a hinge lock, one of the two engagement locating sites must belong to the locked part and the other to its supporting side; they cannot both be on the lid side")
             else:
                 for sid,expected_body in zip(site_ids,sides):
-                    require(under(int(model.site_bodyid[sid]),expected_body),"接合定位坐标须分别属于约束两端")
+                    require(under(int(model.site_bodyid[sid]),expected_body),"Engagement locating sites must belong to the two ends of the constraint respectively")
             data = mujoco.MjData(model)
             from .static_state import geometry_state
             geometry_state(model,data)
             require(np.linalg.norm(data.site_xpos[site_ids[0]]-data.site_xpos[site_ids[1]]) <= 1e-6
                     and np.allclose(data.site_xmat[site_ids[0]],data.site_xmat[site_ids[1]],atol=1e-6),
-                    "默认锁合姿态的定位坐标必须重合，避免激活错误参考位姿")
+                    "Locating sites must coincide in the default locked pose, to avoid activating a wrong reference pose")
 
         for connection in value["connections"]:
             require(mechanical_actions.get(connection["release_event"],"release")=="release"
-                    and mechanical_actions.get(connection.get("attach_event"),"attach")=="attach", "机械事件动作与连接用途不一致")
+                    and mechanical_actions.get(connection.get("attach_event"),"attach")=="attach", "Mechanical event action does not match the connection's use")
             eq = model.equality(connection["equality"])
             kind = connection.get("kind", "detachable")
             require(kind in {"detachable", "latch"},
-                    f"连接 {connection['id']} 的 kind 只能为 detachable（可整体拆离）或 latch（铰链锁止）；"
-                    "盖子这类始终铰接、解锁后只能翻开的部件用 latch，能整体取下的部件用 detachable")
+                    f"Connection {connection['id']} kind must be detachable (removable as a whole) or latch (hinge-locked); "
+                    "use latch for parts such as lids that are always hinged and can only swing open once unlocked; use detachable for parts that can be removed as a whole")
             require(connection["release_event"] in events and type(connection["irreversible"]) is bool,
-                    f"连接 {connection['id']} 的 release_event（释放事件）或 irreversible 无效")
-            require(eq.active0[0], f"连接 {connection['id']} 的约束须初始启用，锁止状态才算生效")
+                    f"Connection {connection['id']}: release_event or irreversible is invalid")
+            require(eq.active0[0], f"Connection {connection['id']}: constraint must be initially active for the locked state to take effect")
             if kind == "latch":
                 require(eq.type[0] == mujoco.mjtEq.mjEQ_JOINT,
-                        f"连接 {connection['id']} 声明为 latch（解除锁止后仍由铰链连接），"
-                        f"equality {connection['equality']!r} 必须是 joint 型约束以锁住铰链角度，当前为 {int(eq.type[0])}。"
-                        "若该部件确实要整体拆离，请改为 kind=detachable 并使用 weld 约束")
+                        f"Connection {connection['id']} is declared latch (still hinge-connected after unlocking), "
+                        f"equality {connection['equality']!r} must be a joint-type constraint that locks the hinge angle; currently {int(eq.type[0])}. "
+                        "If the part really should be removed as a whole, change to kind=detachable and use a weld constraint")
                 joint = int(eq.obj1id[0])
-                require(0 <= joint < model.njnt, f"连接 {connection['id']} 的 joint 约束未引用实际关节")
+                require(0 <= joint < model.njnt, f"Connection {connection['id']}: joint constraint does not reference an actual joint")
                 require(model.jnt_type[joint] in (mujoco.mjtJoint.mjJNT_HINGE, mujoco.mjtJoint.mjJNT_SLIDE),
-                        f"连接 {connection['id']} 锁住的关节 {model.joint(joint).name!r} 须为 hinge 或 slide；"
-                        "ball/free 关节不能表达锁止后的铰链运动")
+                        f"Connection {connection['id']}: locked joint {model.joint(joint).name!r} must be hinge or slide; "
+                        "ball/free joints cannot express hinge motion after locking")
                 lid = int(model.jnt_bodyid[joint])
-                require(lid > 0, f"连接 {connection['id']} 锁住的关节不能位于世界根节点")
+                require(lid > 0, f"Connection {connection['id']}: locked joint must not be on the world root")
                 require(not connection["irreversible"],
-                        f"连接 {connection['id']} 是铰链锁止，必须能再次锁止；irreversible 只适用于可拆连接")
+                        f"Connection {connection['id']} is a hinge lock and must be able to lock again; irreversible applies only to detachable connections")
                 if "attach_event" in connection:
                     attach_contract(connection, [lid, int(model.body_parentid[lid])], "latch")
             else:
                 require(eq.type[0] == mujoco.mjtEq.mjEQ_WELD,
-                        f"连接 {connection['id']} 声明为 detachable（整体拆离），"
-                        f"equality {connection['equality']!r} 须为 weld 约束，当前为 {int(eq.type[0])}。"
-                        "若部件只是被锁住、始终与主体铰接，请改为 kind=latch 并使用 joint 约束")
+                        f"Connection {connection['id']} is declared detachable (removable as a whole), "
+                        f"equality {connection['equality']!r} must be a weld constraint; currently {int(eq.type[0])}. "
+                        "If the part is only locked and always hinged to the main body, change to kind=latch and use a joint constraint")
                 bodies = [int(eq.obj1id[0]), int(eq.obj2id[0])]
                 roots = []
                 for body in bodies:
@@ -226,20 +226,20 @@ def validate_manifest(value, model, asset_ids):
                         body = int(model.body_parentid[body])
                     roots.append(body)
                 require(roots[0] != roots[1],
-                        f"连接 {connection['id']} 声明为可拆件，但约束两端仍属同一永久运动树（根部件 {roots[0]}）；"
-                        "可拆件一开始就须是独立运动单元。盖子这类始终铰接的部件应改为 kind=latch")
+                        f"Connection {connection['id']} is declared detachable, but both constraint ends still belong to the same permanent kinematic tree (root part {roots[0]}); "
+                        "a detachable part must be an independent motion unit from the start. Parts such as lids that are always hinged should use kind=latch")
                 require(any(model.body_jntnum[b] and model.jnt_type[model.body_jntadr[b]] == mujoco.mjtJoint.mjJNT_FREE
                             for b in roots if b),
-                        f"连接 {connection['id']} 声明为可拆件，但两端都没有自由运动能力，拆下后无法独立运动")
+                        f"Connection {connection['id']} is declared detachable, but neither end can move freely, so it cannot move independently once detached")
                 if "attach_event" in connection:
                     attach_contract(connection, bodies, "detachable")
     except (KeyError, IndexError, TypeError) as exc:
-        raise ValidationError("交互清单缺少字段或引用不存在") from exc
+        raise ValidationError("Interaction manifest is missing fields or references something that does not exist") from exc
     return value
 
 
 def extent(model, data, names, axis):
-    """在默认姿态测量指定几何的世界轴包络；不采用模型自报尺寸。"""
+    """Measure the world-axis envelope of the given geoms in the default pose; never use dimensions self-reported by the model."""
     import mujoco
     import numpy as np
     lows, highs = [], []
@@ -265,7 +265,7 @@ def extent(model, data, names, axis):
             half = float(size[1]) * vertical + float(size[0]) * (
                 1 if kind == mujoco.mjtGeom.mjGEOM_CAPSULE else math.sqrt(max(0, 1 - vertical*vertical)))
         else:
-            raise ValidationError("此尺寸检查暂不支持指定几何类型")
+            raise ValidationError("This dimension check does not yet support the given geom type")
         lows.append(float(center[axis] - half)); highs.append(float(center[axis] + half))
     return max(highs) - min(lows)
 
@@ -281,19 +281,19 @@ def _validate_one(root, asset_ids, profile, render_dir=None, *, model_file="mode
     try:
         model = load_model(root, model_file=model_file)
         require(not any(t in (mujoco.mjtGeom.mjGEOM_PLANE,mujoco.mjtGeom.mjGEOM_HFIELD) for t in model.geom_type),
-                "单资产不能生成全局地面或高度场，请使用有限尺寸几何")
-        require(all(model.body(b).name for b in range(1,model.nbody)), "资产所有物理部件必须命名，才能跟踪装配与质量")
+                "A single asset must not generate a global ground or heightfield; use finite-size geometry")
+        require(all(model.body(b).name for b in range(1,model.nbody)), "All physical parts of the asset must be named so assembly and mass can be tracked")
         require(any(model.geom_contype[g] or model.geom_conaffinity[g] for g in range(model.ngeom)),
-                "资产必须包含有效碰撞几何，不能只提交视觉外壳")
+                "The asset must contain valid collision geometry, not just a visual shell")
         require(all(model.geom(g).name and model.geom_bodyid[g] > 0 for g in range(model.ngeom)
                     if model.geom_contype[g] or model.geom_conaffinity[g]),
-                "资产碰撞几何须命名且属于物理部件，不能放在世界根节点")
+                "Asset collision geoms must be named and belong to a physical part, not the world root")
         manifest = validate_manifest(manifest_value if manifest_value is not None else read_json(Path(root)/"interfaces.json"), model, asset_ids)
-        add("compile_and_interfaces", "pass", "已独立编译并解析实际引用")
+        add("compile_and_interfaces", "pass", "Independently compiled and resolved the actual references")
     except (ValidationError, ValueError, KeyError, ParseError, DefusedXmlException) as exc:
         add("compile_and_interfaces", "fail", str(exc)[:2000])
         return {"status": "fail", "checks": results, "renders": [], "manifest": None,
-                "coverage": ["其他检查因编译或接口错误未执行"]}
+                "coverage": ["Other checks not run because of compile or interface errors"]}
     data = mujoco.MjData(model)
     from .static_state import geometry_state
     if static:
@@ -316,24 +316,24 @@ def _validate_one(root, asset_ids, profile, render_dir=None, *, model_file="mode
         try:
             actual = extent(model, data, item["geoms"], item["axis"])
             add(item["id"], "pass" if abs(actual-item["expected_m"]) <= item["tolerance_m"] else "fail",
-                "默认姿态下实际几何包络", actual_m=actual, expected_m=item["expected_m"], tolerance_m=item["tolerance_m"])
+                "Actual geometry envelope in the default pose", actual_m=actual, expected_m=item["expected_m"], tolerance_m=item["tolerance_m"])
         except (KeyError, ValidationError) as exc:
             add(item["id"], "fail", str(exc))
     interfaces = {i["id"] for i in manifest["interfaces"]}
     for name in profile["required_interfaces"]:
-        add("interface:"+name, "pass" if name in interfaces else "fail", "只读要求中的接口存在性")
+        add("interface:"+name, "pass" if name in interfaces else "fail", "Presence of interfaces from the read-only requirements")
     kinds = {"hinge": mujoco.mjtJoint.mjJNT_HINGE, "slide": mujoco.mjtJoint.mjJNT_SLIDE,
              "ball": mujoco.mjtJoint.mjJNT_BALL, "free": mujoco.mjtJoint.mjJNT_FREE}
     for item in profile["joints"]:
         try:
             j = model.joint(item["name"])
             valid = j.type[0] == kinds[item["type"]] and np.allclose(j.range, item["range"], rtol=0, atol=item["tolerance"])
-            add("joint:"+item["name"], "pass" if valid else "fail", "实际关节类型及限位", actual_range=j.range.tolist())
+            add("joint:"+item["name"], "pass" if valid else "fail", "Actual joint type and limits", actual_range=j.range.tolist())
         except KeyError:
-            add("joint:"+item["name"], "fail", "缺少指定关节")
+            add("joint:"+item["name"], "fail", "Specified joint missing")
     contacts = [{"geom1": model.geom(int(c.geom1)).name, "geom2": model.geom(int(c.geom2)).name,
                  "distance_m": float(c.dist)} for c in data.contact if c.dist < -profile["penetration_tolerance_m"]]
-    add("initial_contacts", "fail" if contacts else "pass", "默认碰撞过滤下初始接触穿透", contacts=contacts[:40])
+    add("initial_contacts", "fail" if contacts else "pass", "Initial contact penetration under default collision filtering", contacts=contacts[:40])
     poses = [("initial", data.qpos.copy())]
     # Motion is part of finishing an asset, in every scene validation mode.
     from . import motion
@@ -345,7 +345,7 @@ def _validate_one(root, asset_ids, profile, render_dir=None, *, model_file="mode
     results.extend(sweep_rows)
     if uncovered or not sweep_rows:
         add("sampled_joint_sweep", "fail" if uncovered else "pass",
-            "未归入机构的关节无法按机构扫描" if uncovered else "资产没有可动关节", unswept_joints=uncovered[:40])
+            "Joints not assigned to a mechanism cannot be swept per mechanism" if uncovered else "Asset has no movable joints", unswept_joints=uncovered[:40])
     poses.extend(mechanism_poses[:8])
     results.extend(motion.mechanism_retention(model, manifest, qpos0))
     # Settle first: every later check simulates, and a diverging model only burns the time
@@ -364,12 +364,12 @@ def _validate_one(root, asset_ids, profile, render_dir=None, *, model_file="mode
     if render_dir is not None:
         try:
             renders = render_views(model, poses, Path(render_dir))
-            add("render", "pass", "初始姿态多视角及各机构两端姿态")
+            add("render", "pass", "Initial pose from multiple views and both end poses of each mechanism")
         except Exception as exc:
-            add("render", "error", type(exc).__name__ + ": 无法生成审查图像")
-    coverage = ["未自动证明静态几何间无交叠、支撑稳定、夹具适配或机器人任务可执行",
-                "关节检查为独立姿态采样；按钮力学、连接释放与复合机构需专门操作探测",
-                "资料中未绑定只读数值检查的尺寸仍未获独立量测认证"]
+            add("render", "error", type(exc).__name__ + ": cannot generate review images")
+    coverage = ["Not automatically proven: no overlap between static geometry, stable support, fixture fit, or executability of the robot task",
+                "Joint checks are independent pose samples; button mechanics, connection release and compound mechanisms need dedicated operation probes",
+                "Dimensions in the materials not bound to a read-only numeric check are still not independently measured or certified"]
     from .probes import interaction_probes
     if unstable:
         add("dynamic_checks", "fail", "Mechanism drive, button, release and lock probes were not run: the model is "
@@ -380,12 +380,12 @@ def _validate_one(root, asset_ids, profile, render_dir=None, *, model_file="mode
         if not unstable:
             probe_rows.extend(motion.release_probes(model, manifest, qpos0))
         add("interaction_probes", "fail" if any(r["status"] == "fail" for r in probe_rows) else "pass",
-            "按钮压头、软件释放与机械释放探测汇总；跨资产插拔与抓取由轨迹阶段验证",
+            "Summary of button presser, software release and mechanical release probes; cross-asset insertion/removal and grasping are verified in the trajectory stage",
             probes=[r["id"] for r in probe_rows])
         results.extend(probe_rows)
     except Exception as exc:
         add("interaction_probes", "error", str(exc)[:2000], error_kind='check_execution')
-    coverage[1] = "单资产内机构扫描、驱动、锁止与释放已探测；跨资产插拔、抓取与机器人路径由轨迹阶段验证"
+    coverage[1] = "Within the single asset, mechanism sweep, drive, locking and release have been probed; cross-asset insertion/removal, grasping and robot paths are verified in the trajectory stage"
     status = report_status(results)
     return validate_report({"status": status, "checks": results, "renders": renders, "manifest": manifest,
             "geometry_summary":geometry_summary, "coverage": coverage,
@@ -399,10 +399,10 @@ def render_views(model, poses, output, *, width=640, height=480):
     data = mujoco.MjData(model)
     paths = []
     require(type(width) is int and type(height) is int and 64 <= width <= 2560 and 64 <= height <= 1920,
-            "渲染尺寸超出支持范围")
+            "Render size outside the supported range")
     model.vis.global_.offwidth = max(model.vis.global_.offwidth,width)
     model.vis.global_.offheight = max(model.vis.global_.offheight,height)
-    # 框架提供基础照明，不能让生成代码遗漏灯光而产生不可审查的全黑图。
+    # The framework provides basic lighting so generated code that forgets lights cannot produce unreviewable all-black images.
     model.vis.headlight.active = 1
     model.vis.headlight.ambient[:] = [0.35, 0.35, 0.35]
     model.vis.headlight.diffuse[:] = [0.65, 0.65, 0.65]

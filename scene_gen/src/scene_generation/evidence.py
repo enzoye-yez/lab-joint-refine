@@ -159,7 +159,7 @@ def review_with_evidence(run, instruction, context, images, phase, destination, 
     if call and call.get("task_deferred"):
         run.state.setdefault("evidence_outcomes",{})[phase]={"reason":"task_deferred","detail":call["task_deferred"]}
     pending=[d for d in context.get("deferred_checks",[]) if d.get("stage")=="scene"]
-    format_failed=any(r.startswith("视觉审查连续三次格式无效") for r in review.get("blocking",[]))
+    format_failed=any(r.startswith("Visual review format invalid three times in a row") for r in review.get("blocking",[]))
     # Shrink an unsuccessfully answered set, not the evidence or the acceptance contract.
     if scope=="scene" and len(pending)>1 and (format_failed or
             run.state.get("evidence_outcomes",{}).get(phase,{}).get("reason")=="task_deferred"):
@@ -281,7 +281,7 @@ def _review_with_evidence(run, instruction, context, images, phase, destination,
     if call and call.get("task_deferred"):
         outcomes[phase]={"reason":"task_deferred","detail":call["task_deferred"]}
         return review,call
-    if any(reason.startswith("视觉审查连续三次格式无效") for reason in review.get("blocking",[])):
+    if any(reason.startswith("Visual review format invalid three times in a row") for reason in review.get("blocking",[])):
         outcomes[phase]={"reason":"review_format_exhausted","detail":"审查约定未恢复，不能作为几何补查问题"}
         save()
         return review,call
@@ -362,7 +362,7 @@ def _review_with_evidence(run, instruction, context, images, phase, destination,
         review,call=ask(instruction,{**context,"previous_review":review,"supplemental_evidence":compact_history(),
             "unresolved_checks":list(unresolved.values())},images,phase,destination,validator=resume_checked)
         entry.update(review=review,call=call);save()
-        if any(reason.startswith("视觉审查连续三次格式无效") for reason in review.get("blocking",[])):
+        if any(reason.startswith("Visual review format invalid three times in a row") for reason in review.get("blocking",[])):
             return finish("review_format_exhausted")
         if scope=="scene" and review["verdict"]=="uncertain" and repairable_rows(context.get("checks") or {}):
             return finish("confirmed_defects_first")
@@ -580,7 +580,7 @@ def _review_with_evidence(run, instruction, context, images, phase, destination,
 ''',request,images,phase,work,validator=checked)
         atomic_json(work/"review.json",{"review":review,"call":call})
         entry.update(review=review,call=call);save()
-        if any(reason.startswith("视觉审查连续三次格式无效") for reason in review.get("blocking",[])):
+        if any(reason.startswith("Visual review format invalid three times in a row") for reason in review.get("blocking",[])):
             return finish("review_format_exhausted")
         if scope=="scene" and review["verdict"]=="uncertain" and repairable_rows(context.get("checks") or {}):
             return finish("confirmed_defects_first")

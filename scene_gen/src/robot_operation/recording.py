@@ -1,4 +1,4 @@
-"""流式证据和物理命令重放；图像缺失不能伪装为完整数据集。"""
+"""Streamed evidence and physical command replay; missing images must never pass as a complete dataset."""
 from dataclasses import asdict
 from pathlib import Path
 import json
@@ -85,7 +85,7 @@ class Recorder:
         if self.renderer is None:
             self.renderer=mujoco.Renderer(session.model,height=240,width=320)
             (self.root/"images").mkdir(exist_ok=True)
-        # 同一仿真时刻分别渲染全局及左右工具近景，记录自由相机实际外参。
+        # Render the global view and left/right tool close-ups at the same simulation instant, recording the actual free-camera extrinsics.
         cameras=[("overview",None)]+[(arm,site) for arm,site in session.tcps.items()]
         for label,site in cameras:
             camera=mujoco.MjvCamera(); mujoco.mjv_defaultCamera(camera)
@@ -122,11 +122,11 @@ class Recorder:
 def replay(run,scene=None,tolerance=1e-8):
     root=Path(run); metadata=read(root/"recording.json")
     from asset_prep.implementation import package_manifest
-    need(digest(package_manifest(Path(__file__).resolve().parents[1]))==metadata["implementation_sha256"],"重放代码版本不同")
-    need(mujoco.__version__==metadata["mujoco_version"],"重放仿真器版本不同")
+    need(digest(package_manifest(Path(__file__).resolve().parents[1]))==metadata["implementation_sha256"],"Replay code version differs")
+    need(mujoco.__version__==metadata["mujoco_version"],"Replay simulator version differs")
     from asset_prep.storage import file_hash, safe_path
     for name,expected in read(root/"files.json").items():
-        need(file_hash(safe_path(root,name))==expected,"运行证据被修改")
+        need(file_hash(safe_path(root,name))==expected,"Run evidence was modified")
     m,d,meta,manifest=load(scene or metadata["scene_path"],metadata["scene_sha256"])
     state=read(root/"initial.json")
     mujoco.mj_setState(m,d,np.asarray(state["physics"]),mujoco.mjtState.mjSTATE_INTEGRATION)
@@ -143,9 +143,9 @@ def replay(run,scene=None,tolerance=1e-8):
     with gzip.open(root/"steps.jsonl.gz","rt",encoding="utf-8") as stream:
         for line in stream:
             row=json.loads(line); count+=1
-            need(abs(d.time-row["time_before"])<=tolerance,"记录不是连续时间序列")
+            need(abs(d.time-row["time_before"])<=tolerance,"Record is not a continuous time series")
             for request in row["software_requests"]:
-                need(request in interfaces,"重放包含无设备门控的软件请求")
+                need(request in interfaces,"Replay contains a software request without a device gate")
                 evidence.start(interfaces[request])
             d.ctrl[:]=row["control"]
             mujoco.mj_step(m,d); mujoco.mj_forward(m,d)
@@ -156,9 +156,9 @@ def replay(run,scene=None,tolerance=1e-8):
             delta=max(float(np.max(np.abs(d.qpos-np.array(row["qpos"])),initial=0)),
                       float(np.max(np.abs(d.qvel-np.array(row["qvel"])),initial=0)))
             maximum=max(maximum,delta)
-            need(delta<=tolerance,"命令重放状态不一致","replay_mismatch")
-            need(float(np.max(np.abs(state_vector-np.array(row["state"])),initial=0))<=tolerance,"完整积分状态重放不一致","replay_mismatch")
-            need(d.eq_active.tolist()==row["eq_active"] and events==row["events"],"连接或事件重放不一致","replay_mismatch")
-            need(evidence.devices==row["devices"],"设备状态重放不一致","replay_mismatch")
+            need(delta<=tolerance,"Command replay state mismatch","replay_mismatch")
+            need(float(np.max(np.abs(state_vector-np.array(row["state"])),initial=0))<=tolerance,"Full integration state replay mismatch","replay_mismatch")
+            need(d.eq_active.tolist()==row["eq_active"] and events==row["events"],"Connection or event replay mismatch","replay_mismatch")
+            need(evidence.devices==row["devices"],"Device state replay mismatch","replay_mismatch")
     return {"status":"pass","steps":count,"max_state_error":maximum,
-            "coverage":"固定代码、仿真器和场景下的命令重放；不替代任务评分或真实硬件验证"}
+            "coverage":"Command replay under fixed code, simulator and scene; does not replace task scoring or real-hardware validation"}

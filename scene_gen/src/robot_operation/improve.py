@@ -9,23 +9,24 @@ from asset_prep.storage import Store,atomic_json,digest,run_lock,safe_path
 from asset_generation.contracts import GenerationConfig
 from .common import Settings,OperationError,need,read,identity
 from .contracts import validate_task,validate_graph
+from scene_generation.handoff import operation_obligations
 from .requests import Exchange,AwaitingResponse,TASK_PROMPT,GRAPH_PROMPT
 from .joint_state import Budget,compare,duplicate,mechanism,LIMITS
 from .scene import prepare,load
 from .diagnosis import inspect_scene,diagnose_run,packet
 
-ROUTE_PROMPT="""根据固定诊断选择下一动作。只返回一种：
-{operation:{reason:说明}} 修订操作图；
-{asset:{reason:说明,instances:[实际实例],evidence_ids:[证据编号],checks:[初态复查查询]}} 修正真实仪器模型；
-{fixture:{reason:说明,instances:[实际夹具或工具实例],evidence_ids:[证据编号],checks:[初态复查查询]}} 有证据的夹具设计试验；
-{scene:{reason:说明,instances:[实际实例],evidence_ids:[证据编号],checks:[初态复查查询]}} 已确认的布局或资产缺陷；
-{diagnose:{queries:[通用工具查询]}} 有界补查，查询含kind/state/question/hypotheses及工具参数；state为initial、node_start或failure。
-根据diagnostic_tools选择和组合量测，不按故障名称编造工具。先读已有证据；重复查询会复用，连续无增益会停止补查。
-probe仅允许同一完整状态下已有节点的一个参数变化；局部试验不能修改任务、成功判据或接触许可。
-资产返修需要固定缺陷证据；夹具设计可以使用接触异常或保持失败证据作为待验证假设。
-检查unknown/invalid/interrupted均不算通过，工具失败不是几何缺陷。允许原因未确定或多个原因共同作用。
-{deferred:{reason:原因}} 当前没有有效动作。不得把搜索失败当作不可达证明；工程故障不能修改几何。
-先推进可独立完成的阶段。保留必要开口、行程、真实规格、原厂机器人参数和固定任务条件。"""
+ROUTE_PROMPT="""Choose the next action from the fixed diagnosis. Return exactly one of:
+{operation:{reason:<explanation>}} revise the operation graph;
+{asset:{reason:<explanation>,instances:[<actual instance>],evidence_ids:[<evidence id>],checks:[<initial-state re-check query>]}} correct the real instrument model;
+{fixture:{reason:<explanation>,instances:[<actual fixture or tool instance>],evidence_ids:[<evidence id>],checks:[<initial-state re-check query>]}} evidence-backed fixture design trial;
+{scene:{reason:<explanation>,instances:[<actual instance>],evidence_ids:[<evidence id>],checks:[<initial-state re-check query>]}} confirmed layout or asset defect;
+{diagnose:{queries:[<generic tool query>]}} bounded follow-up measurement; each query has kind/state/question/hypotheses plus the tool parameters; state is initial, node_start or failure.
+Select and combine measurements from diagnostic_tools; do not invent tools from failure names. Read existing evidence first; repeated queries are reused, and consecutive queries without new information stop the follow-up.
+probe allows only a single-parameter change of an existing node from the same full state; local trials must not modify the task, success criteria or contact permissions.
+An asset repair requires defect evidence from the fixed checks; a fixture design may use contact-anomaly or holding-failure evidence as a hypothesis to be verified.
+Checks that are unknown/invalid/interrupted do not count as passing, and a tool failure is not a geometry defect. The cause may be undetermined or several causes may act together.
+{deferred:{reason:<reason>}} no valid action is available now. Never treat a failed search as a proof of unreachability; an engineering fault must not modify geometry.
+Advance stages that can be completed independently first. Preserve required openings, travel, real specifications, stock robot parameters and fixed task conditions."""
 
 class Paused(PrepError):pass
 
@@ -37,16 +38,16 @@ def open_run(root,scene,scene_sha,task_root,profile,project,*,resume=False,execu
     for source in (scene,task_root,seed_run,package):
         if source is not None:
             source=Path(source).resolve()
-            need(root!=source and source not in root.parents,"联合运行目录不得写入输入场景、任务或来源运行目录")
+            need(root!=source and source not in root.parents,"The joint run directory must not be inside the input scene, task or source run directory")
     from .workflow import request_bundle
     bundle=request_bundle(task_root,scene,scene_sha,profile)
     source_hash=identity(scene)
     code=implementation.implementation_digest(implementation.source_manifest(project))
     if execute:
         import sys
-        need(not developer,"开发者样例运行不能调用模型")
-        need(getattr(sys,"_harness_runtime",None) and expected_implementation==code,"在线联合运行必须通过 run.ps1 并绑定已验证实现摘要")
-        implementation.verify(code,project=project,where="联合执行启动")
+        need(not developer,"A developer fixture run cannot call the model")
+        need(getattr(sys,"_harness_runtime",None) and expected_implementation==code,"An online joint run must go through run.ps1 and bind the verified implementation digest")
+        implementation.verify(code,project=project,where="joint run start")
     provider=replace(provider or Config(),max_model_calls=800,max_reserved_tokens=240000000)
     generation=replace(generation or GenerationConfig(),max_model_calls=800,max_reserved_tokens=240000000,max_transport_retries=0)
     settings=settings or Settings()
@@ -56,28 +57,28 @@ def open_run(root,scene,scene_sha,task_root,profile,project,*,resume=False,execu
         "protocol":str(Path(protocol).resolve()) if protocol else None,"backend":backend,"developer":developer,
         "provider":asdict(provider),"generation":asdict(generation),"settings":asdict(settings),
         "implementation":code,"input_sha256":bundle["input_sha256"],"profile_sha256":bundle["public_profile_sha256"]}
-    if seed_run:need(package is not None,"接通资产修复必须提供原资料包")
+    if seed_run:need(package is not None,"Enabling asset repair requires the original package")
     lineage={"workflow_contract":"joint_operation_v1","configuration":config,"implementation":code,
              "provenance":"developer_fixture" if developer else "model_generated"}
     if resume:
         saved=read(root/"configuration.json")
-        need(saved==config,"联合运行输入、源码或固定配置变化；须新建版本，不原地迁移")
+        need(saved==config,"Joint run inputs, source code or fixed configuration changed; create a new version instead of migrating in place")
     else:
-        need(not root.exists() or not any(p.name!=".lock" for p in root.iterdir()),"运行目录非空，需显式恢复或使用新名称")
+        need(not root.exists() or not any(p.name!=".lock" for p in root.iterdir()),"Run directory is not empty; resume explicitly or use a new name")
         atomic_json(root/"configuration.json",config)
     store=Store(root,lineage,provider,resume=resume)
     if seed_run and "source_identity" not in store.state:
         from .scene_bridge import seed
         copied=seed(seed_run,root)
         source=copied["source_identity"]
-        need(developer or (source["provider"]==provider.provider and source["model"]==provider.model),"来源模型不同；禁止静默混合实验")
+        need(developer or (source["provider"]==provider.provider and source["model"]==provider.model),"Source model differs; silently mixing experiments is not allowed")
         original_scene=Path(scene).resolve()
         if "operation_conversion" in read(original_scene/"scene.json"):
             original_sha=read(original_scene/"scene.json")["operation_conversion"]["source_sha256"]
         else:original_sha=source_hash
         records=[*copied["scene"]["stages"],copied["scene"].get("latest",{}),copied["scene"].get("published_scene",{})]
         artifacts={r.get("artifact",r.get("directory","")+"/scene/artifact") for r in records if r}
-        need(any((Path(seed_run)/a).is_dir() and identity(Path(seed_run)/a)==original_sha for a in artifacts),"待操作场景不属于提供的原场景运行")
+        need(any((Path(seed_run)/a).is_dir() and identity(Path(seed_run)/a)==original_sha for a in artifacts),"The scene to operate does not belong to the supplied original scene run")
         store.state.update(copied)
         store.state["joint_backend"]=source["backend"]
         budget=Budget(store)
@@ -125,9 +126,9 @@ class Coordinator:
 
     def cancel(self):
         # Per-step cancellation is cheap; full source verification brackets execution.
-        if (self.root/"pause.request").exists():raise Paused("已请求暂停；保留现场、调用预留和已有产物")
+        if (self.root/"pause.request").exists():raise Paused("Pause requested; the run state, call reservations and existing artifacts are kept")
         if any(c["status"]=="pending" or c.get("outcome_unknown") for c in self.store.state["calls"]):
-            raise UncertainRequest("未知请求保留全额预留；禁止自动重新发送")
+            raise UncertainRequest("An unknown request keeps its full reservation; automatic resending is not allowed")
 
     def save(self,**changes):
         self.state.update(changes);self.store.save();self.publish()
@@ -154,13 +155,13 @@ class Coordinator:
             "attribution":self.state.get("diagnosis",{}).get("attribution"),
             "repair_verification":self.state.get("diagnosis",{}).get("repair_verification")}
         atomic_json(self.root/"progress.json",document)
-        (self.root/"scene_document.md").write_text("# 联合运行场景文档\n\n"+"\n\n".join(str(k)+"："+str(v) for k,v in document.items()),encoding="utf-8")
+        (self.root/"scene_document.md").write_text("# Joint run scene document\n\n"+"\n\n".join(str(k)+": "+str(v) for k,v in document.items()),encoding="utf-8")
         return document
 
     def ask(self,prompt,context,phase):
         errors=self.state["format_errors"]
         value,call=self.exchange.ask(prompt,{**context,"validation_feedback":[e for e in errors if e["phase"]==self.state["phase"]][-4:]},self.images(),phase)
-        need(self.developer or call.get("provenance")!="developer_fixture","正式联合运行拒绝开发者预置响应")
+        need(self.developer or call.get("provenance")!="developer_fixture","Formal joint runs reject developer fixture responses")
         return value,call
 
     def images(self):
@@ -181,7 +182,7 @@ class Coordinator:
 
     def current_task(self):
         task=read(self.root/"task.json")
-        need(digest(task)==self.state["task_sha256"],"冻结任务被修改","stale_task")
+        need(digest(task)==self.state["task_sha256"],"Frozen task was modified","stale_task")
         from .bindings import resolve_task
         current=self.state["current"]
         model,_,_,manifest=load(current["scene"],current["scene_sha256"])
@@ -195,12 +196,12 @@ class Coordinator:
         index=len(self.state.get("scene_versions",[]))
         destination=self.root/"scenes"/f"{index:04d}"
         if "operation_conversion" in read(Path(source)/"scene.json"):
-            need(src_hash==self.config["scene_sha256"] or source!=self.config["scene"],"来源变化")
+            need(src_hash==self.config["scene_sha256"] or source!=self.config["scene"],"Source changed")
             load(source,src_hash)
             result={"scene":str(source),"scene_sha256":src_hash,"admission":read(Path(source)/"admission.json")}
         elif destination.exists():
             meta=read(destination/"scene.json");admission=read(destination/"admission.json")
-            need(meta.get("operation_conversion",{}).get("source_sha256")==src_hash,"未完成派生场景，须保留现场并修复工程故障")
+            need(meta.get("operation_conversion",{}).get("source_sha256")==src_hash,"Derived scene is incomplete; keep the run state and fix the engineering fault")
             result={"scene":str(destination),"scene_sha256":identity(destination),"admission":admission}
         else:result=prepare(source,destination,src_hash,self.settings)
         # Read-only previews live outside scene identity, so rendering does not invalidate evidence.
@@ -218,14 +219,14 @@ class Coordinator:
         prompt = TASK_PROMPT
         if prepared:
             inputs.update(prepared_task=prepared, role_bindings=self.bundle.get('role_bindings', []))
-            prompt += '\n已选流程、准备边界和初终态以上游 prepared_task 为准，不重选流程。额外返回 coverage 列表：每条含 requirement、targets、unresolved。requirement 为 stage:阶段id、initial:对象id、final:终态id；targets 分别为编译阶段id列表、["initial"]或["final"]。无法落实填空列表并说明 unresolved；每条上游要求恰好出现一次。'
+            prompt += '\nThe selected procedure, preparation boundary and initial/final states are fixed by the upstream prepared_task; do not reselect the procedure. Additionally return a coverage list; each entry has requirement, targets and unresolved. requirement is stage:<stage id>, initial:<object id> or final:<final-state id>; targets is respectively a list of compiled stage ids, ["initial"] or ["final"]. If a requirement cannot be realized, use an empty list and explain it in unresolved; every upstream requirement appears exactly once.'
         value,call=self.ask(prompt,{"source":inputs},"task_compile")
         expected = {'task','unverified','coverage'} if prepared else {'task','unverified'}
-        need(isinstance(value,dict) and set(value)==expected,"任务编译响应字段不完整")
+        need(isinstance(value,dict) and set(value)==expected,"Task compilation response fields are incomplete")
         task=deepcopy(value["task"]);validate_task(task)
-        need(task["input_sha256"]==self.bundle["input_sha256"] and task["public_profile_sha256"]==self.bundle["public_profile_sha256"],"任务必须绑定实际输入与公共环境摘要")
-        need(task["provenance"]==("developer_fixture" if self.developer else "model_generated"),"任务来源不一致")
-        need(isinstance(value["unverified"],list) and all(isinstance(x,str) for x in value["unverified"]),"未知要求必须明确列出")
+        need(task["input_sha256"]==self.bundle["input_sha256"] and task["public_profile_sha256"]==self.bundle["public_profile_sha256"],"The task must bind the actual input and public environment digests")
+        need(task["provenance"]==("developer_fixture" if self.developer else "model_generated"),"Task provenance mismatch")
+        need(isinstance(value["unverified"],list) and all(isinstance(x,str) for x in value["unverified"]),"Unknown requirements must be listed explicitly")
         if prepared:
             from asset_prep.task_delivery import validate_task_coverage
             value['unverified'].extend(validate_task_coverage(value['coverage'], prepared['definition'], task))
@@ -242,22 +243,23 @@ class Coordinator:
         value,call=self.ask(GRAPH_PROMPT,{"contract":task,"current":current,"interfaces":manifest,
             "static_quality":self.state.get('static_report',{}),
             "deferred_repairs":self.store.state.get('scene',{}).get('repair_schedule',[]),
+            "operation_obligations":operation_obligations(self.store.state.get('scene',{})),
             "environment":meta["environment"],"operation_required_parameters":self.bundle["operation_required_parameters"],
             "contract_document":self.bundle["contract_document"],"diagnosis":self.state.get("diagnosis"),
             "rejected_approaches":self.state["history"][-12:],"baseline_restored":self.state.get("baseline_restored",False)},"operation_graph")
         if isinstance(value,dict) and set(value)=={"deferred"}:
             self.save(status="needs_input",reason=value["deferred"],phase="deferred");return
-        need(isinstance(value,dict) and set(value)=={"graph"},"操作规划只允许返回 graph，不得修改任务")
+        need(isinstance(value,dict) and set(value)=={"graph"},"Operation planning may return only graph and must not modify the task")
         graph=value["graph"];validate_graph(graph,task,current["scene_sha256"],self.settings)
-        need(graph["provenance"]==task["provenance"],"图与任务的生成来源不同")
+        need(graph["provenance"]==task["provenance"],"Graph and task have different generation provenance")
         if not self.developer:
             provenance={"provider":self.config["provider"]["provider"],"requested_model":self.config["provider"]["model"],
                 "response_model":call.get("response_model",call.get("model")),
                 "request_sha256":call.get("request_id",call.get("request_key",digest(call))),"response_sha256":call.get("response_sha256",digest(value))}
-            need(isinstance(provenance["response_model"],str) and provenance["response_model"],"缺少实际响应模型，不能伪造来源")
+            need(isinstance(provenance["response_model"],str) and provenance["response_model"],"Actual response model missing; provenance cannot be fabricated")
             graph["model_provenance"]=provenance
         evidence_hash=digest(self.state.get("diagnosis",{}))
-        need(not duplicate(self.state["history"],graph,current["scene_sha256"],evidence_hash),"该输入与证据下已失败的机制重复，须选择不同方向")
+        need(not duplicate(self.state["history"],graph,current["scene_sha256"],evidence_hash),"This repeats a mechanism that already failed under the same input and evidence; choose a different direction")
         number=len(self.state["candidates"])
         relative=f"candidates/{number:04d}/graph.json";atomic_json(safe_path(self.root,relative),graph)
         candidate={"graph":relative,"graph_sha256":digest(graph),"current":deepcopy(current),"evidence_sha256":evidence_hash,
@@ -268,7 +270,7 @@ class Coordinator:
     def execute(self,final=False):
         from .workflow import run
         candidate=self.state["candidates"][self.state["active_candidate"]]
-        graph=read(safe_path(self.root,candidate["graph"]));need(digest(graph)==candidate["graph_sha256"],"候选图被改写")
+        graph=read(safe_path(self.root,candidate["graph"]));need(digest(graph)==candidate["graph_sha256"],"Candidate graph was rewritten")
         current=candidate["current"];task=self.current_task()
         relative=("final/"+str(self.state["active_candidate"])) if final else candidate["directory"]
         destination=safe_path(self.root,relative)
@@ -277,10 +279,10 @@ class Coordinator:
         if (destination/"result.json").exists():
             files=read(destination/"files.json")
             from asset_prep.storage import file_hash
-            need(all(file_hash(safe_path(destination,n))==sha for n,sha in files.items()),"执行记录被修改")
+            need(all(file_hash(safe_path(destination,n))==sha for n,sha in files.items()),"Execution record was modified")
             result=read(destination/"result.json")
         else:
-            need(not destination.exists(),"执行已中断且没有完整回执；不自动重放有副作用的操作","interrupted_execution")
+            need(not destination.exists(),"Execution was interrupted without a complete receipt; operations with side effects are not replayed automatically","interrupted_execution")
             result=run(current["scene"],current["scene_sha256"],task,graph,destination,self.settings,
                        mode="final" if final else "trial",cancel_guard=self.cancel,
                        quality_report=self.state.get('static_report',{}))
@@ -339,11 +341,11 @@ class Coordinator:
         value,call=self.ask(ROUTE_PROMPT,{"contract":self.current_task(),"current":self.state["current"],"diagnosis":report,
             "history":self.state["history"][-12:],"queries_already_run":self.state["diagnostic_actions"],
             "diagnostic_tools":report.get("diagnostic_tools",[]),"scene_repair_available":bool(self.bridge)},"joint_repair_route")
-        need(isinstance(value,dict) and len(value)==1 and set(value)<={"operation","asset","fixture","scene","diagnose","deferred"},"修复路由格式无效")
+        need(isinstance(value,dict) and len(value)==1 and set(value)<={"operation","asset","fixture","scene","diagnose","deferred"},"Invalid repair route format")
         kind=next(iter(value))
         if kind=="operation":self.save(phase="graph")
         elif kind in {"asset","fixture","scene"}:
-            need(self.bridge is not None,"没有来源资产工作区；须补充原运行与资料包，不能直接改装配产物")
+            need(self.bridge is not None,"No source asset workspace; supply the original run and package instead of editing the assembled artifacts directly")
             from .diagnostic_service import repair_ticket,collect,merge
             from .diagnostic_tools import DiagnosticContext
             ticket=repair_ticket(report,value[kind],kind,self.state["current"]["scene_sha256"])
@@ -351,7 +353,7 @@ class Coordinator:
             context=DiagnosticContext(current["scene"],current["scene_sha256"],self.settings,
                 evidence_root=self.root/"diagnostic_trials",guard=self.guard,cancel_guard=self.cancel)
             records,_=collect(context,self.state["diagnostic_ledger"],ticket["checks"],self.store.save,count_stall=False)
-            need(all(r["status"]=="valid" for r in records),"返修复查无法量测；先补充有效检查能力")
+            need(all(r["status"]=="valid" for r in records),"Repair re-checks cannot be measured; add a valid check capability first")
             ticket["baseline_checks"]=records
             report=merge(report,records)
             self.state.setdefault("repair_history",[]).append(ticket)
@@ -371,7 +373,7 @@ class Coordinator:
             self.state["diagnostic_actions"].append(receipt)
             self.save(diagnosis=report,phase="deferred" if receipt["exhausted"] else "route",
                       status="needs_input" if receipt["exhausted"] else "running",
-                      reason="连续补查未增加有效信息；需不同诊断方法或补充能力" if receipt["exhausted"] else None)
+                      reason="Consecutive follow-up queries added no useful information; a different diagnostic method or additional capability is needed" if receipt["exhausted"] else None)
         else:self.save(phase="deferred",status="needs_input",reason=value[kind])
 
     def scene(self):
@@ -391,7 +393,7 @@ class Coordinator:
         try:
             while self.state["phase"] not in {"complete","deferred"}:
                 self.guard()
-                if len(self.state["format_errors"])>=800:raise BudgetExceeded("格式恢复记录达到共享调用预算边界")
+                if len(self.state["format_errors"])>=800:raise BudgetExceeded("Format-recovery records reached the shared call budget limit")
                 self.state["status"]="running";self.state.pop("reason",None);self.store.save()
                 phase=self.state["phase"]
                 from asset_prep.phase_budget import enter
@@ -409,5 +411,5 @@ class Coordinator:
         except AwaitingResponse as exc:self.save(status="awaiting_response",reason=str(exc))
         except Paused as exc:self.save(status="paused_user",reason=str(exc))
         except (PrepError,OperationError,OSError,ValueError,KeyError,TypeError) as exc:self.save(status="needs_input",reason={"kind":type(exc).__name__,"detail":str(exc)})
-        except KeyboardInterrupt:self.save(status="paused_user",reason="用户中断；未重放未完成执行")
+        except KeyboardInterrupt:self.save(status="paused_user",reason="Interrupted by the user; unfinished execution was not replayed")
         return self.publish()

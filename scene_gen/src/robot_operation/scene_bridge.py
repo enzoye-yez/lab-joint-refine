@@ -11,19 +11,19 @@ from .common import need,read
 
 def seed(source,destination):
     source,destination=Path(source).resolve(),Path(destination).resolve()
-    need(not destination.is_relative_to(source) and not source.is_relative_to(destination),"联合运行不能覆盖或嵌套来源运行")
+    need(not destination.is_relative_to(source) and not source.is_relative_to(destination),"A joint run must not overwrite or nest with the source run")
     with run_lock(source):
         from asset_prep.state_archive import read_state
         state=read_state(source/"state.json")
         if (source/'state_reports').is_dir():
             shutil.copytree(source/'state_reports', destination/'state_reports', dirs_exist_ok=True)
-        need("scene" in state and state["scene"].get("plan"),"来源不是已规划场景运行")
+        need("scene" in state and state["scene"].get("plan"),"Source is not a planned scene run")
         for stage in state["scene"]["stages"]:
             origin=safe_path(source,stage["directory"])
-            need(snapshot(origin)==stage["files"],"来源已归档阶段被修改")
+            need(snapshot(origin)==stage["files"],"An archived source stage was modified")
             target=safe_path(destination,stage["directory"])
             present=snapshot(target) if target.exists() else {}
-            need(all(stage["files"].get(n)==sha for n,sha in present.items()),"未完成的来源复制出现外部修改")
+            need(all(stage["files"].get(n)==sha for n,sha in present.items()),"External modification during an unfinished source copy")
             for name in set(stage["files"])-set(present):
                 dest=safe_path(target,name);dest.parent.mkdir(parents=True,exist_ok=True)
                 temp=destination/(".seed-"+uuid.uuid4().hex+".tmp")
@@ -34,7 +34,7 @@ def seed(source,destination):
             if (source/folder).exists():
                 for path in (source/folder).glob("*.json"):
                     target=destination/folder/path.name;target.parent.mkdir(parents=True,exist_ok=True)
-                    if target.exists():need(target.read_bytes()==path.read_bytes(),"继承调用回执不一致")
+                    if target.exists():need(target.read_bytes()==path.read_bytes(),"Inherited call receipt mismatch")
                     else:shutil.copyfile(path,target)
         scene=deepcopy(state["scene"])
         # Interrupted sources remain preserved in the source tree; no claim of a completed candidate.
@@ -58,7 +58,7 @@ class SceneBridge:
         from asset_generation.sandbox import DockerSandbox
         source=self.store.state["source_identity"]
         catalogue=catalog(Path(self.package),self.generation,Path(self.protocol) if self.protocol else None)
-        need(catalogue["identity"]==source["catalogue"],"修复资料包与原运行不同")
+        need(catalogue["identity"]==source["catalogue"],"Repair package differs from the original run")
         generation=replace(self.generation,max_iterations=1)
         backend=(LocalBackend if self.backend=="local" else DockerSandbox)(generation,self.project)
         # Keep source checker mode/tolerances. Operation evidence is separately recorded and verified.
@@ -83,7 +83,7 @@ class SceneBridge:
             known={i["id"] for i in state["plan"]["instances"]}
             ticket=self.store.state["joint"].get("repair_ticket")
             if ticket:
-                need(ticket["scene_sha256"]==diagnosis["scene_sha256"],"返修单与诊断版本不一致")
+                need(ticket["scene_sha256"]==diagnosis["scene_sha256"],"Repair ticket does not match the diagnosis version")
                 known &= set(ticket["instances"])
             rows=[]
             for row in diagnosis["rows"]:
@@ -92,16 +92,16 @@ class SceneBridge:
                 design_trial = bool(ticket and ticket["target"]=="fixture" and selected)
                 if selected and (row.get("repair_authorized") or design_trial) and involved:
                     rows.append({"id":"operation:"+digest(row)[:16],"status":"fail","instances":involved,
-                        "kind":row["kind"],"detail":"有接触证据的夹具设计假设，修改后须对照验证" if design_trial else "固定诊断器复核的局部问题",
+                        "kind":row["kind"],"detail":"Fixture design hypothesis backed by contact evidence; must be verified by comparison after the change" if design_trial else "Local issue re-confirmed by the fixed diagnostic",
                         "evidence":row, "repair_ticket":ticket})
-            need(rows,"没有独立复核的场景或资产修复依据")
+            need(rows,"No independently re-checked grounds for a scene or asset repair")
             operation.update(key=key,phase="plan",baseline=deepcopy(state))
             state.update(feedback={"status":"fail","checks":rows,"coverage":diagnosis.get("coverage_gaps",[])},repair_pending=True)
             state.pop("repair_planning",None)
             self.store.save()
-        need(operation["key"]==key,"场景修复期间诊断版本变化")
+        need(operation["key"]==key,"Diagnosis version changed during scene repair")
         if operation["phase"]=="plan":
-            if not run.route_repair():return {"status":"deferred","reason":state.get("repair_error","没有可执行局部方案")}
+            if not run.route_repair():return {"status":"deferred","reason":state.get("repair_error","No executable local plan")}
             operation["phase"]="assets";self.store.save()
         if operation["phase"]=="assets":
             jobs={j["id"]:j for j in state["plan"]["jobs"]}
@@ -142,11 +142,11 @@ class SceneBridge:
                         selection='baseline_preserved',failure='candidate_missing_jobs',
                         calls_consumed=len(self.store.state['calls'])-entry['call_start'])
                     self.store.save()
-                return {"status":"deferred","reason":"候选缺件；部分场景已发布且未认定任务成功", "missing":missing,
+                return {"status":"deferred","reason":"Candidate has missing parts; a partial scene was published and task success is not claimed", "missing":missing,
                         "partial_scene":str(safe_path(run.root,published["artifact"])) if published else None}
             from scene_generation.local_repair import precheck
             if precheck(run):
-                return {'status':'deferred','reason':'局部复查已拒绝退步或无改善候选，保留原场景'}
+                return {'status':'deferred','reason':'Local re-check rejected regressing or non-improving candidates; the original scene is kept'}
             report,review=run.build_scene()
             latest=state["latest"]
             operation.update(phase="done",artifact=latest["artifact"],report=report)

@@ -3,7 +3,7 @@
   "role": "public_generation_constraints_not_scoring",
   "robot_count": 1,
   "robot": {
-    "name": "ROBOTIS AI Worker FFW-SG2（双臂移动整机，原厂双夹爪）",
+    "name": "ROBOTIS AI Worker FFW-SG2 (dual-arm mobile robot, two stock grippers)",
     "directory": "data/robots/ffw_sg2",
     "joints": [
       "left_wheel_steer_joint",
@@ -100,7 +100,7 @@
         "reach_m": 0.641,
         "payload_kg": 3,
         "stock": {
-          "name": "ROBOTIS RH-P12-RN 原厂夹爪",
+          "name": "ROBOTIS RH-P12-RN stock gripper",
           "joints": [
             "gripper_l_joint1",
             "gripper_l_joint2",
@@ -109,7 +109,7 @@
           ],
           "adapter_site": "left_adapter",
           "mass_kg": 0.5,
-          "mass_source": "厂商夹爪名义质量约0.5千克；腕部合并惯性不重复当作额外夹爪质量"
+          "mass_source": "Vendor nominal gripper mass about 0.5 kg; the inertia merged into the wrist is not counted again as extra gripper mass"
         }
       },
       {
@@ -129,7 +129,7 @@
         "reach_m": 0.641,
         "payload_kg": 3,
         "stock": {
-          "name": "ROBOTIS RH-P12-RN 原厂夹爪",
+          "name": "ROBOTIS RH-P12-RN stock gripper",
           "joints": [
             "gripper_r_joint1",
             "gripper_r_joint2",
@@ -138,7 +138,7 @@
           ],
           "adapter_site": "right_adapter",
           "mass_kg": 0.5,
-          "mass_source": "厂商夹爪名义质量约0.5千克；腕部合并惯性不重复当作额外夹爪质量"
+          "mass_source": "Vendor nominal gripper mass about 0.5 kg; the inertia merged into the wrist is not counted again as extra gripper mass"
         }
       }
     ],
@@ -157,15 +157,15 @@
       ],
       "mount_height": 1.1851,
       "mass_kg": 98.26207603809391,
-      "source": "ROBOTIS 官方 robotis_mujoco_menagerie 固定提交 d8344c0dbe7a00208d0301111523dde65efc174a；资源和参数以 provenance.json 及所选 MJCF 为准。",
+      "source": "Official ROBOTIS robotis_mujoco_menagerie, pinned commit d8344c0dbe7a00208d0301111523dde65efc174a; resources and parameters are defined by provenance.json and the selected MJCF.",
       "approximations": [
-        "底盘尺寸来自固定模型底盘及轮组的轴对齐包围盒；肩高为默认升降姿态落地后的参考值，检查使用实际几何和左右肩位置。",
-        "保留厂商轮组、升降、双臂、限位和夹爪联动；自由根转换为平面X/Y/偏航用于静态布局，不认证轮式导航。",
-        "每臂额定负载3千克，采用腕部641毫米距离作为保守建议；未将双臂总负载或峰值负载用于单臂验收。",
-        "夹爪外壳安装点只用于固定适配件，不随夹指运动；工具中心为工程参考，非实测抓取标定。",
-        "上游腕部合并了部分夹爪惯性；换装变体保留该腕部惯性，不能据此认证换装后的精确动力学。",
-        "网页规格与固定模型如有差异保留模型限位；升降模型坐标为-0.5至0米。",
-        "原始自由根初始位置使轮底高于零平面0.1465米；派生模型保留原始坐标，场景装配统一下移0.1465米并记录该偏移。"
+        "Base dimensions come from the axis-aligned bounding box of the pinned model's base and wheel units; shoulder height is a reference value for the default lift pose after grounding, and checks use the actual geometry and left/right shoulder positions.",
+        "Vendor wheel units, lift, both arms, joint limits and gripper couplings are kept; the free root is converted to planar X/Y/yaw for static layout, and wheeled navigation is not certified.",
+        "Rated payload 3 kg per arm, using the 641 mm wrist distance as a conservative recommendation; the combined dual-arm payload or peak payload is not used for single-arm acceptance.",
+        "The gripper housing mount point is only for fixed adapters and does not move with the fingers; the tool center point is an engineering reference, not a measured grasp calibration.",
+        "The upstream wrist merges part of the gripper inertia; replacement variants keep this wrist inertia, so the exact dynamics after replacement cannot be certified from it.",
+        "Where web specifications differ from the pinned model, the model's limits are kept; the lift model coordinate ranges from -0.5 to 0 m.",
+        "The original free-root initial position puts the wheel bottoms 0.1465 m above the zero plane; the derived model keeps the original coordinates, and scene assembly shifts everything down by 0.1465 m and records that offset."
       ],
       "ground_offset_m": -0.1465
     }

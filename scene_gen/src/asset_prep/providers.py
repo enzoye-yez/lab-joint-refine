@@ -1,4 +1,4 @@
-"""聊天模型与可选 Tavily 检索；原生联网适配器见 search.py。"""
+"""Chat model and optional Tavily search; the native web adapter is in search.py."""
 
 import copy
 import json
@@ -41,33 +41,33 @@ class Model:
         for attempt in range(self.config.repair_attempts + 1):
             size = len(encoded(messages))
             if size > self.config.max_input_bytes:
-                raise ValidationError("模型输入超过配置字节上限；不会静默截断证据")
+                raise ValidationError("model input exceeds the configured byte limit; evidence is never silently truncated")
             payload = {"model": self.config.model, "messages": messages,
                        self.config.output_token_parameter: output_limit, "stream": False}
             request_key = digest({"kind": "model", "payload": payload})
             response = self.store.cached(request_key)
             if response is None:
-                # UTF-8 字节数 + 每条消息开销 + 输出上限，为保守预留而非真实账单。
+                # UTF-8 bytes + per-message overhead + output limit: a conservative reservation, not the real bill.
                 call = self.store.reserve(request_key, "model", size + 256 * len(messages) + output_limit)
-                stage = ('局部提取' if data.get('operation')=='local_extract' else '提取' if is_extraction else
-                         '身份分页' if data.get('operation')=='identity' else '字段分页' if data.get('operation')=='field_identity' else
-                         '字段取舍' if data.get('operation')=='field_value' else '引用局部修复' if 'evidence_errors' in data else '资产增量合并' if 'incoming_assets' in data else '参考选型')
-                stage = {'protocol_index':'全文索引','flow_selection':'流程选择','task_definition':'任务定义',
-                         'task_review':'任务审查','asset_roles':'实例分配','missing_roles':'补充分配',
-                         'task_interactions':'交互要求','delivery_review':'交付审查',
-                         'targeted_repair':'定向语义修订'}.get(data.get('operation'), stage)
-                print(f"模型请求 #{call['index'] + 1}：{stage}，输入 {size} 字节，等待上限 {self.config.timeout_seconds} 秒", file=sys.stderr, flush=True)
+                stage = ('local extraction' if data.get('operation')=='local_extract' else 'extraction' if is_extraction else
+                         'identity page' if data.get('operation')=='identity' else 'field page' if data.get('operation')=='field_identity' else
+                         'field value choice' if data.get('operation')=='field_value' else 'local citation repair' if 'evidence_errors' in data else 'incremental asset merge' if 'incoming_assets' in data else 'reference selection')
+                stage = {'protocol_index':'full-text index','flow_selection':'flow selection','task_definition':'task definition',
+                         'task_review':'task review','asset_roles':'instance assignment','missing_roles':'supplementary assignment',
+                         'task_interactions':'interaction requirements','delivery_review':'delivery review',
+                         'targeted_repair':'targeted semantic revision'}.get(data.get('operation'), stage)
+                print(f"model request #{call['index'] + 1}: {stage}, input {size} bytes, wait limit {self.config.timeout_seconds} s", file=sys.stderr, flush=True)
                 try:
                     response = self.transport.post(self.config.base_url.rstrip("/") + "/chat/completions",
                                                    payload, key, self.config.timeout_seconds)
                     response = redact(response, self.credentials.values())
                     self.store.finish(call, response)
-                    print(f"模型请求 #{call['index'] + 1} 已收到响应，开始校验", file=sys.stderr, flush=True)
+                    print(f"model request #{call['index'] + 1} received a response, validating", file=sys.stderr, flush=True)
                 except ProviderError as exc:
                     self.store.record_error(call, exc)
                     if exc.uncertain:
-                        detail = encoded(exc.diagnostics).decode() if exc.diagnostics else '传输未提供详细诊断'
-                        raise UncertainRequest("模型请求结果不明；诊断=" + detail + "；已保留预算占用，请核对后再恢复") from exc
+                        detail = encoded(exc.diagnostics).decode() if exc.diagnostics else 'transport provided no detailed diagnostics'
+                        raise UncertainRequest("model request outcome is uncertain; diagnostics=" + detail + "; the budget reservation is kept; verify before resuming") from exc
                     self.store.fail(call, "ProviderError")
                     raise
             self.store.check_token_budget()
@@ -76,24 +76,24 @@ class Model:
             try:
                 choice = response["choices"][0]
                 if (is_extraction or 'incoming_assets' in data or data.get('operation')=='protocol_index') and choice.get('finish_reason') == 'length':
-                    raise OutputTooLarge('响应截断，需要缩小原文或候选批次')
+                    raise OutputTooLarge('response truncated; shrink the source text or candidate batch')
                 if choice.get("finish_reason") != "stop":
-                    raise ValidationError("模型输出未正常结束，可能截断或拒绝")
+                    raise ValidationError("model output did not finish normally; possibly truncated or refused")
                 content = choice["message"]["content"]
                 if not isinstance(content, str):
-                    raise ValidationError("模型响应不是文本")
+                    raise ValidationError("model response is not text")
                 if is_extraction and len(content) > self.config.extraction_max_chars:
-                    raise OutputTooLarge('提取输出超过字符上限，需要拆分原文')
+                    raise OutputTooLarge('extraction output exceeds the character limit; the source text must be split')
                 if 'incoming_assets' in data and len(content) > 16000:
-                    raise OutputTooLarge('合并决定超过字符上限，需要缩小候选批次')
+                    raise OutputTooLarge('merge decisions exceed the character limit; shrink the candidate batch')
                 value = json.loads(content)
-                # 禁止 NaN/Infinity 等非标准 JSON 数值。
+                # Reject non-standard JSON numbers such as NaN/Infinity.
                 encoded(value)
                 if is_extraction:
                     inventory = value.get('inventory',value) if isinstance(value,dict) else value
                     if value in ({'needs_split': True},{'split_unit':True}) or (isinstance(inventory, dict) and isinstance(inventory.get('assets'), list)
                             and len(inventory['assets']) > self.config.extraction_max_assets):
-                        raise OutputTooLarge('候选资产超过本次提取上限，需要拆分原文')
+                        raise OutputTooLarge('candidate assets exceed this extraction limit; the source text must be split')
                     if data.get('operation')=='local_extract':
                         value, paths = normalize_requirement_numbers(value)
                         if paths:
@@ -106,15 +106,15 @@ class Model:
                 raise
             except (KeyError, IndexError, TypeError, ValueError, ValidationError) as exc:
                 if attempt == self.config.repair_attempts:
-                    raise ValidationError("模型输出在限定修复次数后仍不满足固定格式或证据约定") from exc
-                # 不把整个无效正文反复附回，以免扩大上下文；原始响应已经归档。
-                reason = str(exc) if isinstance(exc, ValidationError) else "输出格式无效"
-                messages.append({"role": "user", "content": "上次输出未通过固定校验：" + reason + "。请重新输出完整对象。"})
+                    raise ValidationError("model output still violates the fixed format or evidence contract after the allowed number of repairs") from exc
+                # Do not re-attach the whole invalid body each time, to avoid growing the context; the raw response is already archived.
+                reason = str(exc) if isinstance(exc, ValidationError) else "invalid output format"
+                messages.append({"role": "user", "content": "The previous output failed the fixed validation: " + reason + ". Output the complete object again."})
         raise AssertionError("unreachable")
 
 
 def normalize_requirement_numbers(value):
-    """只规范新工作流中规格数值的表示，不推断值、单位或改写原始响应。"""
+    """Only normalizes how specification numbers are represented in the new workflow; never infers values or units or rewrites the raw response."""
     result = copy.deepcopy(value)
     inventory = result.get('inventory') if isinstance(result, dict) else None
     assets = inventory.get('assets') if isinstance(inventory, dict) else None
@@ -133,8 +133,8 @@ def normalize_requirement_numbers(value):
 
 
 def model_messages(config, instruction, data):
-    return [{"role": "system", "content": SYSTEM + "\n任务范围：" + config.scope},
-            {"role": "user", "content": instruction + "\n以下是任务数据：\n" + encoded(data).decode()}]
+    return [{"role": "system", "content": SYSTEM + "\nTask scope: " + config.scope},
+            {"role": "user", "content": instruction + "\nTask data follows:\n" + encoded(data).decode()}]
 
 
 def valid_public_url_shape(value):
@@ -186,7 +186,7 @@ class TavilySearch:
     def query(self, query):
         key = self.credentials.get("TAVILY_API_KEY")
         if not key:
-            raise ProviderError("未配置 TAVILY_API_KEY；按需求生成并标记参考资料缺失")
+            raise ProviderError("TAVILY_API_KEY is not configured; generating from requirements and marking reference material as missing")
         payload = {"query": query, "search_depth": "basic", "max_results": self.config.results_per_query,
                    "include_images": True, "include_image_descriptions": True, "include_raw_content": True,
                    "include_answer": False, "include_usage": True, "auto_parameters": False}
@@ -201,13 +201,13 @@ class TavilySearch:
             except ProviderError as exc:
                 self.store.record_error(call, exc)
                 if exc.uncertain:
-                    raise UncertainRequest("检索请求结果不明；已保留预算占用，核对服务商记录后再用 --retry-uncertain 恢复") from exc
+                    raise UncertainRequest("search request outcome is uncertain; the budget reservation is kept; check the provider records, then resume with --retry-uncertain") from exc
                 self.store.fail(call, "ProviderError")
                 raise
         try:
             return normalize_search(response, query)
         except (TypeError, ValueError, AttributeError) as exc:
-            raise ProviderError("检索服务返回结构无效") from exc
+            raise ProviderError("search service returned an invalid structure") from exc
 
 
 def combine_references(batches):

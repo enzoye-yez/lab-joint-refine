@@ -8,7 +8,7 @@
       "description": "Pinned integrated dual-arm robot identity; movable base and shared lift. Submitted poses are evidence state, not fixed design constraints.",
       "values": {
         "public_environment": "generation_environment.json",
-        "sha256": "8d23f626aaadaba6a8893e63d876449447d6e02fd3a1410a17c9d42b67b23a09",
+        "sha256": "fc2e7ad1bbb3bfc4ebb7a28c32c71a33901a560dd947212fa28d3a7b9b2afd73",
         "controller_limits": "pending execution-profile freeze"
       }
     },

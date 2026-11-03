@@ -132,7 +132,7 @@ class TransportTests(unittest.TestCase):
             def post(self,*args):
                 raise ProviderError("timeout",uncertain=True,diagnostics={"failure":"timeout"})
         with patch("asset_generation.model.time.sleep") as sleep:
-            with self.assertRaisesRegex(UncertainRequest,"不自动重发"):
+            with self.assertRaisesRegex(UncertainRequest,"not resent automatically"):
                 self.model(Unknown()).ask("synthetic",{},[],"test")
         calls=self.store.state["calls"]
         self.assertEqual([c["status"] for c in calls],["pending"])

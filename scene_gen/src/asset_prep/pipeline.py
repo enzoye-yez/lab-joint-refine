@@ -1,4 +1,4 @@
-"""可恢复的资产准备流程；执行证据与几何验证明确留给后续模块。"""
+"""Resumable asset preparation flow; execution evidence and geometry verification are explicitly left to later modules."""
 
 import copy
 import json
@@ -33,16 +33,16 @@ def execute(documents, config, credentials, run_root, transport, *, resume=False
     store = Store(run_root, identity, config, resume=resume, retry_uncertain=retry_uncertain)
     workflow=store.state.get('workflow')
     if workflow is not None and digest(workflow)!=store.state.get('workflow_sha256'):
-        raise StaleEvidence('工作流状态被修改，不能恢复')
+        raise StaleEvidence('workflow state was modified; cannot resume')
     if store.state.get('checkpoint') and workflow is None:
-        raise StaleEvidence('旧检查点尚未转换为任务状态，请先离线迁移')
+        raise StaleEvidence('old checkpoint has not been converted to task state; migrate offline first')
     intent=store.state.get('publication_intent',{})
     for relative in store.state.get('outputs',{}).keys() | intent.keys():
         expected=store.state.get('outputs',{}).get(relative)
         path = safe_path(store.root, relative)
         allowed={expected,intent.get(relative,{}).get('new')}
         if (not path.exists() and expected is not None) or (path.exists() and file_hash(path) not in allowed):
-            raise StaleEvidence("已有输出被修改或缺失，不能复用该运行的证据")
+            raise StaleEvidence("existing outputs were modified or are missing; this run's evidence cannot be reused")
     previous_package = {}
     package_path = safe_path(store.root, 'asset_package.json')
     if resume and package_path.exists():
@@ -95,7 +95,7 @@ def execute(documents, config, credentials, run_root, transport, *, resume=False
         publish_catalog(catalog)
 
     def publish_catalog(catalog):
-        # 发布只推进已提交修订；验证或预算失败不回退已确认资产。
+        # Publishing only advances committed revisions; a validation or budget failure does not roll back confirmed assets.
         if progress.get('revision', 0) < package['extraction'].get('revision', 0):
             return
         existing = {item['asset_id']: item for item in package['assets']}
@@ -104,7 +104,7 @@ def execute(documents, config, credentials, run_root, transport, *, resume=False
         package['assets'] = []
         for asset in catalog['assets']:
             item = existing.get(asset['id'], {'asset_id': asset['id'],
-                'selection': fallback_selection('尚未检索；后续仍可按目标需求生成'),
+                'selection': fallback_selection('not searched yet; can still be generated later from the target requirements'),
                 'references': {'sources': [], 'images': []}, 'downloaded_images': [], 'status': 'pending', 'warnings': []})
             item['target'] = copy.deepcopy(asset)
             package['assets'].append(item)
@@ -121,7 +121,7 @@ def execute(documents, config, credentials, run_root, transport, *, resume=False
             package['status'] = 'extraction_completed'
             save()
             return package
-        # 第一次进入资料阶段前检查完整计划，恢复已开始的阶段仍按调用账本逐次检查。
+        # Check the full plan before first entering the reference stage; resuming a started stage is still checked call by call against the call ledger.
         if not store.state.get('reference_phase_started'):
             if config.search_provider == 'model_web' or credentials.get('TAVILY_API_KEY'):
                 check_reference_capacity(package['reference_budget_plan'], config, store.totals())
@@ -147,10 +147,10 @@ def execute(documents, config, credentials, run_root, transport, *, resume=False
                     item["selection"] = model.structured(SELECTION, {"target": asset, "references": references},
                                                          lambda v: validate_selection(v, asset, references))
                 except (ProviderError, ValidationError) as exc:
-                    item["selection"] = fallback_selection("选型失败；保留目标规格继续生成")
+                    item["selection"] = fallback_selection("selection failed; keeping the target specification and continuing generation")
                     item["warnings"].append(str(exc))
             else:
-                item["selection"] = fallback_selection("没有检索到可用参考资料；按规程要求和显式假设生成")
+                item["selection"] = fallback_selection("no usable reference material found; generating from protocol requirements and explicit assumptions")
             if config.download_images:
                 selected = set(item["selection"]["image_ids"][:config.images_per_asset])
                 for image in references["images"]:
@@ -174,6 +174,6 @@ def execute(documents, config, credentials, run_root, transport, *, resume=False
         raise
     except KeyboardInterrupt:
         package["status"] = "interrupted"
-        package["warnings"].append("用户中断；检查未完成请求后恢复")
+        package["warnings"].append("interrupted by user; inspect unfinished requests, then resume")
         save()
         raise

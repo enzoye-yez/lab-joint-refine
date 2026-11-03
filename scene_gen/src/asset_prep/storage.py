@@ -1,4 +1,4 @@
-"""原子写入、证据摘要、调用账本及跨进程锁。"""
+"""Atomic writes, evidence digests, call ledger and cross-process locks."""
 
 import hashlib
 import json
@@ -35,9 +35,9 @@ def safe_path(root: Path, relative: str) -> Path:
     root = root.resolve()
     path = root / relative
     if Path(relative).is_absolute() or ":" in relative or ".." in Path(relative).parts:
-        raise ValidationError("输出路径越界")
+        raise ValidationError("output path escapes the run directory")
     if not path.resolve().is_relative_to(root):
-        raise ValidationError("输出路径通过链接越界")
+        raise ValidationError("output path escapes the run directory through a link")
     return path
 
 
@@ -46,7 +46,7 @@ def atomic_json(path: Path, value, *, default=None):
     path.parent.mkdir(parents=True, exist_ok=True)
     temp = path.with_name(path.name + "." + uuid.uuid4().hex + ".tmp")
     if path.is_symlink():
-        raise ValidationError("拒绝写入符号链接")
+        raise ValidationError("refusing to write through a symbolic link")
     content = encoded(value, default=default)
     try:
         with temp.open("xb") as stream:
@@ -60,16 +60,16 @@ def atomic_json(path: Path, value, *, default=None):
             except OSError as exc:
                 transient = exc.errno in {errno.EACCES, errno.EBUSY, errno.EPERM} or getattr(exc, "winerror", None) in {5, 32, 33}
                 if not transient or attempt == 9:
-                    exc.add_note("本地文件保存失败，原文件保持完整；目标：" + str(path))
+                    exc.add_note("local file save failed; the original file is intact; target: " + str(path))
                     raise
                 delay = min(.1 * 2 ** attempt, 2)
-                print(f"本地保存暂时受阻：{path.name}；{delay:g} 秒后重试（{attempt+1}/9）", flush=True)
+                print(f"local save temporarily blocked: {path.name}; retrying in {delay:g} s ({attempt+1}/9)", flush=True)
                 time.sleep(delay)
     finally:
         try:
             temp.unlink(missing_ok=True)
         except OSError:
-            pass  # 不让临时文件清理掩盖原始错误。
+            pass  # Do not let temp-file cleanup mask the original error.
 
 
 @contextmanager
@@ -89,7 +89,7 @@ def run_lock(root: Path):
                 import fcntl
                 fcntl.flock(stream, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except OSError as exc:
-            raise ValidationError("同一运行正在被另一个进程使用") from exc
+            raise ValidationError("the same run is in use by another process") from exc
         try:
             yield
         finally:
@@ -130,7 +130,7 @@ class Store:
         self.path = safe_path(self.root, "state.json")
         if self.path.exists():
             if not resume:
-                raise ValidationError("运行已存在；使用 --resume 或新的运行名称")
+                raise ValidationError("run already exists; use --resume or a new run name")
             from .state_archive import read_state
             self.state = read_state(self.path)
             if self.state["identity"] != identity:
@@ -139,26 +139,26 @@ class Store:
                             identity.get('workflow_contract')==old['workflow_contract'] and
                             {k:v for k,v in old.items() if k!='code'}=={k:v for k,v in identity.items() if k!='code'})
                 if not compatible:
-                    raise StaleEvidence("输入、配置或工作流契约已变化；请先执行受支持的离线迁移")
+                    raise StaleEvidence("input, configuration or workflow contract changed; run a supported offline migration first")
                 self.state.setdefault('implementation_history',[]).append({'from':old['code'],'to':identity['code'],'at':time.time()})
                 self.state['identity']=identity
                 self.save()
         elif resume:
-            raise ValidationError("没有可恢复的运行")
+            raise ValidationError("no resumable run")
         else:
             self.state = {"identity": identity, "calls": [], "created_at": time.time()}
             self.save()
         self.recover_responses()
 
     def recover_responses(self):
-        """响应已落盘但账本替换失败时恢复；未发送预留不冒充未知请求。"""
+        """Recover when the response reached disk but the ledger replacement failed; an unsent reservation is not passed off as an uncertain request."""
         changed = False
         for call in self.state["calls"]:
             receipt = safe_path(self.root, f"responses/{call['index']:05d}.json")
             if receipt.exists() and call["status"] != "done":
                 saved = json.loads(receipt.read_text(encoding="utf-8"))
                 if saved.get("key") != call["key"] or digest(saved["payload"]) != saved.get("sha256"):
-                    raise StaleEvidence("待恢复响应与调用账本不匹配")
+                    raise StaleEvidence("pending response does not match the call ledger")
                 self.finish(call, saved["payload"])
             elif call["status"] == "reserved":
                 call.update(status="not_sent", finished_at=time.time())
@@ -177,11 +177,11 @@ class Store:
             if call["key"] != key:
                 continue
             if call["status"] == "pending" and not self.retry_uncertain:
-                raise UncertainRequest("上次请求结果不明；核对服务商记录后用 --retry-uncertain 重试，可能重复计费")
+                raise UncertainRequest("previous request outcome is uncertain; check the provider records, then retry with --retry-uncertain (may be billed twice)")
             if call["status"] == "done":
                 path = safe_path(self.root, call["file"])
                 if not path.is_file() or file_hash(path) != call["sha256"]:
-                    raise StaleEvidence("请求缓存被修改或缺失，旧证据失效")
+                    raise StaleEvidence("request cache was modified or is missing; the old evidence is invalid")
                 return json.loads(path.read_text(encoding="utf-8"))
         return None
 
@@ -189,7 +189,7 @@ class Store:
     def reserve(self, key, kind, tokens=0, *, defer_send=False):
         calls = self.state["calls"]
         if kind not in {"model", "search", "model_search", "image", "page"} or type(tokens) is not int or tokens < 0:
-            raise ValidationError("无效的调用类型或预算预留")
+            raise ValidationError("invalid call kind or budget reservation")
         totals = self.totals()
         checks = []
         if kind in {"model", "model_search"}:
@@ -202,15 +202,15 @@ class Store:
             checks.append(("page_fetches", self.config.max_page_fetches))
         for counter, limit in checks:
             if totals[counter] >= limit:
-                raise BudgetExceeded(f"{counter} 调用预算耗尽")
+                raise BudgetExceeded(f"{counter} call budget exhausted")
         if totals["accounted_tokens"] + tokens > self.config.max_reserved_tokens:
-            raise BudgetExceeded("保守估算的令牌预算耗尽")
+            raise BudgetExceeded("conservatively estimated token budget exhausted")
         from .phase_budget import check
         check(self,tokens,kind in {'model','model_search'})
         call = {"key": key, "kind": kind, "status": "reserved" if defer_send else "pending", "reserved_tokens": tokens,
                 "started_at": time.time(), "index": len(calls)}
         calls.append(call)
-        self.save()  # 先扣预算再发送；崩溃、失败、未知结果均不退回预算。
+        self.save()  # Charge the budget before sending; a crash, failure or uncertain outcome never refunds it.
         return call
 
     @_locked
@@ -248,7 +248,7 @@ class Store:
 
     def check_token_budget(self):
         if self.totals()["accounted_tokens"] > self.config.max_reserved_tokens:
-            raise BudgetExceeded("服务报告的实际令牌超过预留后已达到预算上限；响应已保存，请提高预算后恢复")
+            raise BudgetExceeded("actual tokens reported by the service exceeded the reservation and the budget limit is reached; the response was saved; raise the budget and resume")
 
     @_locked
     def fail(self, call, error_type):
@@ -257,7 +257,7 @@ class Store:
 
     @_locked
     def record_error(self, call, error):
-        # 仅允许传输层生成的结构化诊断；不保存密钥、异常原文或服务正文。
+        # Only structured diagnostics produced by the transport layer are allowed; never store keys, raw exception text or service bodies.
         allowed = {'phase', 'elapsed_seconds', 'timeout_seconds', 'http_status', 'received_bytes', 'failure',
                    'exception_type', 'errno', 'winerror'}
         call['diagnostics'] = {k: v for k, v in error.diagnostics.items() if k in allowed}
@@ -289,7 +289,7 @@ class Store:
 
 def run_directory(project: Path, name: str):
     if not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}", name):
-        raise ValidationError("运行名称只允许英文字母、数字、短横线和下划线")
+        raise ValidationError("run names may contain only ASCII letters, digits, hyphens and underscores")
     if name.upper() in {"CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)), *(f"LPT{i}" for i in range(1, 10))}:
-        raise ValidationError("运行名称不能是 Windows 保留设备名")
+        raise ValidationError("run name cannot be a reserved Windows device name")
     return safe_path(project, f"runs/{name}")

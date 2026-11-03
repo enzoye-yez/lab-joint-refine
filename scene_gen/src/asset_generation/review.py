@@ -1,4 +1,4 @@
-"""视觉审查格式重试与几何修复分离，共享原调用账本和预算。"""
+"""Visual-review format retries are separate from geometry repair, sharing the original call ledger and budget."""
 
 from pathlib import Path
 
@@ -64,12 +64,12 @@ def retain_batch_defects(previous, current):
     for field in ("findings", "unverified", "affected_instances", "affected_layout"):
         values = [v[field] for v in reviews if field in v]
         if any(not isinstance(rows,list) or any(not isinstance(r,str) for r in rows) for rows in values):
-            raise ValidationError("跨图片批次审查字段无效："+field)
+            raise ValidationError("Invalid cross-image-batch review field: "+field)
         if values:
             result[field] = list(dict.fromkeys(r for rows in values for r in rows))
     blockers = result.pop("blocking", [])
     if not isinstance(blockers,list) or any(not isinstance(r,str) for r in blockers):
-        raise ValidationError("跨图片批次审查字段无效：blocking")
+        raise ValidationError("Invalid cross-image-batch review field: blocking")
     result.setdefault("unverified", []).extend(blockers)
     return result, []
 
@@ -109,24 +109,24 @@ def ask_review(model, instruction, context, images, phase, destination, validato
                 session["draft"]=candidate
             correction = {"retained_results":session.get("accepted_results",[]),
                           "item_feedback":getattr(exc,"review_feedback",None),
-                          "patch_rule":"已保留同一输入版本的合法事项；可仅返回deferred_results补丁纠正缺失或错误编号。其他字段错误仍须返回完整审查。",
+                          "patch_rule":"Valid items for the same input version have been kept; you may return only a deferred_results patch to fix missing or wrong ids. Errors in any other field still require a complete review.",
                           "attempt": attempt + 1, "error": str(exc), "previous_response": value,
-                          "instruction": "只重新给出视觉审查，不修改资产。findings只列需要修复的缺陷；"
-                          "正面观察不要写入findings。accept时findings必须为空；"
-                          "若确有缺陷请给repair；证据不足时遵守当前阶段的结论及延后验证规则，未验证项放unverified。"}
+                          "instruction": "Only re-issue the visual review; do not modify the asset. findings lists only defects that need repair;"
+                          "do not put positive observations in findings. When accept, findings must be empty;"
+                          "if there really is a defect, give repair; when evidence is insufficient follow the current stage's verdict and deferred-verification rules, and put unverified items in unverified."}
             atomic_json(Path(destination)/f"review_format_{attempt + 1}.json",
                         {"call": last_call, "response": value, "error": str(exc)})
             session.update(correction=correction,call=last_call); save()
             continue
         session.update(review=review,call=last_call,attempts=attempt+1); save()
         return review, last_call
-    # 不把矛盾响应直接当作通过，也不将格式问题发送给建模器。
-    reason = "视觉审查连续三次格式无效，暂挂此审查并继续其他可靠任务：" + (correction or {}).get("error","审查约定尚未恢复")
+    # Do not treat a contradictory response as a pass, and do not send format problems to the modeller.
+    reason = "Visual review format invalid three times in a row; suspending this review and continuing other reliable tasks: " + (correction or {}).get("error","review contract not yet restored")
     result = {"verdict": "uncertain", "findings": [], "unverified": [reason]}
     if validator is not visual_result:
         result["blocking"] = [reason]
     if context.get("deferred_checks"):
         accepted={r["id"]:r for r in session.get("accepted_results",[])}
         result["deferred_results"]=[accepted.get(d["id"],{"id":d["id"],"status":"unresolved",
-            "evidence":"框架记录：审查响应尚未合法完成，未认证解决"}) for d in context["deferred_checks"] if d.get("stage")=="scene"]
+            "evidence":"framework record: review response not yet validly completed; resolution not certified"}) for d in context["deferred_checks"] if d.get("stage")=="scene"]
     return result, last_call

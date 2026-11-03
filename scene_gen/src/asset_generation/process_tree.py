@@ -1,4 +1,4 @@
-"""本地工作进程树生命周期；Windows 作业对象仅用于清理，不提供权限隔离。"""
+"""Lifecycle of the local worker process tree; the Windows job object is used only for cleanup and provides no permission isolation."""
 
 import os
 import signal
@@ -57,7 +57,7 @@ class ProcessTree:
                 raise c.WinError(c.get_last_error())
 
     def stop(self, process):
-        # 即使父进程已经退出也清理其余进程，避免后代继续持有日志管道。
+        # Clean up remaining processes even if the parent has exited, so descendants do not keep holding the log pipe.
         if os.name == "nt":
             self.close()
         else:

@@ -1,8 +1,8 @@
-"""实现版本绑定：源码清单、依赖版本与输入身份，并声明各自覆盖范围。
+"""Implementation version binding: source manifest, dependency versions and input identity, each with a declared coverage.
 
-主进程、工作进程、补查与离线回放使用同一份清单算法，避免"两次临时计算的
-当前摘要相等"这种不可自证的做法。清单键统一为 ``package/name.py``，不依赖
-平台路径分隔符，因此宿主与容器可以得到同一摘要。
+The main process, workers, follow-up checks and offline replay use one manifest algorithm, avoiding the unprovable practice of "two ad-hoc
+current digests being equal". Manifest keys are always ``package/name.py`` and do not depend on
+the platform path separator, so the host and the container obtain the same digest.
 """
 
 import importlib.metadata
@@ -16,25 +16,25 @@ PACKAGES = ("asset_prep", "asset_generation", "scene_generation", "robot_operati
 DEPENDENCIES = ("mujoco", "numpy", "Pillow", "trimesh", "defusedxml", "scipy")
 
 COVERS = {
-    "implementation": "src 下四个工程包的递归 .py 源码及 runtime_bootstrap.py 摘要；"
-                      "正式入口从固定内存源码加载，不读取工程字节码缓存；不含资源、产物和第三方源码。",
-    "dependencies": "本次执行实际导入的第三方包版本号；不覆盖其源码或二进制摘要。",
-    "inputs": "协议、资产清单、机械臂文件与场景配置的摘要；不覆盖模型响应或运行产物。",
-    "configuration": "场景、生成与服务配置的摘要；不含凭据。",
+    "implementation": "digest of the recursive .py sources of the four project packages under src plus runtime_bootstrap.py; "
+                      "the official entry point loads from pinned in-memory sources and does not read the project bytecode cache; excludes resources, artifacts and third-party sources.",
+    "dependencies": "version numbers of the third-party packages actually imported in this execution; does not cover their source or binary digests.",
+    "inputs": "digests of the protocol, asset list, robot arm files and scene configuration; does not cover model responses or run artifacts.",
+    "configuration": "digests of scene, generation and service configuration; excludes credentials.",
 }
 
 
 class ImplementationDrift(StaleEvidence):
-    """磁盘源码与运行已绑定的实现不一致；不允许混入新代码继续执行。"""
+    """On-disk sources do not match the implementation bound to the run; continuing with mixed-in new code is not allowed."""
 
 
 def package_manifest(base):
-    """对包含三个包目录的 src 根目录生成逐文件摘要。
+    """Produce per-file digests for the src root containing the three package directories.
 
-    Docker 后端把 src 挂到 /app，本地后端直接指向项目 src；两者传入同一个
-    base 语义，因此清单键与摘要完全一致。空清单视为环境错误：否则空目录
-    也能算出"合法"身份，等于用空源码冒充已绑定实现。缺包不必单独拒绝——
-    缺包会改变逐文件集合，绑定后的核对自然判为漂移。
+    The Docker backend mounts src at /app and the local backend points directly at the project src; both pass the same
+    base semantics, so manifest keys and digests are identical. An empty manifest is an environment error: otherwise an empty directory
+    would also yield a "valid" identity, passing off empty sources as the bound implementation. A missing package need not be rejected separately:
+    it changes the per-file set, so the post-binding check naturally reports drift.
     """
     base = Path(base)
     manifest = {}
@@ -47,12 +47,12 @@ def package_manifest(base):
     if (base/'runtime_bootstrap.py').is_file():
         manifest['runtime_bootstrap.py'] = file_hash(base/'runtime_bootstrap.py')
     if not manifest:
-        raise ValidationError("实现清单为空；拒绝用空源码冒充已绑定实现")
+        raise ValidationError("implementation manifest is empty; refusing to pass off empty sources as the bound implementation")
     return manifest
 
 
 def source_manifest(project):
-    """接受项目根目录，指向其 src。"""
+    """Accepts the project root and points at its src."""
     return package_manifest(source_root(project))
 
 
@@ -61,9 +61,9 @@ def source_root(project):
 
 
 def normalize_manifest(value):
-    """接受历史 --before-sources 的多种键形式，统一为 package/name.py。"""
+    """Accepts the various key forms of historical --before-sources and normalizes them to package/name.py."""
     if not isinstance(value, dict):
-        raise ValidationError("源码清单无效")
+        raise ValidationError("invalid source manifest")
     normalized = {}
     for key, item in value.items():
         name = str(key).replace("\\", "/")
@@ -72,7 +72,7 @@ def normalize_manifest(value):
         if name.startswith("src/"):
             name = name[4:]
         if name in normalized and normalized[name] != item:
-            raise ValidationError("源码清单存在冲突的同名条目")
+            raise ValidationError("source manifest has conflicting entries with the same name")
         normalized[name] = item
     return normalized
 
@@ -82,7 +82,7 @@ def implementation_digest(manifest):
 
 
 def dependency_versions():
-    """读取实际可用的依赖版本；缺失依赖由调用方的 preflight 报错。"""
+    """Read the dependency versions actually available; missing dependencies are reported by the caller's preflight."""
     versions = {}
     for name in DEPENDENCIES:
         try:
@@ -93,7 +93,7 @@ def dependency_versions():
 
 
 def runtime_record(project, *, inputs, configuration):
-    """完整绑定记录：摘要 + 逐文件清单 + 覆盖范围声明。"""
+    """Complete binding record: digest + per-file manifest + coverage declaration."""
     active = getattr(sys, '_harness_runtime', None)
     manifest = (dict(active['manifest']) if active and Path(active['base']) == source_root(project).resolve()
                 else source_manifest(project))
@@ -110,28 +110,28 @@ def runtime_record(project, *, inputs, configuration):
 
 
 def verify(expected, *, base=None, project=None, where="process"):
-    """核对磁盘源码是否仍是绑定的实现；不一致直接拒绝，不做兼容猜测。"""
+    """Check whether the on-disk sources are still the bound implementation; reject any mismatch outright without compatibility guessing."""
     require_identity(expected, where=where)
     root = Path(base) if base is not None else source_root(project)
     active = getattr(sys, '_harness_runtime', None)
     if active and Path(active['base']) == root.resolve() and active['implementation'] != expected:
-        raise ImplementationDrift(where+'：实际加载的固定源码与绑定身份不一致')
+        raise ImplementationDrift(where+': the pinned sources actually loaded do not match the bound identity')
     actual = implementation_digest(package_manifest(root))
     if actual != expected:
         raise ImplementationDrift(
-            f"{where}：磁盘源码与已绑定实现不一致（期望 {expected[:12]}，实际 {actual[:12]}）；"
-            "运行期间不允许混入工作目录的新代码，请用受支持的迁移创建新运行")
+            f"{where}: on-disk sources do not match the bound implementation (expected {expected[:12]}, actual {actual[:12]}); "
+            "new code from the working directory may not be mixed in during a run; create a new run with a supported migration")
     return actual
 
 
 def require_identity(identity, *, where="process"):
     if not isinstance(identity, str) or not identity:
-        raise ValidationError(f"{where}：缺少实现版本绑定，拒绝执行未绑定源码")
+        raise ValidationError(f"{where}: missing implementation version binding; refusing to execute unbound sources")
     return identity
 
 
 class Guard:
-    """边界核对失败是运行一致性中止，不能变成资产修复反馈。"""
+    """A boundary check failure is a run-consistency abort and must not become asset repair feedback."""
     def __init__(self, project, expected, *, base=None):
         self.project, self.expected = Path(project), expected
         self.base = Path(base) if base is not None else source_root(project)
@@ -139,18 +139,18 @@ class Guard:
         self.check()
 
     def check(self):
-        verify(self.expected, base=self.base, where='执行边界')
+        verify(self.expected, base=self.base, where='execution boundary')
         active = getattr(sys, '_harness_runtime', None)
         if active and active.get('entrypoint'):
             entry = active['entrypoint']
             if file_hash(entry['path']) != entry['sha256']:
-                raise ImplementationDrift('执行入口脚本已改变，拒绝消费结果')
+                raise ImplementationDrift('execution entry script changed; refusing to consume the results')
         if dependency_versions() != self.dependencies:
-            raise ImplementationDrift('执行依赖版本已改变，停止消费结果')
+            raise ImplementationDrift('execution dependency versions changed; stopped consuming the results')
 
 
 def from_identity(project, identity):
-    """主流程和迁移共用绑定记录构造，避免两个身份层次各自更新。"""
+    """The main flow and migration share the binding-record construction, so two identity layers are not updated separately."""
     return runtime_record(project,
         inputs={k: identity[k] for k in ('catalogue', 'environment', 'contract', 'robot_files') if k in identity},
         configuration={k: identity[k] for k in ('generation', 'limits', 'provider', 'model',
@@ -158,7 +158,7 @@ def from_identity(project, identity):
 
 
 def archive_sources(project, root, expected):
-    """固定执行源码作为工程来源归档；不向生成模型提供可编辑副本。"""
+    """Archive the pinned execution sources as project provenance; no editable copy is given to the generating model."""
     import base64
     from .storage import atomic_json
     verify(expected, project=project)
@@ -170,14 +170,14 @@ def archive_sources(project, root, expected):
     import hashlib
     manifest = {name: hashlib.sha256(data).hexdigest() for name, data in sources.items()}
     if implementation_digest(manifest) != expected:
-        raise ImplementationDrift('归档源码期间版本变化')
+        raise ImplementationDrift('version changed while archiving the sources')
     target = Path(root)/'implementation_sources'/f'{expected}.json'
     record = {'implementation': expected, 'manifest': manifest,
               'sources_base64': {name: base64.b64encode(data).decode('ascii') for name, data in sources.items()}}
     if target.exists():
         import json
         if json.loads(target.read_text(encoding='utf-8')) != record:
-            raise ImplementationDrift('已归档的执行源码被修改')
+            raise ImplementationDrift('archived execution sources were modified')
     else:
         atomic_json(target, record)
     if active and active.get('entrypoint'):

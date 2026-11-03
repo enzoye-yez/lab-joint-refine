@@ -1,4 +1,4 @@
-"""直接读取修订资料包或 asset_prep 导出，不重新提取实验流程。"""
+"""Read the revised package or the asset_prep export directly; never re-extract the experimental procedure."""
 
 import base64
 import hashlib
@@ -12,21 +12,21 @@ from .contracts import read_json, require
 
 def image_record(path, root, config, expected=None):
     path = Path(path)
-    require(path.is_file() and path.stat().st_size <= config.max_image_bytes, "图片缺失或超过大小上限")
+    require(path.is_file() and path.stat().st_size <= config.max_image_bytes, "Image missing or exceeds the size limit")
     data = path.read_bytes()
     sha = hashlib.sha256(data).hexdigest()
-    require(expected is None or sha == expected, "资产提取图片摘要不一致")
+    require(expected is None or sha == expected, "Asset extraction image digest mismatch")
     from PIL import Image
     try:
         with Image.open(io.BytesIO(data)) as im:
-            require(im.width * im.height <= 40000000, "图片像素数过大")
-            require(getattr(im, "n_frames", 1) == 1, "仅支持静态参考图片")
+            require(im.width * im.height <= 40000000, "Image has too many pixels")
+            require(getattr(im, "n_frames", 1) == 1, "Only static reference images are supported")
             fmt = im.format
-            require(fmt in {"PNG", "JPEG", "WEBP", "GIF"}, "图片格式不支持")
+            require(fmt in {"PNG", "JPEG", "WEBP", "GIF"}, "Unsupported image format")
             im.verify()
     except (OSError, ValueError, Image.DecompressionBombError) as exc:
         from asset_prep.errors import ValidationError
-        raise ValidationError("图片内容无效") from exc
+        raise ValidationError("Invalid image content") from exc
     mime = {"PNG": "image/png", "JPEG": "image/jpeg", "WEBP": "image/webp", "GIF": "image/gif"}[fmt]
     return {"path": str(path.relative_to(root)), "sha256": sha, "mime": mime,
             "data_url": "data:" + mime + ";base64," + base64.b64encode(data).decode("ascii")}
@@ -34,9 +34,9 @@ def image_record(path, root, config, expected=None):
 
 def load_package(path, selected, config):
     path = Path(path).resolve()
-    require(path.is_file() and path.stat().st_size <= 4000000, "资料包不存在或过大")
+    require(path.is_file() and path.stat().st_size <= 4000000, "Package missing or too large")
     root = path.parent
-    require(selected and len(set(selected)) == len(selected), "至少选择一个资产，且编号不能重复")
+    require(selected and len(set(selected)) == len(selected), "Select at least one asset, with no duplicate ids")
     images = []
     if path.suffix.lower() == ".md":
         text = path.read_text(encoding="utf-8-sig")
@@ -50,29 +50,29 @@ def load_package(path, selected, config):
                 end = h.end()+shared_heading.start()
             sections[h[1]] = text[h.start():end]
         common.append(text[end:])
-        require(len(sections) == len(headings) and all(a in sections for a in selected), "资产标题重复或所选编号不存在")
+        require(len(sections) == len(headings) and all(a in sections for a in selected), "Duplicate asset headings or selected id not found")
         scoped = "\n".join(sections[a] for a in selected)
         refs = list(dict.fromkeys(re.findall(r"!\[[^\]]*\]\(([^)]+)\)", scoped)))
         for relative in refs:
             relative = relative.strip().strip("<>")
-            require(not relative.startswith(("http:", "https:", "data:")), "资料包图片必须为本地相对路径")
+            require(not relative.startswith(("http:", "https:", "data:")), "Package images must be local relative paths")
             images.append(image_record(safe_path(root, relative), root, config))
         source = {"kind": "curated_markdown", "global_requirements": "".join(common),
                   "selected_sections": scoped}
         all_ids = list(sections)
-        warnings = [] if images else ["所选资产没有参考图片"]
+        warnings = [] if images else ["Selected assets have no reference images"]
     else:
         package = read_json(path, 4000000)
         prepared = package.get('schema_version') == '2.0'
         if prepared:
             from asset_prep.task_delivery import load_delivery
-            require(path.name=='asset_package.json', '新版任务须读取公开交付的资产资料包')
+            require(path.name=='asset_package.json', 'New-format tasks must read the publicly delivered asset package')
             package, _ = load_delivery(root)
-        require(isinstance(package, dict) and isinstance(package.get("assets"), list), "不是资产提取模块导出的资料包")
+        require(isinstance(package, dict) and isinstance(package.get("assets"), list), "Not a package exported by the asset extraction module")
         require(package.get("status") in {"completed", "completed_with_gaps", "extraction_completed", "requirements_completed"},
-                "资产提取尚未完成，不能把部分结果当作完整输入")
+                "Asset extraction is not finished; partial results cannot be used as complete input")
         items = {item["asset_id"]: item for item in package["assets"]}
-        require(len(items) == len(package["assets"]) and all(a in items for a in selected), "资产编号无效")
+        require(len(items) == len(package["assets"]) and all(a in items for a in selected), "Invalid asset id")
         chosen = [items[a] for a in selected]
         for item in chosen:
             for entry in item.get("downloaded_images", []):
@@ -85,9 +85,9 @@ def load_package(path, selected, config):
             source.update(kind='prepared_task', task=project_task(package, selected))
         all_ids = list(items)
         warnings = [w for item in chosen for w in item.get("warnings", [])]
-        warnings.extend(f"{item['asset_id']} 没有已下载的参考图片" for item in chosen if not item.get("downloaded_images"))
+        warnings.extend(f"{item['asset_id']} has no downloaded reference images" for item in chosen if not item.get("downloaded_images"))
         if package["status"] != "completed":
-            warnings.append("上游存在缺口；生成结果不能视为已核实的厂家规格")
+            warnings.append("Upstream has gaps; generated results cannot be treated as verified manufacturer specifications")
     images = list({im["sha256"]: im for im in images}.values())
     records = [{k: v for k, v in im.items() if k != "data_url"} for im in images]
     return {"asset_ids": selected, "available_asset_ids": all_ids, "source": source, "images": images,

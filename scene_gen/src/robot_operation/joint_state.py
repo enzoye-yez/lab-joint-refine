@@ -12,12 +12,12 @@ class Budget:
     def round(self,key,kind):
         rows=self.state["rounds"]
         if any(r["key"]==key for r in rows):return
-        if len(rows)>=LIMITS["rounds"]:raise BudgetExceeded("联合修复80轮预算耗尽")
+        if len(rows)>=LIMITS["rounds"]:raise BudgetExceeded("Joint-repair budget of 80 rounds exhausted")
         rows.append({"key":key,"kind":kind});self.store.save()
     def asset(self,job,stage):
         rows=self.state["assets"].setdefault(job,[])
         if stage in rows:return
-        if len(rows)>=LIMITS["asset_candidates"]:raise BudgetExceeded("资产候选60次预算耗尽："+job)
+        if len(rows)>=LIMITS["asset_candidates"]:raise BudgetExceeded("Asset-candidate budget of 60 exhausted: "+job)
         rows.append(stage);self.store.save()
     def remaining(self):
         totals=self.store.totals()

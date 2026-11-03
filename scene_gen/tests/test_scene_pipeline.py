@@ -267,7 +267,7 @@ class ScenePipelineTests(unittest.TestCase):
         result,_ = self.run_loop(self.base_replies[:4]+[deferred,REVIEW,REVIEW,REVIEW])
         self.assertEqual(result["status"],"needs_review")
         self.assertEqual(result["deferred_checks"][0]["status"],"unresolved")
-        self.assertIn("框架记录",result["deferred_checks"][0]["evidence"])
+        self.assertIn("framework record",result["deferred_checks"][0]["evidence"])
         self.assertIsNotNone(result["scene_artifact"])
 
     def test_static_preview_keeps_other_pose_checks_pending_not_resolved(self):

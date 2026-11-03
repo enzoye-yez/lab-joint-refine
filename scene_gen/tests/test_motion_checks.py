@@ -83,7 +83,7 @@ class MechanismDriveTests(unittest.TestCase):
         m, d = compiled(LOCKED_LID)
         row = motion.mechanism_drive(m, {"mechanisms": [mech("lid", ["lid_hinge"], lock="lid_lock")]}, d.qpos.copy())[0]
         self.assertEqual(row["status"], "fail")
-        self.assertIn("解除事件", row["unlock"])
+        self.assertIn("release event", row["unlock"])
         for body, status in (("lid", "pass"), ("base", "fail")):
             manifest = {"mechanisms": [mech("lid", ["lid_hinge"], lock="lid_lock", release_event="pop")],
                         "interfaces": [{"id": "rim", "body": body, "kind": "grasp"}],

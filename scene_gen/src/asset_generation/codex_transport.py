@@ -1,11 +1,11 @@
-"""通过本机已登录的 Codex CLI 调用模型；返回与 chat completions 相同的响应形状。
+"""Call the model through the locally logged-in Codex CLI; returns the same response shape as chat completions.
 
-使用 ChatGPT 登录态，不读取任何 API 密钥。每次请求在独立临时目录中运行一次
-`codex exec`（只读沙箱、不持久化会话），图片以附件传入，文本经标准输入传入。
+Uses the ChatGPT login session and reads no API key. Each request runs one
+`codex exec` in its own temporary directory (read-only sandbox, no persisted session); images are passed as attachments and text via stdin.
 
-编码 agent 模式（agent=True）只用于作者请求：codex 在可写工作目录里编辑 model.py，
-可反复运行 ./check 本地自检，结束后把最终脚本按原作者契约返回（首轮 model_py，修复轮
-整文件替换）。框架照旧独立重建、检查和审查，自检结论不作为通过依据。
+Coding agent mode (agent=True) is only for author requests: codex edits model.py in a writable work directory,
+may run the local ./check self-check repeatedly, and at the end returns the final script under the original author contract (model_py on the first round, whole-file replacement
+on repair rounds). The framework still independently rebuilds, checks and reviews; self-check results are not grounds for passing.
 """
 
 import base64
@@ -31,29 +31,29 @@ FILE_RULES = ("You are called as a model endpoint. Long inputs are saved as file
 INLINE_TEXT_BYTES = 60000  # longer text parts go to files a whole-context request reads on demand
 IMAGE_SUFFIX = {"image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp", "image/gif": ".gif"}
 
-AGENT_TASK = """# 资产建模任务（编码 agent 模式）
+AGENT_TASK = """# Asset modelling task (coding agent mode)
 
-你在一个只属于本资产的工作目录中工作。目标：写出满足 instructions.md 与 context.json 的 `model.py`。
+You work in a work directory that belongs to this asset only. Goal: write a `model.py` that satisfies instructions.md and context.json.
 
-- `instructions.md`：建模契约（必须遵守，与普通模式相同）。
-- `context.json`：资料、任务、依赖、上一轮反馈（feedback / repair_tasks 中的 repair_hint 给出局部坐标方向和距离）。
-- `references/`：参考图片（也已作为图片附件给你）。
-- `model.py`：当前脚本{current_note}。
-- `./check`：构建当前 model.py 并运行单资产检查，输出 JSON 摘要（failing、incomplete、renders）。
+- `instructions.md`: the modelling contract (mandatory; identical to normal mode).
+- `context.json`: materials, task, dependencies, previous-round feedback (repair_hint in feedback / repair_tasks gives local-frame directions and distances).
+- `references/`: reference images (also given to you as image attachments).
+- `model.py`: the current script{current_note}.
+- `./check`: builds the current model.py, runs the single-asset checks and prints a JSON summary (failing, incomplete, renders).
 
-工作方式：
-1. 阅读契约与资料，编辑 `model.py`（只改这个文件；不要创建其他交付文件）。
-2. 运行 `./check`。`failing` 中的条目必须修复；`incomplete` 若只因量测不可靠或缺少探测器，可以保留。
-3. 需要时查看 `renders` 中的图片核对外形。
-4. 重复 2–3，最多 {max_checks} 次检查；没有 failing 后再做一次整体核对即可结束。
-5. 不要修改 check、selfcheck.json、instructions.md、context.json 或 references；不要联网。
+How to work:
+1. Read the contract and materials, then edit `model.py` (edit only this file; do not create other deliverable files).
+2. Run `./check`. Entries in `failing` must be fixed; an `incomplete` entry may remain if it is only due to unreliable measurement or a missing probe.
+3. When needed, look at the images in `renders` to verify the shape.
+4. Repeat 2-3, at most {max_checks} checks; once nothing is failing, do one final overall review and stop.
+5. Do not modify check, selfcheck.json, instructions.md, context.json or references; do not access the network.
 
-结束时只回复一行 JSON：{{"done": true, "checks_run": 次数, "remaining_failing": [仍失败的检查编号], "summary": "一句话说明做了什么"}}。
-框架会独立重建、检查和审查你的 model.py；自检通过不等于验收。
+When finished reply with only one line of JSON: {{"done": true, "checks_run": <number of checks>, "remaining_failing": [<ids of checks still failing>], "summary": "<one sentence on what you did>"}}.
+The framework will independently rebuild, check and review your model.py; passing the self-check is not acceptance.
 """
 
 CHECK_SCRIPT = """#!/usr/bin/env bash
-# 本地自检：构建 model.py 并运行单资产检查（CPU 渲染，不使用 GPU）。
+# Local self-check: build model.py and run the single-asset checks (CPU rendering, no GPU).
 export MUJOCO_GL=egl PYOPENGL_PLATFORM=egl __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json
 export CUDA_VISIBLE_DEVICES= NVIDIA_VISIBLE_DEVICES=none PYTHONDONTWRITEBYTECODE=1 PYTHONIOENCODING=utf-8
 export PYTHONPATH={src} TMPDIR="$(pwd)/tmp" TEMP="$(pwd)/tmp" TMP="$(pwd)/tmp"
@@ -76,7 +76,7 @@ def author_context(payload):
 
 
 def prompt_and_images(messages, folder, inline_limit=None):
-    """把 system/user 消息拼成一段提示，并把 data URL 图片写成按顺序编号的附件。
+    """Join system/user messages into one prompt and write data URL images as sequentially numbered attachments.
 
     With inline_limit, a longer text part is written verbatim to input_<n>.txt and the prompt names the file.
     """
@@ -90,20 +90,20 @@ def prompt_and_images(messages, folder, inline_limit=None):
                 if inline_limit is not None and len(part["text"].encode("utf-8")) > inline_limit:
                     files += 1
                     (Path(folder) / f"input_{files}.txt").write_text(part["text"], encoding="utf-8")
-                    texts.append(f"[完整原文见当前目录文件 input_{files}.txt（{len(part['text'])} 字符），按需读取]")
+                    texts.append(f"[full text is in file input_{files}.txt in the current directory ({len(part['text'])} characters); read it as needed]")
                 else:
                     texts.append(part["text"])
             elif part["type"] == "image_url":
                 header, _, data = part["image_url"]["url"].partition(",")
                 mime = header.removeprefix("data:").split(";")[0]
                 if not header.startswith("data:") or ";base64" not in header or mime not in IMAGE_SUFFIX:
-                    raise ProviderError("Codex 传输只支持 base64 data URL 图片", uncertain=False,
+                    raise ProviderError("Codex transport only supports base64 data URL images", uncertain=False,
                                         diagnostics={"failure": "unsupported_image"})
                 path = Path(folder) / f"image_{len(images) + 1:03d}{IMAGE_SUFFIX[mime]}"
                 try:
                     path.write_bytes(base64.b64decode(data, validate=True))
                 except binascii.Error:
-                    raise ProviderError("图片 data URL 无法解码", uncertain=False,
+                    raise ProviderError("Image data URL cannot be decoded", uncertain=False,
                                         diagnostics={"failure": "unsupported_image"}) from None
                 images.append(path)
                 texts.append(f"[attached image #{len(images)}]")
@@ -134,7 +134,7 @@ def parse_events(stdout):
         elif event.get("type") == "turn.completed":
             usage = event.get("usage") or {}
         elif event.get("type") in {"error", "turn.failed"}:
-            error = event.get("message") or (event.get("error") or {}).get("message") or "codex 报告失败"
+            error = event.get("message") or (event.get("error") or {}).get("message") or "codex reported failure"
     return message, usage, error
 
 
@@ -177,7 +177,7 @@ def is_author_phase(phase):
 
 
 class CodexTransport:
-    """与 GenerationTransport 相同的 post 接口；url 与 key 不使用。"""
+    """Same post interface as GenerationTransport; url and key are unused."""
 
     def __init__(self, executable="codex", reasoning_effort="high", *, agent=False, workspace_root=None, max_checks=12):
         self.executable, self.reasoning_effort = executable, reasoning_effort
@@ -200,7 +200,7 @@ class CodexTransport:
 
     def post(self, url, payload, key, timeout):
         if shutil.which(self.executable) is None:
-            raise ProviderError("未找到 codex 命令；请先安装并登录 Codex CLI", uncertain=False,
+            raise ProviderError("codex command not found; install and log in to the Codex CLI first", uncertain=False,
                                 diagnostics={"failure": "codex_missing"})
         context = author_context(payload) if self.agent and is_author_phase(self.phase) else None
         if context is not None:
@@ -218,7 +218,7 @@ class CodexTransport:
         previous = context.get("current_model_py")
         asset_ids = (context.get("job") or {}).get("asset_ids") or (context.get("input") or {}).get("asset_ids")
         if not asset_ids:
-            raise ProviderError("作者上下文缺少资产编号，无法建立自检", uncertain=False,
+            raise ProviderError("Author context is missing the asset id; cannot set up the self-check", uncertain=False,
                                 diagnostics={"failure": "agent_context"})
         stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
         workspace = (Path(self.workspace_root or tempfile.gettempdir()) / "codex_agent_sessions"
@@ -234,10 +234,10 @@ class CodexTransport:
         check.write_text(CHECK_SCRIPT.format(src=Path(__file__).resolve().parents[1], python=sys.executable),
                          encoding="utf-8")
         check.chmod(0o755)
-        note = "（上一轮版本，需要在此基础上修复）" if previous else "（当前为空，需要从头编写）"
+        note = " (previous round's version; repair it from here)" if previous else " (currently empty; write it from scratch)"
         (workspace / "AGENT_TASK.md").write_text(AGENT_TASK.format(current_note=note, max_checks=self.max_checks),
                                                  encoding="utf-8")
-        task = "Read AGENT_TASK.md in the current directory and follow it exactly. 先读 AGENT_TASK.md。"
+        task = "Read AGENT_TASK.md in the current directory and follow it exactly."
         stdout, stderr, code, elapsed = self.run(
             self.command(payload["model"], workspace, images, sandbox="workspace-write"), workspace, task, timeout)
         (workspace / "events.jsonl").write_bytes(stdout)
@@ -277,7 +277,7 @@ class CodexTransport:
                 self.check_cancel()
                 left = timeout - (time.monotonic() - started)
                 if left <= 0:
-                    raise ProviderError("Codex 请求超时；进程已终止", uncertain=False,
+                    raise ProviderError("Codex request timed out; process killed", uncertain=False,
                                         diagnostics={"failure": "timeout", "timeout_seconds": timeout})
                 try:
                     stdout, stderr = process.communicate(input=pending, timeout=min(1, left))
@@ -295,9 +295,9 @@ class CodexTransport:
     def reply(stdout, stderr, code):
         message, usage, error = parse_events(stdout.decode("utf-8", "replace"))
         if code != 0 or error or message is None:
-            detail = error or (stderr.decode("utf-8", "replace").strip().splitlines()[-1:] or ["无输出"])[0]
-            # 登录态调用不按次计费，失败按连接错误处理，可由上层有界重试。
-            raise ProviderError("Codex 请求失败：" + detail[:500], uncertain=False,
+            detail = error or (stderr.decode("utf-8", "replace").strip().splitlines()[-1:] or ["no output"])[0]
+            # Login-session calls are not billed per call; a failure is handled as a connection error and may be retried with bounds by the caller.
+            raise ProviderError("Codex request failed: " + detail[:500], uncertain=False,
                                 diagnostics={"failure": "connection_error", "exit_code": code,
                                              "provider_error": {"message": detail[:1024]}})
         return message, usage

@@ -1,5 +1,5 @@
 from asset_prep.errors import PrepError
-"""离线任务请求、有限操作图、反馈分流与冻结后的重复验证。"""
+"""Offline task requests, bounded operation graphs, feedback routing and frozen repeated validation."""
 from copy import deepcopy
 from dataclasses import asdict
 from pathlib import Path
@@ -15,10 +15,10 @@ from .scene import load
 
 
 def request_bundle(task_root,scene,scene_hash,profile,xml_reason=None,xml_fragments=()):
-    """只读取白名单，不发请求；图片保留文件引用和摘要，PDF复用项目解析器。"""
+    """Read only the allowlist and send no requests; images keep file references and digests, and PDFs reuse the project parser."""
     task_root,scene=Path(task_root).resolve(),Path(scene).resolve()
     listing=read(task_root/"input_manifest.json")
-    need(identity(scene)==scene_hash,"场景版本过期","stale_scene")
+    need(identity(scene)==scene_hash,"Scene version is stale","stale_scene")
     public=read(profile)
     from asset_prep.task_contracts import public_environment
     normalized_public = public_environment(public)
@@ -26,19 +26,19 @@ def request_bundle(task_root,scene,scene_hash,profile,xml_reason=None,xml_fragme
     if listing.get('kind') == 'prepared_task_input':
         from asset_prep.task_delivery import load_delivery
         prepared, listing = load_delivery(task_root)
-        need(prepared['public_environment'] == normalized_public, '操作环境与准备任务不一致')
+        need(prepared['public_environment'] == normalized_public, 'Operation environment does not match the prepared task')
     entries=[]
     for row in listing["files"]:
         name=row["path"]
-        need(not any(word in name.lower() for word in ("rubric","curation")),"禁止将评分或整理笔记作为模型输入")
+        need(not any(word in name.lower() for word in ("rubric","curation")),"Scoring or curation notes must not be used as model input")
         path=safe_path(task_root,name)
-        need(file_hash(path)==row["sha256"],"任务输入摘要不匹配")
+        need(file_hash(path)==row["sha256"],"Task input digest mismatch")
         if path.suffix.lower()==".xml" and not xml_reason: continue
         item={"path":str(path),"sha256":row["sha256"],"relative_path":name}
         if path.suffix.lower()==".xml":
-            need(xml_fragments and sum(map(len,xml_fragments))<=20000,"XML补证必须提供有界的选定片段")
+            need(xml_fragments and sum(map(len,xml_fragments))<=20000,"XML supplementary evidence must supply bounded selected fragments")
             text=path.read_text(encoding="utf-8-sig")
-            need(all(isinstance(fragment,str) and fragment and fragment in text for fragment in xml_fragments),"XML片段不属于原文")
+            need(all(isinstance(fragment,str) and fragment and fragment in text for fragment in xml_fragments),"XML fragment is not part of the source text")
             item["selected_fragments"]=list(xml_fragments)
         elif path.suffix.lower() in {".md",".txt",".json"}:
             item["text"]=path.read_text(encoding="utf-8-sig")
@@ -66,7 +66,7 @@ def request_task(task_root,scene,scene_hash,profile,output,xml_reason=None,xml_f
     bundle=request_bundle(task_root,scene,scene_hash,profile,xml_reason,xml_fragments)
     out=new_directory(output,[scene,task_root])
     atomic_json(out/"request.json",{"status":"awaiting_model","kind":"compile_task_and_operation_graph",
-        "network_calls":0,"bundle":bundle,"instructions":"输出有输入依据的任务契约与有限操作图；不得读取评分资料、改写物理状态或声明检测成功。缺失能力明确列出。"})
+        "network_calls":0,"bundle":bundle,"instructions":"Output a source-backed task contract and a bounded operation graph; do not read scoring materials, rewrite physical state or claim detector success. List missing capabilities explicitly."})
     return {"status":"awaiting_model","request":str(out/"request.json"),"network_calls":0}
 
 
@@ -93,13 +93,13 @@ class GraphRunner:
 
     def run(self):
         s=self.session
-        need(s.evidence.evaluate(s.task["initial"]),"任务初始条件未满足","initial_condition")
+        need(s.evidence.evaluate(s.task["initial"]),"Task initial condition not met","initial_condition")
         while self.current not in {"success","failed"}:
             self.total+=1
-            need(self.total<=s.settings.max_total_nodes,"操作图总步数耗尽","budget_exhausted")
+            need(self.total<=s.settings.max_total_nodes,"Operation graph total step budget exhausted","budget_exhausted")
             node=self.nodes[self.current]
             self.visits[self.current]=self.visits.get(self.current,0)+1
-            need(self.visits[self.current]<=node.get("max_visits",1),"节点循环预算耗尽","budget_exhausted")
+            need(self.visits[self.current]<=node.get("max_visits",1),"Node visit budget exhausted","budget_exhausted")
             self.log({"type":"node_start","node":node["id"],"stage":node["stage"],"time":float(s.data.time)})
             failure=None
             for attempt in range(s.settings.local_retries+1):
@@ -108,7 +108,7 @@ class GraphRunner:
                     s.begin(node)
                     if s.recorder:
                         atomic_json(s.recorder.root/"node_start_state.json",s.snapshot())
-                    need(s.evidence.evaluate(node["precondition"]),"节点前置条件未满足","precondition")
+                    need(s.evidence.evaluate(node["precondition"]),"Node precondition not met","precondition")
                     s.execute(node)
                     while not s.evidence.evaluate(node["completion"]): s.advance(s.settings.control_period)
                     failure=None; break
@@ -116,7 +116,7 @@ class GraphRunner:
                     failure=exc
                     self.log({"type":"node_failure","node":node["id"],"attempt":attempt,"code":exc.code,
                               "detail":exc.detail,"evidence":exc.evidence,"time":float(s.data.time)})
-                    # 仅无物理副作用的搜索失败可原地重搜；真实接触失败走显式恢复分支。
+                    # Only search failures without physical side effects may be re-searched in place; real contact failures take the explicit recovery branch.
                     if exc.code not in {"path_not_found","ik_not_found"} or s.sim_steps!=before_steps or attempt==s.settings.local_retries: break
             if failure:
                 s.failure_snapshot=s.snapshot()
@@ -132,19 +132,19 @@ class GraphRunner:
                                   "evidence":deepcopy(s.evidence.last)})
             self.log({"type":"node_complete","node":node["id"],"time":float(s.data.time)})
             self.current=node["on_success"]
-        need(self.current=="success","操作图结束于失败","graph_failed")
+        need(self.current=="success","Operation graph ended in failure","graph_failed")
         need(set(self.completed)=={v["id"] for v in s.task["stages"]} and s.evidence.evaluate(s.task["final"]),
-             "节点执行结束，但任务阶段或最终状态未满足","task_incomplete")
+             "Node execution finished, but task stages or the final state are not satisfied","task_incomplete")
         return {"status":"success","completed_stages":self.completed,"sim_time":float(s.data.time),
                 "logical_time":s.logical_time,"evaluation":"task_contract_only_not_benchmark_rubric"}
 
 
 def repair_request(error,scene_hash,task,graph,settings,history):
-    # 碰撞/夹空本身不证明资产有缺陷。缺少独立复核时只能请求操作图诊断。
+    # A collision or missed grasp by itself does not prove an asset defect. Without an independent re-check, only an operation-graph diagnosis may be requested.
     return {"status":"awaiting_model","kind":"operation_graph_revision","scene_sha256":scene_hash,
         "task_sha256":digest(task),"graph_sha256":digest(graph),"failure":{"code":error.code,"detail":error.detail,"evidence":error.evidence},
         "history":history[-8:],"history_reference":"events.jsonl","limits":{"graph_revisions":settings.graph_revisions,"scene_repairs":settings.scene_repairs},
-        "scene_repair_authorized":False,"reason":"须先用固定检查器复核资产/布局缺陷，搜索失败不是不可达证明","network_calls":0}
+        "scene_repair_authorized":False,"reason":"Asset/layout defects must first be re-checked with the fixed checker; a failed search is not a proof of unreachability","network_calls":0}
 
 
 def run(scene,scene_hash,task,graph,output,settings=None,mode="final",images=True,perturbation=None,cancel_guard=None,quality_report=None):
@@ -154,7 +154,7 @@ def run(scene,scene_hash,task,graph,output,settings=None,mode="final",images=Tru
     out=new_directory(output,[scene])
     admission=read(Path(scene)/"admission.json")
     if admission["status"]!="pass":
-        result={"status":"blocked","reason":"动力学场景准入未通过","admission":admission}
+        result={"status":"blocked","reason":"Dynamics scene admission not passed","admission":admission}
         atomic_json(out/"task.json",task); atomic_json(out/"graph.json",graph)
         atomic_json(out/"recording.json",{"version":1,"scene_path":str(Path(scene).resolve()),
             "scene_sha256":scene_hash,"settings":asdict(settings),"dataset_complete":False,"physics_started":False})
@@ -163,15 +163,15 @@ def run(scene,scene_hash,task,graph,output,settings=None,mode="final",images=Tru
         atomic_json(out/"files.json",snapshot(out))
         return result
     if graph["provenance"]=="model_generated":
-        need(task["provenance"]=="model_generated" and graph.get("model_provenance"),"正式模型结果缺少提供商和请求响应依据")
+        need(task["provenance"]=="model_generated" and graph.get("model_provenance"),"Formal model result lacks provider and request/response provenance")
         for key in ("provider","requested_model","response_model","request_sha256","response_sha256"):
-            need(graph["model_provenance"].get(key),"模型来源字段缺失："+key)
+            need(graph["model_provenance"].get(key),"Model provenance field missing: "+key)
     session=Session(m,d,meta,manifest,task,settings)
     session.quality_report=quality_report or {}
     if perturbation is not None:
-        # 只在本次初始化、记录器启动前施加公开扰动，绝不在轨迹中改状态。
+        # Apply the public perturbation only during this initialization, before the recorder starts; never change state mid-trajectory.
         delta=np.asarray(perturbation,dtype=float)
-        need(delta.shape==(3,) and np.isfinite(delta).all() and np.all(np.abs(delta)<=np.array([.005,.005,np.deg2rad(.5)])+1e-12),"扰动超出公共范围")
+        need(delta.shape==(3,) and np.isfinite(delta).all() and np.all(np.abs(delta)<=np.array([.005,.005,np.deg2rad(.5)])+1e-12),"Perturbation exceeds the public range")
         q=int(session.base.qposadr[0]); d.qpos[q:q+2]+=delta[:2]
         rotate=np.array([np.cos(delta[2]/2),0,0,np.sin(delta[2]/2)]); quat=np.zeros(4)
         mujoco.mju_mulQuat(quat,rotate,d.qpos[q+3:q+7].copy()); d.qpos[q+3:q+7]=quat

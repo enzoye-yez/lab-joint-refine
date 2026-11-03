@@ -170,14 +170,14 @@ def collision_hint(model,data,a,b,result,depth):
           "depth_mm":round(depth*1000,2)}
     if normal is not None:
         hint.update(move_geom2_local=_local(model,data,b,normal),move_geom1_local=_local(model,data,a,-np.asarray(normal)),
-            instruction="沿 move_geom2_local（geom2 所属 body 的局部坐标）移动 geom2 约 depth_mm，"
-                        "或沿 move_geom1_local 移动 geom1；若二者应当咬合，则改为声明连接/接口并控制嵌入深度")
+            instruction="Move geom2 about depth_mm along move_geom2_local (local frame of the body owning geom2),"
+                        "or move geom1 along move_geom1_local; if the two should interlock, declare a connection/interface instead and control the embedding depth")
     return hint
 
 
 def island_hint(model,data,query,island,others,boxes,limit=.05):
     """Nearest measured neighbour of a disconnected rigid island within the same rigid group."""
-    if not others:return {"nearest":None,"instruction":"该刚体只有这一块可见材料与其余部分分离；检查 body 归属或补连接结构"}
+    if not others:return {"nearest":None,"instruction":"This is the only visible piece of material of this rigid body and it is separated from the rest; check body ownership or add a connecting structure"}
     def box_gap(g,h):
         return float(np.max(np.maximum(boxes[g][0]-boxes[h][1],boxes[h][0]-boxes[g][1]).clip(min=0)))
     candidates=sorted(((box_gap(g,h),g,h) for g in island[:16] for h in others),key=lambda x:x[0])[:24]
@@ -187,14 +187,14 @@ def island_hint(model,data,query,island,others,boxes,limit=.05):
         result=observe(query,g,h,limit);d=result.get("distance_m")
         if d is not None and (best is None or d<best[0]):best=(d,g,h,result.get("normal"))
     if best is None:
-        return {"nearest":None,"instruction":f"{int(limit*1000)} mm 内没有同一刚体的其他材料；该部分悬空，需连接到主体或移入正确的 body"}
+        return {"nearest":None,"instruction":f"No other material of the same rigid body within {int(limit*1000)} mm; this part floats and must be connected to the main body or moved into the correct body"}
     d,g,h,normal=best
     hint={"nearest_geom":model.geom(h).name,"from_geom":model.geom(g).name,"gap_mm":round(d*1000,2)}
     if normal is not None and d>0:
         hint["move_island_local"]=_local(model,data,g,normal)
-        hint["instruction"]="沿 move_island_local 移动该孤立部分约 gap_mm 使其与 nearest_geom 接触，或加连接件"
+        hint["instruction"]="Move this isolated part about gap_mm along move_island_local so it touches nearest_geom, or add a connector"
     else:
-        hint["instruction"]="与 nearest_geom 已接触或重叠但无法确认材料连续；检查是否为非封闭网格，或改用基本体"
+        hint["instruction"]="Already touching or overlapping nearest_geom but material continuity cannot be confirmed; check for a non-closed mesh, or use primitives instead"
     return hint
 
 
@@ -381,8 +381,8 @@ def integrity(model,data,*,instance=None,tolerance=.0005,max_pairs=200000,query=
         clearance=evidence["clearance_to_parent_m"]
         floating.append({**evidence,"parent_body":model.body(p).name,
             "detail":"jointed part is neither in contact with nor captured by its parent's material",
-            "repair_hint":{"instruction":"让该部件的导向/轴销/铰链叶片与父件材料接触或包覆：沿 free_directions 补导轨、轴肩、"
-                "轴套或限位面，使 free_directions 全部被父件材料在 fit_tolerance_m 内挡住",
+            "repair_hint":{"instruction":"Make this part's guide/pin/hinge leaf contact or enclose the parent material: along free_directions add rails, shaft shoulders,"
+                "sleeves or stop faces so every free_directions is blocked by parent material within fit_tolerance_m",
                 "clearance_mm":None if clearance is None else round(clearance*1000,2)}})
     for gs in grouped.values():
         rs={rigid[int(model.geom_bodyid[g])] for g in gs}

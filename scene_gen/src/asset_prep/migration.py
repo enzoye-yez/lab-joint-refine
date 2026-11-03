@@ -1,4 +1,4 @@
-"""只用已存响应将明确支持的旧控制流程转换为持久化任务；禁止网络。"""
+"""Convert explicitly supported old control flows into persisted tasks using only stored responses; network is forbidden."""
 
 import copy
 import json
@@ -35,7 +35,7 @@ class ReadOnlyReplayStore(Store):
 
 class NoNetwork:
     def post(self,*args,**kwargs):
-        raise AssertionError('离线迁移禁止网络')
+        raise AssertionError('offline migration forbids network access')
 
 
 def migrate_run(root,identity,documents,config):
@@ -43,22 +43,22 @@ def migrate_run(root,identity,documents,config):
     state=json.loads(path.read_text(encoding='utf-8')); old=state['identity']
     if old==identity and state.get('workflow',{}).get('version')==VERSION:
         return {'status':'already_current','network_calls':0}
-    require(old.get('code') in SUPPORTED and not old.get('workflow_contract'),'不支持此历史源码版本的自动任务迁移')
+    require(old.get('code') in SUPPORTED and not old.get('workflow_contract'),'automatic task migration is not supported for this historical source version')
     require({k:v for k,v in old.items() if k!='code'}==
-            {k:v for k,v in identity.items() if k not in {'code','workflow_contract'}},'输入、解析、模型或语义配置发生变化，不能迁移')
-    require({'asset_package.json','documents.json'}<=state.get('outputs',{}).keys(),'历史任务缺少完整输出摘要')
+            {k:v for k,v in identity.items() if k not in {'code','workflow_contract'}},'input, parsing, model or semantic configuration changed; cannot migrate')
+    require({'asset_package.json','documents.json'}<=state.get('outputs',{}).keys(),'historical task lacks complete output digests')
     for name,sha in state['outputs'].items():
-        require(file_hash(safe_path(root,name))==sha,'历史输出被修改，不能迁移')
+        require(file_hash(safe_path(root,name))==sha,'historical outputs were modified; cannot migrate')
     for call in state['calls']:
-        require(call['kind']=='model' and call['status']=='done','自动迁移只接受提取阶段且全部请求已确定的运行')
-        require(file_hash(safe_path(root,call['file']))==call['sha256'],'历史响应被修改，不能迁移')
+        require(call['kind']=='model' and call['status']=='done','automatic migration accepts only runs in the extraction stage whose requests are all settled')
+        require(file_hash(safe_path(root,call['file']))==call['sha256'],'historical responses were modified; cannot migrate')
     package=json.loads(safe_path(root,'asset_package.json').read_text(encoding='utf-8'))
-    require(package['identity']==old and package['status'] in {'failed','paused','interrupted'},'历史任务不处于可迁移状态')
-    require(not state.get('checkpoint'),'不支持叠加其他历史迁移检查点')
+    require(package['identity']==old and package['status'] in {'failed','paused','interrupted'},'historical task is not in a migratable state')
+    require(not state.get('checkpoint'),'stacking on another historical migration checkpoint is not supported')
     snapshot={}; progress={}
     def capture(value):
         snapshot.clear(); snapshot.update(copy.deepcopy(value))
-    # 临时账本只引用只读原响应；校验事件写在临时目录，原账本最后一次性切换。
+    # The temporary ledger only references the read-only original responses; validation events are written to a temporary directory and the original ledger is switched over once at the end.
     with tempfile.TemporaryDirectory(prefix='migration-',dir=root.parent) as directory:
         temporary=Path(directory)
         replay_state=copy.deepcopy(state)
@@ -75,15 +75,15 @@ def migrate_run(root,identity,documents,config):
         except ReplayBoundary:
             pass
         require({c['key'] for c in state['calls']}<=getattr(store,'replayed_keys',set()),
-                '部分已付费响应未被迁移适配器消费；拒绝丢弃决定或改变请求后重算')
-    require(snapshot and snapshot['catalog']==package['inventory'],'已存响应重建的总表与检查点不一致；拒绝迁移')
+                'some paid responses were not consumed by the migration adapter; refusing to discard decisions or recompute with changed requests')
+    require(snapshot and snapshot['catalog']==package['inventory'],'catalog rebuilt from stored responses does not match the checkpoint; refusing to migrate')
     validate_inventory(snapshot['catalog'],documents['sources'],config.max_assets,allow_empty=True)
     validate_unique_assets(snapshot['catalog'])
     workflow=new_workflow(documents,config)
     workflow['catalog']=snapshot['catalog']; workflow['revision']=package['extraction']['revision']
     workflow['commits']=copy.deepcopy(package['extraction']['updates'])
     for commit in workflow['commits']: commit['legacy_import']=True
-    # 合并尚未处理且连续的旧区间，再按新规则成块；不能继承旧二分产生的尾片。
+    # Merge unprocessed contiguous old spans, then re-block them under the new rules; tail fragments from the old bisection must not be inherited.
     remaining=[]
     pending_parts=([snapshot['segment']] if snapshot['draft'] is None else [])+snapshot['queue']
     for parts in pending_parts:
@@ -103,7 +103,7 @@ def migrate_run(root,identity,documents,config):
                           cursor=len(snapshot['draft']['assets'])-len(batch['remaining']))
         workflow['active']=active
     workflow['operation_audit'].append({'action':'legacy_migration','calls_preserved':len(state['calls']),
-        'from_code':old['code'],'note':'已确认资产和当前候选/部分合并导入；后续使用新的身份与字段操作，不承诺请求格式相同'})
+        'from_code':old['code'],'note':'confirmed assets and current candidates/partial merges imported; later steps use the new identity and field operations, with no promise of identical request format'})
     audit={'at':time.time(),'from_identity':old,'to_identity':identity,'mode':'persistent_tasks',
            'outputs_before':copy.deepcopy(state['outputs']),'calls_preserved':len(state['calls'])}
     state['identity']=identity; state['workflow']=workflow; state['workflow_sha256']=digest(workflow)

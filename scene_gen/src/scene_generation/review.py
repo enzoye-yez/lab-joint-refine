@@ -110,8 +110,9 @@ def _scoped_review(value, stage, deferred=(), expected_units=None, preview=False
     require(value["verdict"] != "repair" or value["findings"], "repair必须列出本阶段具体缺陷")
     if stage == "asset":
         # The author edits from these lines alone: each must name the part, the evidence and the change.
-        vague = [f for f in value["findings"] if not ("：" in f and "依据" in f and "建议" in f)]
-        require(not vague, "每条finding须写成“部件/几何名：问题；依据（哪张图或哪条检查）；建议修改（方向、数值或结构）”，不合格："+str(vague[:3])[:600])
+        vague = [f for f in value["findings"] if not (":" in f and "evidence" in f.lower() and "suggested fix" in f.lower())]
+        require(not vague, "Each finding must read \"part/geom name: problem; evidence (which image or which check); suggested fix "
+                "(direction, value or structure)\"; not conforming: "+str(vague[:3])[:600])
     if stage == "scene":
         affected = value.get("affected_instances",[])
         require(isinstance(affected,list) and len(affected) <= 128 and all(isinstance(i,str) for i in affected)

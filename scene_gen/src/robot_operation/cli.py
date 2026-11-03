@@ -1,4 +1,4 @@
-"""离线操作入口；没有隐式模型调用、环境安装或正式实验。"""
+"""Offline operation entry point; no implicit model calls, environment installation or formal experiments."""
 import argparse
 from dataclasses import asdict
 import json
@@ -12,21 +12,21 @@ def main(argv=None):
     if argv and (argv[0].startswith("improve") or argv[0] in {"diagnose-run","diagnose-tools","diagnose-query"}):
         from .improve_cli import main as joint_main
         return joint_main(argv)
-    parser=argparse.ArgumentParser(description="移动双臂操作、证据和重放（默认离线）")
+    parser=argparse.ArgumentParser(description="Mobile dual-arm operation, evidence and replay (offline by default)")
     sub=parser.add_subparsers(dest="command",required=True)
-    inspect=sub.add_parser("inspect",help="读取场景摘要")
+    inspect=sub.add_parser("inspect",help="Read the scene summary")
     inspect.add_argument("--scene",type=Path,required=True)
-    sub.add_parser("defaults",help="输出公开工程默认参数")
-    view=sub.add_parser("view",help="关节姿态查看，不推进动力学或生成通过证据")
+    sub.add_parser("defaults",help="Print the public engineering defaults")
+    view=sub.add_parser("view",help="View joint poses; does not step dynamics or produce passing evidence")
     view.add_argument("--scene",type=Path,required=True);view.add_argument("--expected-sha",required=True)
-    prepare=sub.add_parser("prepare",help="派生自由底盘操作场景并进行离线准入检查")
-    request=sub.add_parser("request",help="准备白名单任务请求，不联网")
-    execute=sub.add_parser("run",help="执行显式提供的操作图")
-    repeat=sub.add_parser("repeat",help="执行冻结后的14次验证；由用户主动调用")
-    replay=sub.add_parser("replay",help="按记录控制输入重放")
-    diagnose=sub.add_parser("diagnose",help="独立复核来源场景初态穿透并导出反馈")
-    accept=sub.add_parser("accept",help="导入显式提供的模型或开发者响应，不联网")
-    revise=sub.add_parser("revise",help="按预算导入新操作图或修复后的场景")
+    prepare=sub.add_parser("prepare",help="Derive a free-base operation scene and run offline admission checks")
+    request=sub.add_parser("request",help="Prepare an allowlisted task request; no network access")
+    execute=sub.add_parser("run",help="Execute an explicitly supplied operation graph")
+    repeat=sub.add_parser("repeat",help="Run the frozen 14-trial validation; invoked explicitly by the user")
+    replay=sub.add_parser("replay",help="Replay from the recorded control inputs")
+    diagnose=sub.add_parser("diagnose",help="Independently re-check initial-state penetration in the source scene and export feedback")
+    accept=sub.add_parser("accept",help="Import an explicitly supplied model or developer response; no network access")
+    revise=sub.add_parser("revise",help="Import a new operation graph or repaired scene within budget")
     accept.add_argument("--request",type=Path,required=True)
     accept.add_argument("--response",type=Path,required=True)
     accept.add_argument("--output",type=Path,required=True)
@@ -44,7 +44,7 @@ def main(argv=None):
     for p in (execute,repeat):
         p.add_argument("--task",type=Path,required=True)
         p.add_argument("--graph",type=Path,required=True)
-        p.add_argument("--no-images",action="store_true",help="调试用途；输出不标为完整数据集")
+        p.add_argument("--no-images",action="store_true",help="For debugging; output is not marked as a complete dataset")
     execute.add_argument("--mode",choices=("trial","final"),default="final")
     request.add_argument("--task-root",type=Path,required=True)
     request.add_argument("--public-profile",type=Path,required=True)

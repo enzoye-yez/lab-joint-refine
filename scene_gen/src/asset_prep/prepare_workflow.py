@@ -1,4 +1,4 @@
-"""可恢复的任务理解、局部资产登记和交付审查。所有请求共享原账本。"""
+"""Resumable task understanding, local asset registration and delivery review. All requests share the original ledger."""
 
 from copy import deepcopy
 
@@ -13,7 +13,7 @@ from .workflow import run_workflow
 
 
 def task_card(task):
-    # 固定语义摘要不重复搬运每个阶段的长引文；原文仍由本次来源片段提供。
+    # The fixed semantic summary does not repeat each stage's long quotes; the source text is still provided by this request's source excerpts.
     return {'objective':task['objective'], 'selected_flow':task['selected_flow'],
             'excluded_branches':[{k:r[k] for k in ('name','reason')} for r in task['excluded_branches']],
             'preparations':[{k:r[k] for k in ('description','object_ids','basis')} for r in task['preparations']],
@@ -25,26 +25,26 @@ def task_card(task):
 
 def apply_patches(task, reply, sources):
     fields(reply, 'patches issues'); texts(reply['issues'])
-    require(isinstance(reply['patches'], list), '修订须为列表')
+    require(isinstance(reply['patches'], list), 'patches must be a list')
     revised = deepcopy(task); seen = set()
     keyed = {'objects', 'stages', 'preparations', 'final_conditions'}
     for patch in reply['patches']:
         fields(patch, 'section id value reason evidence')
-        section = patch['section']; require(section in task, '修订未知任务字段')
+        section = patch['section']; require(section in task, 'patch targets an unknown task field')
         text(patch['reason']); evidence(patch['evidence'], source_map(sources))
-        key = (section, patch['id']); require(key not in seen, '重复修订同一字段'); seen.add(key)
+        key = (section, patch['id']); require(key not in seen, 'the same field is patched more than once'); seen.add(key)
         if section in keyed:
-            require(isinstance(patch['id'], str), '对象修订缺少标识')
+            require(isinstance(patch['id'], str), 'object patch is missing an id')
             rows = revised[section]; old = next((i for i,r in enumerate(rows) if r['id']==patch['id']), None)
             value = patch['value']
             if value is None:
-                require(old is not None and patch['evidence'], '删除须指明已有对象和来源依据'); rows.pop(old)
+                require(old is not None and patch['evidence'], 'a deletion must name an existing object and give source evidence'); rows.pop(old)
             else:
-                require(isinstance(value, dict) and value.get('id')==patch['id'], '修订不能偷偷更换标识')
+                require(isinstance(value, dict) and value.get('id')==patch['id'], 'a patch must not silently change the id')
                 if old is None: rows.append(deepcopy(value))
                 else: rows[old] = deepcopy(value)
         else:
-            require(patch['id'] is None, '整体字段不使用对象标识')
+            require(patch['id'] is None, 'a whole-field patch does not use an object id')
             revised[section] = deepcopy(patch['value'])
     validate_task(revised, sources, partial=True)
     return revised
@@ -62,9 +62,9 @@ class Preparation:
             'selection_cursor':0, 'selection':None, 'definition_cursor':0, 'review_cursor':0,
             'task':None, 'task_revision':0, 'task_history':[], 'roles_by_asset':{},
             'links_by_stage':{}, 'reviews':{}, 'repair_round':0, 'reference_cache':{}})
-        require(self.state['version']==WORKFLOW_VERSION, '不能将旧全文提取直接恢复为任务准备')
+        require(self.state['version']==WORKFLOW_VERSION, 'an old full-text extraction cannot be resumed directly as task preparation')
         if 'preparation_sha256' in store.state:
-            require(digest(self.state)==store.state['preparation_sha256'], '任务准备状态摘要不一致')
+            require(digest(self.state)==store.state['preparation_sha256'], 'task preparation state digest mismatch')
         self.save()
 
     def save(self):
@@ -81,17 +81,17 @@ class Preparation:
 
     def phase(self, name):
         self.state.update(phase=name, status='running'); self.save()
-        labels = {'index':'全文索引','select':'流程选择','define':'任务定义','task_review':'任务审查',
-                  'assets':'资产登记','roles':'实例分配','links':'交互要求','references':'参考检索',
-                  'delivery_review':'交付审查','publish':'公开交付','complete':'完成'}
-        print('任务准备：'+labels.get(name,name)+'；模型调用 '+str(self.store.totals()['model_calls']), flush=True)
+        labels = {'index':'full-text index','select':'flow selection','define':'task definition','task_review':'task review',
+                  'assets':'asset registration','roles':'instance assignment','links':'interaction requirements','references':'reference search',
+                  'delivery_review':'delivery review','publish':'public delivery','complete':'complete'}
+        print('Task preparation: '+labels.get(name,name)+'; model calls '+str(self.store.totals()['model_calls']), flush=True)
 
     def ask(self, operation, prompt, data, validate):
         payload = {'operation':operation, **data}
         if self.state['task'] is not None:
             payload['task_revision'] = self.state['task_revision']
         require(len(encoded(self.model.messages(prompt, payload))) <= min(96000, self.config.max_input_bytes),
-                '任务请求超过有界输入上限；已保存进度，不截断任务或来源')
+                'task request exceeds the bounded input limit; progress saved; the task and sources are not truncated')
         return self.model.structured(prompt, payload, validate)
 
     def index(self):
@@ -99,12 +99,12 @@ class Preparation:
             block = self.state['index_queue'][0]
             sources = blocks.excerpts(block['units'], self.documents, context=0)
             def validate(value):
-                if value == {'split_unit':True}: raise OutputTooLarge('索引需细分原文')
-                fields(value, 'entries'); require(isinstance(value['entries'],list) and len(value['entries'])<=16, '索引过长')
+                if value == {'split_unit':True}: raise OutputTooLarge('index needs the source text subdivided')
+                fields(value, 'entries'); require(isinstance(value['entries'],list) and len(value['entries'])<=16, 'index too long')
                 for row in value['entries']:
                     fields(row, 'kind summary evidence')
-                    require(row['kind'] in {'purpose','stage','branch','preparation','cross_reference','equipment'}, '索引类型无效')
-                    text(row['summary']); require(len(row['summary'])<=400, '索引摘要过长')
+                    require(row['kind'] in {'purpose','stage','branch','preparation','cross_reference','equipment'}, 'invalid index kind')
+                    text(row['summary']); require(len(row['summary'])<=400, 'index summary too long')
                     evidence(row['evidence'], source_map(sources), required=True)
             try:
                 reply = self.ask('protocol_index', prompts.INDEX, {'sources':sources}, validate)
@@ -120,11 +120,11 @@ class Preparation:
             def validate(value):
                 if isinstance(value,dict) and value.get('pending') is True:
                     fields(value, 'pending reason'); text(value['reason'])
-                    require(self.state['selection'] is None, '已有流程不能被空候选覆盖')
+                    require(self.state['selection'] is None, 'an existing flow cannot be overwritten by an empty candidate')
                     return
                 fields(value, 'name objective reason evidence')
                 for key in ('name','objective','reason'):
-                    text(value[key]); require(len(value[key])<=1500, '流程摘要过长')
+                    text(value[key]); require(len(value[key])<=1500, 'flow summary too long')
                 evidence(value['evidence'], source_map(self.sources), required=True)
             decision = self.ask('flow_selection', prompts.SELECT,
                 {'index_page':row['entries'], 'current_best':self.state['selection'],
@@ -132,7 +132,7 @@ class Preparation:
             self.state.setdefault('selection_history',[]).append({'page':self.state['selection_cursor'],'decision':decision})
             if not decision.get('pending'): self.state['selection'] = decision
             self.state['selection_cursor'] += 1; self.save()
-        chosen = self.state['selection']; require(chosen, '未能识别执行流程')
+        chosen = self.state['selection']; require(chosen, 'failed to identify the execution flow')
         self.state['task'] = {'objective':chosen['objective'], 'selected_flow':chosen['name'],
             'selection_reason':chosen['reason'], 'selection_evidence':deepcopy(chosen['evidence']), **{k:[] for k in
             ('excluded_branches','preparations','objects','stages','final_conditions','abstractions','assumptions','issues')}}
@@ -183,11 +183,11 @@ class Preparation:
             if asset['id'] in self.state['roles_by_asset']: continue
             assigned = {o for rows in self.state['roles_by_asset'].values() for r in rows for o in r['object_ids']}
             def validate(value):
-                fields(value, 'roles'); require(isinstance(value['roles'],list) and value['roles'], '资产缺少角色')
+                fields(value, 'roles'); require(isinstance(value['roles'],list) and value['roles'], 'asset has no roles')
                 for row in value['roles']:
                     fields(row, 'id asset_id object_ids count stage_ids initial_state basis')
-                    require(row['asset_id']==asset['id'] and isinstance(row['object_ids'],list), '角色资产不一致')
-                    require(not assigned.intersection(row['object_ids']), '对象已被其他资产分配')
+                    require(row['asset_id']==asset['id'] and isinstance(row['object_ids'],list), 'role asset mismatch')
+                    require(not assigned.intersection(row['object_ids']), 'object is already assigned to another asset')
                 validate_roles(self.all_roles()+value['roles'], task, inv, partial=True)
             reply = self.ask('asset_roles', prompts.ROLES, {'asset':asset, 'task':task,
                 'unassigned_objects':[o['id'] for o in task['objects'] if o['id'] not in assigned],
@@ -197,7 +197,7 @@ class Preparation:
         if missing:
             def validate_missing(value):
                 fields(value, 'roles')
-                require({o for r in value['roles'] for o in r['object_ids']}==missing, '补分配须恰好覆盖未分配对象')
+                require({o for r in value['roles'] for o in r['object_ids']}==missing, 'supplementary assignment must cover exactly the unassigned objects')
                 validate_roles(self.all_roles()+value['roles'], task, inv)
             reply = self.ask('missing_roles', prompts.ROLES+'\nThis is an allocation repair: assign ALL listed unassigned objects across the existing types. Return only additional roles with unique ids.',
                 {'task':task, 'unassigned_objects':sorted(missing), 'existing_roles':self.all_roles(),
@@ -220,7 +220,7 @@ class Preparation:
             asset['quantity'] = {'value':counts[asset['id']], 'origin':'explicit' if explicit else 'inferred',
                                  'basis':'Allocation from task instance roles: '+', '.join(r['id'] for r in rows),
                                  'evidence':list({digest(e):e for e in refs}.values())}
-        # 数量冲突在重新分配后不允许继续引用旧字段。
+        # After reassignment, a quantity conflict must no longer reference the old field.
         quantity_conflicts = [c for c in inv['conflicts'] if c['target_key']=='quantity']
         if quantity_conflicts:
             self.state.setdefault('quantity_reconciliation', []).append({'task_revision':self.state['task_revision'],
@@ -244,7 +244,7 @@ class Preparation:
         self.phase('references')
 
     def all_links(self):
-        # 段内编号带阶段前缀，避免不同阶段使用同名局部编号。
+        # In-stage ids carry a stage prefix so different stages do not use the same local ids.
         result = {k:[] for k in ('interactions','mating_requirements','assistance_needs')}
         for sid, links in self.state['links_by_stage'].items():
             for key, rows in links.items():
@@ -260,10 +260,10 @@ class Preparation:
             packet_key = digest(packet)
             if self.state['reviews'].get(stage['id'], {}).get('input_sha256') == packet_key: continue
             def validate(value):
-                fields(value, 'issues'); require(isinstance(value['issues'],list), '审查事项须为列表')
+                fields(value, 'issues'); require(isinstance(value['issues'],list), 'review issues must be a list')
                 for issue in value['issues']:
                     fields(issue, 'id kind target_id description evidence')
-                    require(issue['kind'] in {'task','asset','roles','links','reference'}, '未知审查事项类型')
+                    require(issue['kind'] in {'task','asset','roles','links','reference'}, 'unknown review issue kind')
                     for key in ('id','target_id','description'): text(issue[key])
                     evidence(issue['evidence'], source_map(self.sources))
             reply = self.ask('delivery_review', prompts.DELIVERY_REVIEW, packet, validate)
@@ -275,7 +275,7 @@ class Preparation:
 
     def repair(self, issues):
         require(self.state['repair_round'] < self.config.repair_attempts,
-                '定向修订次数已用尽；具体未解决事项保存在审查记录中')
+                'targeted revision attempts exhausted; the specific unresolved issues are saved in the review record')
         prompt = prompts.COMMON + '''Repair only evidenced issues in this task package. Return
 {task_changes:{patches:[],issues:[]}, assets:[full replacement inventory asset rows],
  retire_assets:[{asset_id,replacement_id:null|existing_asset_id,reason,evidence}],
@@ -285,7 +285,7 @@ assets using the inventory schema, with a role and a links entry. Retire only ev
 or out-of-scope types, with explicit replacement or exclusion reasons; update every affected role
 and interaction. Do not delete requirements for convenience, weaken the end state or invent
 product facts. Unchanged lists must be empty. '''
-        # 每次只修复一个有界阶段的问题，而不是发送全部参考与全文。
+        # Each time, repair the issues of only one bounded stage instead of sending all references and the full text.
         issue = issues[0]
         task = self.state['task']; inv = self.state['inventory']
         relevant = next(s for s in task['stages'] if any(i==issue for i in self.state['reviews'].get(s['id'],{}).get('issues',[])))
@@ -295,25 +295,25 @@ product facts. Unchanged lists must be empty. '''
         def candidate(value):
             fields(value, 'task_changes assets retire_assets roles links reason'); text(value['reason'])
             new_task = apply_patches(task, value['task_changes'], self.sources)
-            require(all(p['evidence'] for p in value['task_changes']['patches']), '任务语义修订须有原文依据')
+            require(all(p['evidence'] for p in value['task_changes']['patches']), 'task semantic patches must have source evidence')
             validate_task(new_task, self.sources)
             new_inv = deepcopy(inv); assets = {a['id']:a for a in new_inv['assets']}
             for asset in value['assets']:
-                require(isinstance(asset,dict), '资产修订须为完整对象')
+                require(isinstance(asset,dict), 'an asset revision must be a complete object')
                 if asset.get('id') not in assets:
                     new_inv['steps'].append({'id':'repair_'+digest(asset['id'])[:24], 'description':'Additional physical dependency identified during task review.',
                         'asset_ids':[asset['id']], 'evidence':asset['evidence']})
                 assets[asset['id']] = deepcopy(asset)
             retired = {}
-            require(isinstance(value['retire_assets'],list), '撤销资产须为列表')
+            require(isinstance(value['retire_assets'],list), 'retire_assets must be a list')
             for row in value['retire_assets']:
                 fields(row, 'asset_id replacement_id reason evidence'); text(row['reason'])
                 evidence(row['evidence'],source_map(self.sources),required=True)
                 aid = row['asset_id']; replacement = row['replacement_id']
-                require(aid in assets and aid not in retired, '撤销未知或重复资产')
-                require(replacement is None or (replacement in assets and replacement!=aid), '合并目标无效')
+                require(aid in assets and aid not in retired, 'retiring an unknown or duplicate asset')
+                require(replacement is None or (replacement in assets and replacement!=aid), 'invalid merge target')
                 retired[aid] = replacement
-            require(not any(a in retired for a in retired.values() if a), '禁止资产合并链，须直接指定保留类型')
+            require(not any(a in retired for a in retired.values() if a), 'asset merge chains are forbidden; name the retained type directly')
             for aid in retired: assets.pop(aid)
             for asset in assets.values(): asset['parent_id'] = retired.get(asset['parent_id'],asset['parent_id'])
             for step in new_inv['steps']:
@@ -329,17 +329,17 @@ product facts. Unchanged lists must be empty. '''
             roles = deepcopy(self.state['roles_by_asset'])
             for aid in retired: roles.pop(aid,None)
             for row in value['roles']:
-                fields(row, 'asset_id roles'); require(row['asset_id'] in assets, '未知角色资产')
+                fields(row, 'asset_id roles'); require(row['asset_id'] in assets, 'unknown role asset')
                 roles[row['asset_id']] = row['roles']
             validate_roles([r for rows in roles.values() for r in rows], new_task, new_inv)
             links = deepcopy(self.state['links_by_stage'])
             links = {sid:v for sid,v in links.items() if sid in {s['id'] for s in new_task['stages']}}
             for row in value['links']:
-                fields(row, 'stage_id value'); require(row['stage_id'] in {s['id'] for s in new_task['stages']}, '未知交互阶段')
+                fields(row, 'stage_id value'); require(row['stage_id'] in {s['id'] for s in new_task['stages']}, 'unknown interaction stage')
                 validate_links(row['value'], new_task, new_inv); links[row['stage_id']] = row['value']
-            require(set(links)=={s['id'] for s in new_task['stages']}, '任务阶段修订后缺少配套交互')
+            require(set(links)=={s['id'] for s in new_task['stages']}, 'after the task stage revision, matching interactions are missing')
             for link in links.values(): validate_links(link, new_task, new_inv)
-            require((new_task,new_inv,roles,links)!=(task,inv,self.state['roles_by_asset'],self.state['links_by_stage']), '修订没有实际变化')
+            require((new_task,new_inv,roles,links)!=(task,inv,self.state['roles_by_asset'],self.state['links_by_stage']), 'the revision makes no actual change')
             return new_task,new_inv,roles,links
         value = self.ask('targeted_repair', prompt, data, candidate)
         new_task,new_inv,roles,links = candidate(value)

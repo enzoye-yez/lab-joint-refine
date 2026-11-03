@@ -1,4 +1,4 @@
-"""核对服务报告的输出用量；不是独立分词或计费认证。"""
+"""Checks the output usage reported by the service; not an independent tokenization or billing certification."""
 
 from .errors import ProviderLimitError
 
@@ -21,5 +21,5 @@ def check_output_limit(response, limit, parameter, store, key):
     audit = output_audit(response, limit, parameter)
     store.record_validation(key, audit)
     if audit['status'] == 'reported_violation':
-        raise ProviderLimitError(f"服务报告输出 {audit['reported']} 个令牌，超过请求上限 {limit}；响应已保存，暂停后续请求。请先运行输出上限探测")
+        raise ProviderLimitError(f"service reported {audit['reported']} output tokens, exceeding the requested limit {limit}; the response was saved and further requests are paused. Run the output-limit probe first")
     return audit

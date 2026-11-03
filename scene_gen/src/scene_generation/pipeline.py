@@ -990,7 +990,7 @@ class SceneRun:
                                    for h in self.state.get('repair_history',[])]
         result['repair_schedule']=self.state.get('repair_schedule',[])
         result['phase_budget']=self.store.state.get('phase_budget')
-        from .handoff import quality_handoff
+        from .handoff import quality_handoff, operation_obligations
         result['operation_handoff']=quality_handoff((latest or {}).get('report',{}),scene_hash,self.state.get('repair_schedule',[]))
         result['stop_reason']=self.state.get('stop_reason')
         if not result['stop_reason'] and status not in {'candidate_ready','static_candidate_ready','static_preview_ready'}:
@@ -1020,6 +1020,7 @@ class SceneRun:
                 "candidate_status":result["status"],"environment":self.env,"plan":latest["plan"],
                 "requirements":self.contract,"qualification":result["qualification"],"unverified":result["unverified"],
                 "validation_mode":self.limits.validation_mode,"deferred_checks":deferred,
+                "operation_obligations":operation_obligations(self.state),
                 "quality":result['operation_handoff']})
         return result
 

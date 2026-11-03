@@ -172,7 +172,7 @@ class ContextTests(unittest.TestCase):
                 answer = {"context_read": {"reference": c["_context"]["source_ref"], "limit": 1}}
                 return {"choices": [{"message": {"content": json.dumps(answer)}}]}
         m = self.model(Transport())
-        with self.assertRaisesRegex(ContextLimitError, "持续无新增"):
+        with self.assertRaisesRegex(ContextLimitError, "keep adding nothing new"):
             m.ask("fixture", self.large(), [], "author")
         self.assertEqual(len(m.store.state["calls"]), 10)
         receipt=json.loads(next((m.store.root/"request_context").rglob("receipt.json")).read_text("utf-8"))

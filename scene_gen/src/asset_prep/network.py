@@ -1,4 +1,4 @@
-"""有界 HTTPS 传输：公共地址检查、解析地址固定、禁止自动重定向。"""
+"""Bounded HTTPS transport: public-address check, pinned resolved address, no automatic redirects."""
 
 import http.client
 import ipaddress
@@ -16,13 +16,13 @@ def public_target(url, resolver=socket.getaddrinfo):
     parsed = urlsplit(url)
     if (parsed.scheme != "https" or not parsed.hostname or parsed.username
             or parsed.password or parsed.fragment):
-        raise ValidationError("网络请求仅允许不含凭据的 HTTPS 地址")
+        raise ValidationError("network requests allow only HTTPS URLs without credentials")
     try:
         addresses = resolver(parsed.hostname, parsed.port or 443, type=socket.SOCK_STREAM)
         if not addresses or any(not ipaddress.ip_address(a[4][0]).is_global for a in addresses):
-            raise ValidationError("拒绝访问回环、内网、链路本地或保留网络地址")
+            raise ValidationError("refusing to access loopback, private, link-local or reserved network addresses")
     except (OSError, ValueError) as exc:
-        raise ProviderError("无法解析服务地址") from exc
+        raise ProviderError("cannot resolve the service address") from exc
     return parsed, addresses[0][4][0]
 
 
@@ -41,7 +41,7 @@ class PinnedHTTPS(http.client.HTTPSConnection):
 
 
 class ProxiedPinnedHTTPS(PinnedHTTPS):
-    """HTTP CONNECT 隧道只承载 TLS 密文；目标 IP、证书主机名仍固定。"""
+    """The HTTP CONNECT tunnel carries only TLS ciphertext; target IP and certificate host name stay pinned."""
     def __init__(self, hostname, address, port, timeout, proxy):
         super().__init__(hostname, address, port, timeout)
         self.proxy = proxy
@@ -63,7 +63,7 @@ class ProxiedPinnedHTTPS(PinnedHTTPS):
 
 
 def connection_for(parsed, address, timeout):
-    # 仅官方 API 采用用户已配置的系统代理；其他供应商和资产下载保持原行为。
+    # Only the official API uses the system proxy configured by the user; other providers and asset downloads keep the original behavior.
     if parsed.hostname == "api.openai.com" and (parsed.port or 443) == 443:
         proxy = getproxies().get("https")
         if proxy and not proxy_bypass(parsed.hostname):
@@ -76,7 +76,7 @@ def connection_for(parsed, address, timeout):
             except ValueError:
                 valid = False
             if not valid:
-                raise ProviderError("官方接口的系统代理配置不受支持；需要不含凭据的 HTTP 隧道代理",
+                raise ProviderError("system proxy configuration for the official API is not supported; an HTTP tunnel proxy without credentials is required",
                                     diagnostics={"failure": "proxy_configuration", "phase": "connect"})
             return ProxiedPinnedHTTPS(parsed.hostname, address, 443, timeout, (target.hostname, port))
     return PinnedHTTPS(parsed.hostname, address, parsed.port or 443, timeout)
@@ -84,8 +84,8 @@ def connection_for(parsed, address, timeout):
 
 class Transport:
     def http_error(self, response, connection, key, deadline):
-        """默认不读取错误正文；生成模块可扩展为有界、脱敏诊断。"""
-        return ProviderError(f"服务返回 HTTP 状态 {response.status}", uncertain=response.status >= 500)
+        """By default the error body is not read; the generation module may extend this to bounded, redacted diagnostics."""
+        return ProviderError(f"service returned HTTP status {response.status}", uncertain=response.status >= 500)
 
     def request(self, url, *, payload=None, key=None, timeout=120, max_bytes=8_000_000, accept=None):
         parsed, address = public_target(url)
@@ -115,14 +115,14 @@ class Transport:
             status = response.status
             phase = 'reading_body'
             if response.status != 200:
-                # 不输出响应正文，防止服务回显凭据；重定向也不会携带密钥跳转。
+                # Never output the response body, so a service cannot echo credentials; redirects never carry the key along.
                 raise self.http_error(response, connection, key, started + timeout)
             data = bytearray()
             while True:
                 remaining = timeout - (time.monotonic() - started)
                 if remaining <= 0:
                     raise TimeoutError()
-                # read1 避免对端持续滴流使一次 read 长期不返回。
+                # read1 keeps a peer that trickles data from blocking a single read indefinitely.
                 if connection.sock:
                     connection.sock.settimeout(remaining)
                 part = response.read1(min(65536, max_bytes + 1 - len(data)))
@@ -131,7 +131,7 @@ class Transport:
                 data.extend(part)
                 received = len(data)
                 if len(data) > max_bytes:
-                    raise ProviderError("响应超过大小限制", uncertain=payload is not None)
+                    raise ProviderError("response exceeds the size limit", uncertain=payload is not None)
             return bytes(data), response.getheader("Content-Type", "")
         except ProviderError as exc:
             exc.diagnostics.update({'phase': phase, 'elapsed_seconds': round(time.monotonic() - started, 3),
@@ -148,9 +148,9 @@ class Transport:
             for code in ('errno', 'winerror'):
                 if type(getattr(exc, code, None)) is int:
                     detail[code] = getattr(exc, code)
-            label = {'timeout': '等待超时', 'tls_error': '加密连接失败',
-                     'connection_error': '网络连接中断', 'protocol_error': '响应协议错误'}[failure]
-            raise ProviderError(f"{label}；阶段={phase}，耗时={detail['elapsed_seconds']}秒，状态码={status}",
+            label = {'timeout': 'wait timed out', 'tls_error': 'TLS connection failed',
+                     'connection_error': 'network connection interrupted', 'protocol_error': 'response protocol error'}[failure]
+            raise ProviderError(f"{label}; phase={phase}, elapsed={detail['elapsed_seconds']}s, status={status}",
                                 uncertain=payload is not None, diagnostics=detail) from exc
         finally:
             connection.close()
@@ -163,6 +163,6 @@ class Transport:
                 raise ValueError()
             return result
         except (ValueError, UnicodeError) as exc:
-            raise ProviderError("服务未返回有效 JSON 对象", uncertain=True,
+            raise ProviderError("service did not return a valid JSON object", uncertain=True,
                                 diagnostics={'phase': 'decode_json', 'failure': 'invalid_json',
                                              'received_bytes': len(raw)}) from exc

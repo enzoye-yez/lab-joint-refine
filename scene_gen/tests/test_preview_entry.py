@@ -55,7 +55,7 @@ class PreviewEntryTests(unittest.TestCase):
         p.unlink()
         with self.assertRaisesRegex(ValidationError,"缺少结果文件"):resolve_artifact(self.root,"example")
         p.write_text("broken")
-        with self.assertRaisesRegex(ValidationError,"无效的结构化文件"):resolve_artifact(self.root,"example")
+        with self.assertRaisesRegex(ValidationError,"Invalid structured file"):resolve_artifact(self.root,"example")
         p.write_text("[]")
         with self.assertRaisesRegex(ValidationError,"必须为对象"):resolve_artifact(self.root,"example")
         with p.open("wb") as f:f.truncate(64000001)

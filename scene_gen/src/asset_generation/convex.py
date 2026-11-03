@@ -1,4 +1,4 @@
-"""凸集最近点与成对见证点；同时用于实体距离和支撑区域求交。"""
+"""Closest points between convex sets and paired witness points; used both for solid distance and for intersecting support regions."""
 
 from itertools import combinations
 import math
@@ -6,10 +6,10 @@ import numpy as np
 
 
 def closest_witness(support, direction, *, tolerance=1e-9, limit=math.inf, iterations=96):
-    """GJK（凸集距离算法）：保留凸组合见证，零距离不在求解层丢弃。
+    """GJK (convex-set distance algorithm): keeps convex-combination witnesses; zero distance is not discarded at the solver layer.
 
-    support(direction) 返回两个集合沿相反方向的极值点。零距离仅证明
-    集合相交/极近，调用者必须另外证明支撑平面，才能宣称实体接触。
+    support(direction) returns the extreme points of the two sets in opposite directions. Zero distance only proves
+    that the sets intersect or are very close; the caller must separately prove a supporting plane before claiming solid contact.
     """
     direction = np.asarray(direction,dtype=float)
     if np.linalg.norm(direction)<1e-12:

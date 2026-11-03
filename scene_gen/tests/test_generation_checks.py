@@ -66,7 +66,7 @@ class LatchContractTests(unittest.TestCase):
     def test_weld_declared_as_latch_names_the_correct_constraint(self):
         xml = HINGED_LID.replace('<joint name="lid_lock" joint1="hinge" polycoef="0 0 0 0 0"/>',
                                  '<weld name="lid_lock" body1="lid" body2="body"/>')
-        with self.assertRaisesRegex(ValidationError, "joint 型约束"):
+        with self.assertRaisesRegex(ValidationError, "joint-type constraint"):
             validate_manifest(lid_manifest(), mujoco.MjModel.from_xml_string(xml), ["A01"])
 
     def test_detachable_in_same_tree_points_author_to_latch(self):
@@ -180,7 +180,7 @@ class GenerationCheckTests(unittest.TestCase):
         write_artifact(self.root, xml)
         report = validate_artifact(self.root, ["A01"], check_profile({}))
         self.assertEqual(report["status"], "fail")
-        self.assertIn("不能关闭", report["checks"][0]["detail"])
+        self.assertIn("must not be disabled", report["checks"][0]["detail"])
 
     def test_real_multiview_render(self):
         result = validate_artifact(self.root, ["A01"], dimension_profile(), self.root/"renders")
@@ -216,7 +216,7 @@ class GenerationCheckTests(unittest.TestCase):
         write_artifact(self.root,XML.replace('stiffness="400"','stiffness="100"'))
         button = interaction_probes(self.root,MANIFEST)[0]
         self.assertEqual(button["status"],"fail")
-        self.assertIn("静止位置",button["detail"])
+        self.assertIn("rest position",button["detail"])
 
     def test_button_that_stays_pressed_after_retreat_fails(self):
         from asset_generation.probes import interaction_probes
@@ -225,7 +225,7 @@ class GenerationCheckTests(unittest.TestCase):
         self.assertTrue(button["triggered"])
         self.assertFalse(button["released_after_retreat"])
         self.assertEqual(button["status"],"fail")
-        self.assertIn("未复位",button["detail"])
+        self.assertIn("not reset",button["detail"])
 
     def test_probe_reads_the_configuration_model_file(self):
         from asset_generation.probes import interaction_probes

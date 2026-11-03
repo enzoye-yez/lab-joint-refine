@@ -81,7 +81,7 @@ class ArchivedEvidenceTests(unittest.TestCase):
         self.assertEqual(checked_report(raw,domain='asset',mode='static')['status'],'error')
         fresh=inspect_candidate(CORPUS/'A01/artifact',['A01'],{})
         self.assertEqual(checked_report(fresh,domain='asset',mode='static')['status'],'fail')
-        self.assertTrue(any('机械事件' in r['detail'] for r in fresh['checks']))
+        self.assertTrue(any('Mechanical event' in r['detail'] for r in fresh['checks']))
 
     def test_geometry_reference_and_scope_remain_mandatory(self):
         root=CORPUS/'A02/artifact';model=load_model(root);mf=read(root/'interfaces.json')
@@ -146,7 +146,7 @@ class SavedResponseTests(unittest.TestCase):
             transport.post.return_value=response
             model=GenerationModel(Config(),GenerationConfig(),{'HARNESS_MODEL_API_KEY':'fixture'},store,transport)
             for _ in range(2):
-                with self.assertRaisesRegex(ValidationError,'截断'):model.ask('replay',{},[],'asset:A16')
+                with self.assertRaisesRegex(ValidationError,'truncated'):model.ask('replay',{},[],'asset:A16')
             self.assertEqual(transport.post.call_count,1)
 
 

@@ -1,4 +1,4 @@
-"""读取引用网页的静态内容和图片引用；不执行网页脚本。"""
+"""Read the static content and image references of cited web pages; never execute page scripts."""
 
 import hashlib
 import json
@@ -39,12 +39,12 @@ class ProductPageParser(HTMLParser):
                 existing.update(candidate)
             return
         self.candidates.append(candidate)
-        # 结构化产品数据在正文扫描后解析，不能被先出现的装饰图片挤出候选集。
+        # Structured product data is parsed after the body scan so earlier decorative images cannot push it out of the candidate set.
         self.candidates.sort(key=lambda i: self.IMAGE_PRIORITY[i["discovery"]])
         if len(self.candidates) > 100:
             self.candidates.pop()
-            if "页面图片候选超过上限，已按来源优先级保留" not in self.warnings:
-                self.warnings.append("页面图片候选超过上限，已按来源优先级保留")
+            if "page image candidates exceeded the limit; kept by source priority" not in self.warnings:
+                self.warnings.append("page image candidates exceeded the limit; kept by source priority")
 
     def handle_starttag(self, tag, attrs):
         attrs = dict(attrs)
@@ -58,9 +58,9 @@ class ProductPageParser(HTMLParser):
         if tag == "meta":
             name = (attrs.get("property") or attrs.get("name") or "").lower()
             if name in {"og:image", "og:image:url", "og:image:secure_url", "twitter:image", "twitter:image:src"}:
-                self.candidate(attrs.get("content"), "页面图片元数据", "page_meta")
+                self.candidate(attrs.get("content"), "page image metadata", "page_meta")
         if tag in {"img", "source"}:
-            description = attrs.get("alt") or attrs.get("title") or "页面图片，型号未视觉核实"
+            description = attrs.get("alt") or attrs.get("title") or "page image; model not visually verified"
             for name in ("data-src", "data-original", "src"):
                 self.candidate(attrs.get(name), description, "page_img")
             value = attrs.get("srcset") or attrs.get("data-srcset") or ""
@@ -75,7 +75,7 @@ class ProductPageParser(HTMLParser):
             self.json_blocks.append("".join(self.json_ld))
             self.json_ld = None
         if tag in self.hidden:
-            # 处理不规范嵌套时保守丢弃隐藏内容，不将脚本作为正文。
+            # With malformed nesting, hidden content is conservatively dropped and scripts are never treated as body text.
             index = len(self.hidden) - 1 - self.hidden[::-1].index(tag)
             del self.hidden[index:]
 
@@ -87,7 +87,7 @@ class ProductPageParser(HTMLParser):
 
     def product_images(self, value, depth=0):
         if depth > 16:
-            self.warnings.append("结构化产品数据嵌套过深，部分图片未提取")
+            self.warnings.append("structured product data is nested too deeply; some images were not extracted")
             return
         if isinstance(value, list):
             for item in value:
@@ -103,7 +103,7 @@ class ProductPageParser(HTMLParser):
                 for image in images:
                     if isinstance(image, dict):
                         image = image.get("contentUrl") or image.get("url")
-                    self.candidate(image, str(value.get("name") or "结构化产品图片"), "page_product_data")
+                    self.candidate(image, str(value.get("name") or "structured product image"), "page_product_data")
             for name, item in value.items():
                 if name != "image" and isinstance(item, (list, dict)):
                     self.product_images(item, depth + 1)
@@ -113,11 +113,11 @@ class ProductPageParser(HTMLParser):
             try:
                 self.product_images(json.loads(block))
             except (ValueError, RecursionError):
-                self.warnings.append("页面结构化产品数据无法解析，已跳过")
-        # 产品结构化数据/元数据优先于普通图片，普通图片可能是品牌标识或装饰。
+                self.warnings.append("page structured product data could not be parsed; skipped")
+        # Structured product data/metadata takes priority over plain images, which may be logos or decoration.
         images = self.candidates[:30]
         if len(self.candidates) > 30:
-            self.warnings.append("单页只输出优先级最高的 30 个图片候选")
+            self.warnings.append("only the 30 highest-priority image candidates are output per page")
         content = "\n".join(self.parts)
         return {"content": content[:12000], "content_truncated": len(content) > 12000,
                 "images": images, "warnings": list(dict.fromkeys(self.warnings))}
@@ -143,7 +143,7 @@ class PageFetcher:
                 raw, content_type = self.transport.request(url, timeout=self.config.timeout_seconds,
                                                            max_bytes=2_000_000, accept="text/html,application/xhtml+xml")
                 if content_type.split(";", 1)[0].strip().lower() not in {"text/html", "application/xhtml+xml"}:
-                    raise ProviderError("引用来源不是静态网页，暂不提取正文或图片")
+                    raise ProviderError("cited source is not a static web page; body text and images are not extracted for now")
                 charset = re.search(r"charset\s*=\s*[\"']?([a-zA-Z0-9_-]+)", content_type, re.I)
                 try:
                     html = raw.decode(charset.group(1) if charset else "utf-8", errors="replace")
@@ -180,10 +180,10 @@ class PageFetcher:
                             source_id=source["id"], source_ids=[source["id"]], association="page_linked",
                             visual_identity_verified=False, page_sha256=page["page_sha256"]))
                 if not page["content"]:
-                    warnings.append(f"{source['id']} 没有可用的静态正文；不以模型摘要补充厂商规格")
+                    warnings.append(f"{source['id']} has no usable static body text; model summaries are not used to fill in manufacturer specifications")
             except (ProviderError, ValidationError) as exc:
                 source.update(page_status="unavailable")
-                warnings.append(f"{source['id']} 网页读取失败：{exc}")
+                warnings.append(f"{source['id']} page read failed: {exc}")
         if len(references["sources"]) > self.config.pages_per_asset:
-            warnings.append("部分引用超过每项资产的网页读取上限，只保留引用，不视作已读取正文")
+            warnings.append("some citations exceed the per-asset page read limit; only the citation is kept and its body is not considered read")
         return references

@@ -1,4 +1,4 @@
-"""框架编写的短接触探测，不运行模型提供的验证程序。"""
+"""Short contact probes written by the framework; never runs verification programs supplied by the model."""
 
 from pathlib import Path
 import numpy as np
@@ -8,15 +8,15 @@ from .runtime import InteractionRuntime
 from .contracts import require
 
 
-# 压头闭环推进：按钮到达行程末端（REACHED）即停，最多压过剩余行程 PRESS_OVERTRAVEL 以抵消
-# 接触压缩；继续压只会把按钮推出软限位、制造假读数。
+# Closed-loop presser advance: stop as soon as the button reaches the end of travel (REACHED), overtravel at most PRESS_OVERTRAVEL to offset
+# contact compression; pressing further only pushes the button past its soft limit and produces false readings.
 PRESS_OVERTRAVEL = .003
 REACHED = .98
 SETTLE_STEPS_SECONDS = .3
 
 
 def _front_depth(model, data, g, axis):
-    """受压几何沿 -axis 方向最外表面到几何中心的距离（按 geom_aabb，适用于所有几何类型）。"""
+    """Distance from the outermost surface of the pressed geom along -axis to the geom centre (via geom_aabb; works for every geom type)."""
     rotation = data.geom_xmat[g].reshape(3, 3)
     center, half = model.geom_aabb[g, :3], model.geom_aabb[g, 3:]
     local = rotation.T@axis
@@ -24,9 +24,9 @@ def _front_depth(model, data, g, axis):
 
 
 def _probe_model(root, model_file, joint):
-    """资产加一个独立运动学压头；按钮所在部件的自由根被固定在原位，压头压的是按钮而不是坠落中的仪器。"""
+    """The asset plus an independent kinematic presser; the free root of the button's part is fixed in place so the presser presses the button, not a falling instrument."""
     spec = mujoco.MjSpec.from_file(str(Path(root)/model_file))
-    require(spec.geom("harness_probe") is None and spec.body("harness_probe_body") is None,"资产使用保留探测名称")
+    require(spec.geom("harness_probe") is None and spec.body("harness_probe_body") is None,"Asset uses a reserved probe name")
     plain = spec.compile()
     root_body = plain.body(int(plain.body_rootid[plain.jnt_bodyid[plain.joint(joint).id]])).name
     for item in list(spec.joints):
@@ -38,13 +38,13 @@ def _probe_model(root, model_file, joint):
 
 
 def interaction_probes(root, manifest, model_file="model.xml"):
-    """使用独立运动学压头推动实际按钮；不直接写按钮关节或冒充机械臂执行。
+    """Push the actual button with an independent kinematic presser; never write the button joint directly or pretend to be a robot arm.
 
-    model_file 是被检查的构型文件；多构型资产的按钮只存在于各自的构型模型中。
-    按钮先在重力下静置得到静止位置；压头推进到行程 98% 且事件触发即停（最多压过行程末端 3 mm）；撤回后再静置，
-    以静止位置判断复位。静止位置已越过 released_at 说明弹簧撑不住按钮自重，是真缺陷。"""
+    model_file is the configuration file under check; in multi-configuration assets the buttons exist only in their own configuration models.
+    The button first rests under gravity to get its rest position; the presser advances to 98% of travel and stops once the event fires (overtravel at most 3 mm past the end of travel); after retracting it rests again,
+    and return is judged by the rest position. A rest position already past released_at means the spring cannot hold the button's own weight, a real defect."""
     rows = []
-    require(len(manifest["buttons"]) <= 32,"按钮探测数超限")
+    require(len(manifest["buttons"]) <= 32,"Too many button probes")
     released_connections = set()
     for button in manifest["buttons"]:
         model, root_body = _probe_model(root, model_file, button["joint"])
@@ -93,15 +93,15 @@ def interaction_probes(root, manifest, model_file="model.xml"):
         sag_ok = rest < button["released_at"]
         released = not runtime.pressed[button["id"]]
         failed = [name for name, ok in (
-            (f"重力下静止位置 {rest*1000:.2f} mm 已越过 released_at {button['released_at']*1000:.2f} mm（弹簧撑不住按钮自重或 released_at 过低）", sag_ok),
-            ("未触发事件", event), ("压头撤回后未回到静止位置", returned),
-            ("压头撤回后按钮状态未复位", released), ("数值不稳定", stable)) if not ok]
+            (f"Gravity rest position {rest*1000:.2f} mm is already past released_at {button['released_at']*1000:.2f} mm (spring cannot hold the button's own weight, or released_at is too low)", sag_ok),
+            ("event not triggered", event), ("did not return to rest position after presser retracted", returned),
+            ("button state not reset after presser retracted", released), ("numerically unstable", stable)) if not ok]
         rows.append({"id":"button_probe:"+button["id"],"status":"fail" if failed else "pass",
-                     "detail":("；".join(failed)+"。" if failed else "")+
-                              f"按钮所在部件根 {root_body} 固定；独立压头推进到按钮行程末端即停（最多压过 {PRESS_OVERTRAVEL*1000:g} mm）并撤回；未直接写按钮关节，不认证机器人按压轨迹",
+                     "detail":("; ".join(failed)+". " if failed else "")+
+                              f"Root {root_body} of the button's part is fixed; an independent presser advances to the end of button travel and stops (overtravel at most {PRESS_OVERTRAVEL*1000:g} mm), then retracts; the button joint is never written directly, and the robot pressing trajectory is not certified",
                      "rest_position":rest,"peak_position":peak,"final_position":final,"stroke":span,
                      "triggered":event,"released_after_retreat":released,"events":records[:50]})
-    # 明确声明的软件控制连接可验证释放逻辑；不能把物理接口伪装成软件事件。
+    # An explicitly declared software-controlled connection can verify release logic; a physical interface must not be disguised as a software event.
     software = {i["id"] for i in manifest["interfaces"] if i["kind"] == "software"}
     if software:
         model = mujoco.MjModel.from_xml_path(str(Path(root)/model_file))
@@ -113,9 +113,9 @@ def interaction_probes(root, manifest, model_file="model.xml"):
     for connection in manifest["connections"]:
         if connection["release_event"] in mechanical:
             rows.append({"id":"release_probe:"+connection["id"],"status":"partial","complete":False,
-                         "detail":"机械动作仅声明真实接口；尚无对应操作探测，未认证释放，不能据此判定几何错误"})
+                         "detail":"Mechanical action only declares a real interface; no matching operation probe yet, release not certified, and no geometry error can be concluded from it"})
             continue
         rows.append({"id":"release_probe:"+connection["id"],
                      "status":"pass" if connection["id"] in released_connections else "fail",
-                     "detail":"已声明触发事件确实使连接等式约束失活；不证明分离路径或重新锁合"})
+                     "detail":"The declared trigger event really deactivates the connection's equality constraint; does not prove a separation path or re-locking"})
     return rows

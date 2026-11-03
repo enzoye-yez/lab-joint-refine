@@ -1,4 +1,4 @@
-"""通过 run.ps1 generate 调用；默认离线预检，正式调用须显式选择。"""
+"""Invoked via run.ps1 generate; offline preflight by default, real calls must be selected explicitly."""
 
 import argparse
 import json
@@ -18,24 +18,24 @@ from .local import LocalBackend
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="交互资产生成；不调用资产提取，不运行正式机器人实验")
-    parser.add_argument("--package", type=Path, required=True, help="修订资料包Markdown或资产提取JSON输出")
-    parser.add_argument("--asset", action="append", required=True, help="资产编号；可重复指定紧密配合的资产组")
-    parser.add_argument("--run", required=True, help="独立运行名称")
-    parser.add_argument("--checks", type=Path, help="可选的只读数值验收配置")
-    parser.add_argument("--config", type=Path, help="生成配置")
-    parser.add_argument("--provider-config", type=Path, help="复用资产提取服务配置")
-    parser.add_argument("--execute", action="store_true", help="正式模型调用，由用户执行；默认仅离线预检")
+    parser = argparse.ArgumentParser(description="Interactive asset generation; does not invoke asset extraction and does not run real robot experiments")
+    parser.add_argument("--package", type=Path, required=True, help="Revised package Markdown or asset extraction JSON output")
+    parser.add_argument("--asset", action="append", required=True, help="Asset id; repeat to specify a group of closely fitting assets")
+    parser.add_argument("--run", required=True, help="Independent run name")
+    parser.add_argument("--checks", type=Path, help="Optional read-only numeric acceptance config")
+    parser.add_argument("--config", type=Path, help="Generation config")
+    parser.add_argument("--provider-config", type=Path, help="Reuse the asset extraction provider config")
+    parser.add_argument("--execute", action="store_true", help="Real model calls, run by the user; offline preflight only by default")
     parser.add_argument("--backend", choices=("docker", "local"), default="docker",
-                        help="执行后端；local 为显式本机进程模式，不隔离宿主文件和网络")
+                        help="Execution backend; local is the explicit host-process mode and does not isolate host files or network")
     parser.add_argument("--resume", action="store_true")
-    parser.add_argument("--retry-uncertain", action="store_true", help="确认愿意承担重复请求后显式重试")
+    parser.add_argument("--retry-uncertain", action="store_true", help="Explicitly retry after confirming you accept possible duplicate requests")
     parser.add_argument("--max-model-calls", type=int)
     parser.add_argument("--max-reserved-tokens", type=int)
     parser.add_argument("--max-iterations", type=int)
     args = parser.parse_args(argv)
     if (args.resume or args.retry_uncertain) and not args.execute:
-        parser.error("恢复和未知请求重试仅用于正式执行")
+        parser.error("Resume and unknown-request retry are only for real execution")
     project = Path(__file__).resolve().parents[2]
     try:
         generation = GenerationConfig.load(args.config or project/"config/generation.json")
@@ -52,7 +52,7 @@ def main(argv=None):
         with run_lock(root):
             if not args.execute:
                 if any(p.name != ".lock" for p in root.iterdir()):
-                    raise PrepError("预检目录已有产物，请使用新运行名称")
+                    raise PrepError("Preflight directory already has artifacts; use a new run name")
                 try:
                     backend = sandbox.preflight()
                 except SandboxUnavailable as exc:
@@ -60,7 +60,7 @@ def main(argv=None):
                 report = {"status": "input_checked", "input": public_bundle(bundle), "profile": profile,
                           "sandbox": backend, "model_calls": 0, "max_model_calls": generation.max_model_calls,
                           "max_iterations": generation.max_iterations,
-                          "note": "不证明资产语义完整或生成质量；未读取凭据或调用模型"}
+                          "note": "Does not prove the asset is semantically complete or of good quality; no credentials read and no model called"}
                 atomic_json(root/"preflight.json", report)
                 print(json.dumps({"status": report["status"], "output": str(root/"preflight.json"),
                                   "images": len(bundle["images"]), "model_calls": 0, "sandbox": backend}, ensure_ascii=False))
@@ -77,5 +77,5 @@ def main(argv=None):
         print(str(exc), file=sys.stderr)
         return 2
     except KeyboardInterrupt:
-        print("用户中断；已完成请求和版本保留", file=sys.stderr)
+        print("Interrupted by user; completed requests and versions are kept", file=sys.stderr)
         return 130

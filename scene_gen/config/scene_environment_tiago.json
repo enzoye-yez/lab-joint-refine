@@ -8,7 +8,7 @@
     "height": 0.8
   },
   "robot": {
-    "name": "PAL Robotics TIAGo OMNI（单臂全向移动整机，腕部待装专用末端）",
+    "name": "PAL Robotics TIAGo OMNI (single-arm omnidirectional mobile robot; wrist awaiting a dedicated end effector)",
     "directory": "data/robots/tiago_omni",
     "attachment_site": "attachment_site",
     "joints": [
@@ -46,14 +46,14 @@
       ],
       "mount_height": 0.9372,
       "mass_kg": 73.18608604112003,
-      "source": "PAL Robotics 官方 tiago_robot 与 omni_base_robot 固定版本整机描述；base_type=omni_base。版本、许可、资源摘要见 data/robots/tiago_omni/provenance.json。",
+      "source": "Official PAL Robotics tiago_robot and omni_base_robot whole-robot description at pinned versions; base_type=omni_base. Versions, licenses and resource digests are in data/robots/tiago_omni/provenance.json.",
       "approximations": [
-        "底盘720×500×310毫米参考官方全向底盘文档；73.1860860411千克是所选无末端模型的惯性质量总和，不是底盘实测质量。",
-        "原厂四轮结构保留；平面X/Y移动和偏航用于布局坐标，没有模拟麦克纳姆滚子接触、轮速控制或定位误差。",
-        "升降范围0至0.35米，默认0.20米；mount_height为该姿态实际肩部高度0.9372米。距离建议暂不搜索升降姿态和逆运动学。",
-        "保留厂家关节限位和惯性参数；力限位置伺服为工程近似，不等于原厂控制器。网格碰撞采用MuJoCo凸包接触。",
-        "默认腕部不带原厂夹爪，沿用现有专用末端生成及装配流程，避免夹爪叠加。stock_gripper.xml为带原厂平行夹爪的整机展示配置。",
-        "厂家臂展0.87米及全伸展负载3千克不含末端装置；专用末端质量计入现有负载检查。"
+        "Base 720×500×310 mm per the official omnidirectional base documentation; 73.1860860411 kg is the summed inertial mass of the selected model without end effector, not a measured base mass.",
+        "The stock four-wheel structure is kept; planar X/Y motion and yaw are used as layout coordinates, without simulating mecanum roller contact, wheel-speed control or localization error.",
+        "Lift range 0 to 0.35 m, default 0.20 m; mount_height is the actual shoulder height in that pose, 0.9372 m. Distance recommendations do not yet search over lift poses or inverse kinematics.",
+        "Vendor joint limits and inertial parameters are kept; force-limited position servos are an engineering approximation, not the stock controller. Mesh collisions use MuJoCo convex-hull contact.",
+        "By default the wrist has no stock gripper and uses the existing dedicated end-effector generation and assembly workflow, avoiding stacked grippers. stock_gripper.xml is a whole-robot display configuration with the stock parallel gripper.",
+        "The vendor's 0.87 m reach and 3 kg payload at full extension exclude the end effector; the dedicated end-effector mass is counted in the existing payload check."
       ]
     }
   }

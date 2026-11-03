@@ -65,13 +65,13 @@ class IncrementalTests(TempCase):
         self.assertEqual(data['existing_assets'],[compact(a,sources) for a in catalog['assets']])
         self.assertEqual(data['reserved_asset_ids'],[])
         candidate=inventory()['assets'][0]
-        with self.assertRaisesRegex(ValidationError,'跨类别'):
+        with self.assertRaisesRegex(ValidationError,'across categories'):
             apply_decisions(delta_decisions([candidate],'large_instrument'),catalog['assets'],[candidate],sources)
 
     def test_same_category_overflow_never_drops_eligible_targets(self):
         catalog=self.large_catalog(); catalog['assets'][1]['category']='container'
         model=Mock()
-        with self.assertRaisesRegex(ValidationError,'全部同类别'):
+        with self.assertRaisesRegex(ValidationError,'all same-category'):
             merge_incrementally(catalog,inventory(),documents()['sources'],Config(),model,0)
         model.structured.assert_not_called()
 
@@ -98,7 +98,7 @@ class IncrementalTests(TempCase):
         draft = inventory()
         model = Mock()
         model.structured.side_effect = OutputTooLarge('synthetic pressure')
-        with self.assertRaisesRegex(ValidationError, '单项候选'):
+        with self.assertRaisesRegex(ValidationError, 'single candidate'):
             merge_incrementally({k: [] for k in draft}, draft, documents()['sources'], Config(), model, 0)
         self.assertEqual(model.structured.call_count, 1)
 
@@ -201,7 +201,7 @@ class UpgradeTests(TempCase):
         for ref in all_evidence(draft): ref.update(source_id='pdf:p1',quote='tube ')
         class Dynamic(FakeTransport):
             def post(self,url,payload,key,timeout):
-                data=json.loads(payload['messages'][1]['content'].split('\n以下是任务数据：\n',1)[1])
+                data=json.loads(payload['messages'][1]['content'].split('\nTask data follows:\n',1)[1])
                 if 'segment' in data and len(data['sources'][0]['text'])>400:
                     self.model_calls+=1
                     return {'choices':[{'finish_reason':'length','message':{'content':''}}]}
@@ -236,7 +236,7 @@ class UpgradeTests(TempCase):
         unconsumed=copy.deepcopy(original)
         orphan=copy.deepcopy(original['calls'][0]); orphan.update(key='unconsumed_paid_response',index=len(original['calls']))
         unconsumed['calls'].append(orphan); atomic_json(self.root/'state.json',unconsumed)
-        with self.assertRaisesRegex(ValidationError,'未被迁移适配器消费'):
+        with self.assertRaisesRegex(ValidationError,'not consumed by the migration adapter'):
             migrate_run(self.root,identity,docs,resumed_config)
         atomic_json(self.root/'state.json',original)
         with patch('socket.socket',side_effect=AssertionError('offline only')):

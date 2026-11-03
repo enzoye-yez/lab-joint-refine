@@ -1,4 +1,4 @@
-"""命令行入口；不从旧工程导入任何代码或配置。"""
+"""Command-line entry point; imports no code or configuration from the old project."""
 
 import argparse
 import json
@@ -16,42 +16,42 @@ from .storage import atomic_json, run_directory, run_lock, safe_path
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="从实验规程提取资产并检索参考资料")
-    parser.add_argument("--pdf", type=Path, help="主要事实来源")
-    parser.add_argument("--xml", type=Path, help="可选备用文件；默认不读取")
-    parser.add_argument("--xml-reason", help="明确说明 PDF 中待补证的信息缺口")
-    parser.add_argument("--xml-query", action='append', default=[], help="补证检索词，可重复；仅选取命中的 XML 文本块")
-    parser.add_argument("--preflight", action="store_true", help="仅本地检查输入及提取分段，不读取密钥或调用模型")
-    parser.add_argument('--extract-only', action='store_true', help='只完成资产提取及合并，保存后续预算计划，不检索')
-    parser.add_argument('--probe-output-limit', action='store_true', help='付费小规模接口探测，最多4次，不读取规程')
+    parser = argparse.ArgumentParser(description="Extract assets from an experimental protocol and search for reference material")
+    parser.add_argument("--pdf", type=Path, help="primary source of facts")
+    parser.add_argument("--xml", type=Path, help="optional backup file; not read by default")
+    parser.add_argument("--xml-reason", help="explicitly state the information gap in the PDF to be supplemented")
+    parser.add_argument("--xml-query", action='append', default=[], help="supplement search term, repeatable; only matching XML text blocks are selected")
+    parser.add_argument("--preflight", action="store_true", help="only check inputs and extraction segmentation locally; reads no keys and calls no model")
+    parser.add_argument('--extract-only', action='store_true', help='only perform asset extraction and merging and save the follow-up budget plan; no search')
+    parser.add_argument('--probe-output-limit', action='store_true', help='paid small-scale API probe, at most 4 calls; does not read the protocol')
     parser.add_argument('--probe-parameter', choices=('max_tokens', 'max_completion_tokens'),
-                        help='仅探测指定输出参数，最多2次；须配合 --probe-output-limit')
-    parser.add_argument("--dataset", type=Path, help="仅用于预检：含案例子目录及 source.pdf/source.xml 的集合")
-    parser.add_argument("--run", required=True, help="独立运行名称")
+                        help='probe only the given output parameter, at most 2 calls; requires --probe-output-limit')
+    parser.add_argument("--dataset", type=Path, help="preflight only: a set containing case subdirectories with source.pdf/source.xml")
+    parser.add_argument("--run", required=True, help="independent run name")
     parser.add_argument("--config", type=Path)
-    parser.add_argument('--max-model-calls', type=int, help='本次显式模型调用预算，恢复时可提高')
-    parser.add_argument('--max-reserved-tokens', type=int, help='本次显式保守令牌占用预算，非真实费用上限')
+    parser.add_argument('--max-model-calls', type=int, help='explicit model-call budget for this run; can be raised on resume')
+    parser.add_argument('--max-reserved-tokens', type=int, help='explicit conservative token-reservation budget for this run; not a real cost limit')
     parser.add_argument("--resume", action="store_true")
-    parser.add_argument("--upgrade-run", action="store_true", help="仅离线升级已支持版本的暂停检查点，不调用模型")
-    parser.add_argument("--retry-uncertain", action="store_true", help="确认后重发结果不明的请求，可能重复计费")
+    parser.add_argument("--upgrade-run", action="store_true", help="only upgrade a paused checkpoint of a supported version offline; calls no model")
+    parser.add_argument("--retry-uncertain", action="store_true", help="resend requests with uncertain outcomes after confirmation; may be billed twice")
     args = parser.parse_args(argv)
     if args.probe_parameter and not args.probe_output_limit:
-        parser.error('--probe-parameter 仅用于 --probe-output-limit')
+        parser.error('--probe-parameter is only for --probe-output-limit')
     if args.probe_output_limit and any((args.pdf, args.xml, args.dataset, args.preflight, args.upgrade_run, args.extract_only)):
-        parser.error('接口探测不能与规程输入或其他模式组合')
+        parser.error('API probing cannot be combined with protocol input or other modes')
     if args.extract_only and (args.preflight or args.upgrade_run):
-        parser.error('仅提取不能与离线检查模式组合')
+        parser.error('extract-only cannot be combined with offline check modes')
     if args.xml_reason or args.xml_query:
         if not (args.xml and args.xml_reason and args.xml_query) or args.dataset:
-            parser.error('定向补证须同时指定 --xml、--xml-reason 和 --xml-query，且仅用于单份输入')
+            parser.error('targeted supplementation requires --xml, --xml-reason and --xml-query together, and applies only to a single input')
     if args.upgrade_run and (args.resume or args.retry_uncertain or args.preflight or args.dataset):
-        parser.error('--upgrade-run 只做离线升级，不能与执行或预检选项混用')
+        parser.error('--upgrade-run only performs an offline upgrade and cannot be mixed with execution or preflight options')
     if args.dataset and (not args.preflight or args.pdf or args.xml):
-        parser.error("--dataset 仅用于 --preflight，不能同时指定 --pdf/--xml")
+        parser.error("--dataset is only for --preflight and cannot be combined with --pdf/--xml")
     if not args.dataset and not args.pdf and not args.probe_output_limit:
-        parser.error("请指定 --pdf，或使用 --preflight --dataset；XML 为可选备用文件")
+        parser.error("specify --pdf, or use --preflight --dataset; XML is an optional backup file")
     if args.preflight and (args.resume or args.retry_uncertain):
-        parser.error("离线预检使用新的运行名称，不使用恢复参数")
+        parser.error("offline preflight uses a new run name, not resume options")
     root = Path(__file__).resolve().parents[2]
     try:
         config = Config.load(args.config or root / "config/default.json")
@@ -72,7 +72,7 @@ def main(argv=None):
             run_root = run_directory(root, args.run)
             with run_lock(run_root):
                 if any(p.name != ".lock" for p in run_root.iterdir()):
-                    raise PrepError("运行目录已有产物；预检请使用新的运行名称")
+                    raise PrepError("run directory already has outputs; use a new run name for preflight")
                 report = inspect_inputs(config, dataset=args.dataset, pdf=args.pdf, xml=args.xml,
                                         xml_reason=args.xml_reason, xml_queries=args.xml_query)
                 output = safe_path(run_root, "preflight.json")
@@ -104,11 +104,11 @@ def main(argv=None):
         print(str(exc), file=sys.stderr)
         return 2
     except KeyboardInterrupt:
-        print("已中断；再次执行时使用 --resume。", file=sys.stderr)
+        print("Interrupted; use --resume when running again.", file=sys.stderr)
         return 130
     except (OSError, ValueError, KeyError) as exc:
-        # 不打印异常原文或调用栈，避免路径/配置错误夹带敏感内容。
-        print(f"本地文件或记录异常（{type(exc).__name__}），请检查输入和运行目录。", file=sys.stderr)
+        # Do not print raw exception text or stack traces, so path/configuration errors cannot leak sensitive content.
+        print(f"Local file or record error ({type(exc).__name__}); check the inputs and the run directory.", file=sys.stderr)
         return 2
 
 

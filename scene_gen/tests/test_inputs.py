@@ -53,7 +53,7 @@ class InputTests(TempCase):
 
     def test_internal_and_parameter_entities_still_rejected(self):
         for entity in ('<!ENTITY value "text">', '<!ENTITY % value SYSTEM "file:///private">%value;'):
-            with self.subTest(entity=entity), self.assertRaisesRegex(ValidationError, '实体'):
+            with self.subTest(entity=entity), self.assertRaisesRegex(ValidationError, 'entit'):
                 load_documents(*self.pair('<!DOCTYPE article [' + entity + ']><article/>'), 10000,
                                xml_reason='补证测试', xml_queries=['tube'])
 
@@ -89,13 +89,13 @@ class InputTests(TempCase):
         result = load_documents(*self.pair(xml), 10000, xml_reason='核对公式', xml_queries=['Speed'])
         text = next(s['text'] for s in result['sources'] if s['kind'] == 'xml')
         self.assertEqual(text, 'Speed ((10)^(3))/(x).')
-        self.assertTrue(any('数学公式' in w for w in result['warnings']))
+        self.assertTrue(any('math formulas' in w for w in result['warnings']))
 
     def test_subscript_preserved_and_excessive_inline_nesting_rejected(self):
         root = ElementTree.fromstring('<p>CO<sub>2</sub> at 10<sup>3</sup>.</p>')
         self.assertEqual(xml_sources(root)[0]['text'], 'CO_(2) at 10^(3).')
         root = ElementTree.fromstring('<p>' + '<italic>' * 140 + 'text' + '</italic>' * 140 + '</p>')
-        with self.assertRaisesRegex(ValidationError, '嵌套'):
+        with self.assertRaisesRegex(ValidationError, 'nesting'):
             xml_sources(root)
 
     def test_pdf_warnings_are_recorded_and_logger_restored(self):
@@ -107,7 +107,7 @@ class InputTests(TempCase):
             return PdfReader(stream)
         with patch('asset_prep.documents.PdfReader', side_effect=warn):
             result = load_documents(*self.pair('<protocol>two tubes</protocol>'), 10000)
-        self.assertTrue(any('1 条警告' in w for w in result['warnings']))
+        self.assertTrue(any('1 warnings' in w for w in result['warnings']))
         self.assertEqual(logger.handlers, handlers)
 
     def test_parser_versions_and_unconfirmed_pair_are_visible(self):
@@ -115,7 +115,7 @@ class InputTests(TempCase):
                                 xml_reason='核对数量', xml_queries=['two'])
         self.assertIn('fonttools', result['parsing']['versions'])
         self.assertEqual(result['parsing']['pairing'], 'unconfirmed')
-        self.assertTrue(any('对应关系' in w for w in result['warnings']))
+        self.assertTrue(any('correspondence' in w for w in result['warnings']))
 
     def test_preflight_does_not_use_credentials_or_transport(self):
         case = self.root / 'case1'
@@ -170,14 +170,14 @@ class ExtractionTests(TempCase):
         validate_merge(valid, drafts, documents()['sources'], Config())
         missing = copy.deepcopy(valid)
         missing['coverage'].pop()
-        with self.assertRaisesRegex(ValidationError, '遗漏'):
+        with self.assertRaisesRegex(ValidationError, 'missing'):
             validate_merge(missing, drafts, documents()['sources'], Config())
         duplicate = copy.deepcopy(valid)
         duplicate['coverage'].append(duplicate['coverage'][0])
         with self.assertRaises(ValidationError):
             validate_merge(duplicate, drafts, documents()['sources'], Config())
         drafts[0]['assets'][0]['evidence'].append({'source_id':'pdf:p1', 'quote':'0.2 mL'})
-        with self.assertRaisesRegex(ValidationError, '证据'):
+        with self.assertRaisesRegex(ValidationError, 'evidence'):
             validate_merge(valid, drafts, documents()['sources'], Config())
 
     def test_merge_preserves_unresolved_issues_even_if_model_omits(self):
@@ -193,7 +193,7 @@ class ExtractionTests(TempCase):
         class Model:
             def structured(self, instruction, data, validate):
                 return validate(copy.deepcopy(draft))
-        with self.assertRaisesRegex(ValidationError, '超过增量请求上限'):
+        with self.assertRaisesRegex(ValidationError, 'exceed the incremental request limit'):
             extract_inventory(documents(), replace(Config(), max_input_bytes=12000), Model())
 
     def test_catalog_and_draft_that_cannot_fit_stop_without_second_merge(self):
@@ -212,7 +212,7 @@ class ExtractionTests(TempCase):
                     return validate(delta_decisions(data['incoming_assets']))
                 return validate(copy.deepcopy(draft))
         with patch('asset_prep.extraction.plan_segments', return_value=[sources, sources]):
-            with self.assertRaisesRegex(ValidationError, '超过增量请求上限'):
+            with self.assertRaisesRegex(ValidationError, 'exceed the incremental request limit'):
                 extract_inventory(documents(), config, Model())
 
     def test_invalid_merge_mapping_cannot_reach_search(self):
@@ -261,7 +261,7 @@ class ExtractionTests(TempCase):
         other['id'] = 'duplicate'
         other['name'] = '反 应 管'
         value['assets'].append(other)
-        with self.assertRaisesRegex(ValidationError, '重复'):
+        with self.assertRaisesRegex(ValidationError, 'duplicate'):
             validate_unique_assets(value)
         other['name'] = '另一称谓'
         other['aliases'] = ['反应管']
@@ -277,7 +277,7 @@ class ExtractionTests(TempCase):
         renamed['steps'][0]['asset_ids'] = ['renamed']
         renamed['conflicts'][0]['asset_id'] = 'renamed'
         value = envelope([original], renamed)
-        with self.assertRaisesRegex(ValidationError, '重新编号'):
+        with self.assertRaisesRegex(ValidationError, 'renumbered'):
             validate_merge(value, [original], documents()['sources'], Config(), existing_catalog=True)
 
     def test_dedup_does_not_erase_decimal_or_unit_case(self):
@@ -308,7 +308,7 @@ class ExtractionTests(TempCase):
         partial = json.loads((self.root / 'asset_package.json').read_text(encoding='utf-8'))
         self.assertEqual(partial['extraction']['revision'], 1)
         self.assertEqual([a['id'] for a in partial['inventory']['assets']], ['tubes'])
-        second_extract = json.loads(transport.requests[1][1]['messages'][1]['content'].split('\n以下是任务数据：\n', 1)[1])
+        second_extract = json.loads(transport.requests[1][1]['messages'][1]['content'].split('\nTask data follows:\n', 1)[1])
         self.assertNotIn('existing_assets',second_extract)
         replay = FakeTransport([{'target':'tubes','reason':'same synthetic object'}, selection()])
         snapshots = []

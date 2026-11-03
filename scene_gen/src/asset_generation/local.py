@@ -1,4 +1,4 @@
-"""显式本地执行：独立进程和有界产物检查，不是操作系统安全沙箱。"""
+"""Explicit local execution: a separate process with bounded artifact checks; not an operating-system security sandbox."""
 
 import importlib.metadata
 import os
@@ -52,7 +52,7 @@ def work_budget(mode, source, base_seconds):
     counts = {}
     for path in paths:
         if path not in counts:
-            require(path.stat().st_size <= 32000000, "场景预算估算输入文件过大")
+            require(path.stat().st_size <= 32000000, "Scene budget estimation input file too large")
             counts[path] = sum(1 for _ in ET.parse(path).iter("geom"))
     count = sum(counts[p] for p in paths)
     # Estimate includes repeated instances; the cap keeps process cancellation bounded.
@@ -62,7 +62,7 @@ def work_budget(mode, source, base_seconds):
 
 
 def artifact_files(root, config):
-    """在复制前检查完整输出树；不跟随符号链接或 Windows 重解析点。"""
+    """Check the complete output tree before copying; never follow symlinks or Windows reparse points."""
     root = Path(root)
     allowed = {".xml", ".json", ".obj", ".stl", ".msh", ".png", ".jpg", ".jpeg", ".webp", ".mtl", ".txt"}
     files, pending = [], [root]
@@ -71,19 +71,19 @@ def artifact_files(root, config):
         path = pending.pop()
         info = path.lstat()
         require(not stat.S_ISLNK(info.st_mode) and not getattr(info, "st_file_attributes", 0)
-                & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0), "本地产物不允许链接或重解析点")
+                & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0), "Local artifacts must not contain links or reparse points")
         if stat.S_ISDIR(info.st_mode):
             for child in path.iterdir():
                 entries += 1
-                require(entries <= config.max_artifact_files * 2 + 1, "本地产物目录条目过多")
+                require(entries <= config.max_artifact_files * 2 + 1, "Too many entries in the local artifact directory")
                 pending.append(child)
         else:
-            require(stat.S_ISREG(info.st_mode) and info.st_nlink == 1, "本地产物不允许特殊文件或硬链接")
-            require(path.suffix.lower() in allowed, "本地产物包含不允许的文件类型")
+            require(stat.S_ISREG(info.st_mode) and info.st_nlink == 1, "Local artifacts must not contain special files or hard links")
+            require(path.suffix.lower() in allowed, "Local artifacts contain a disallowed file type")
             files.append(path.relative_to(root))
             total += info.st_size
             require(len(files) <= config.max_artifact_files and total <= config.max_artifact_bytes,
-                    "本地产物超过文件数或大小上限")
+                    "Local artifacts exceed the file count or size limit")
     return sorted(files)
 
 
@@ -97,16 +97,16 @@ class LocalBackend(ExecutionBackend):
             versions = {name: importlib.metadata.version(name)
                         for name in ("mujoco", "numpy", "Pillow", "trimesh", "scipy", "defusedxml")}
         except importlib.metadata.PackageNotFoundError as exc:
-            raise SandboxUnavailable("本地生成依赖缺失，请安装 requirements-generation.txt 中的依赖") from exc
-        require((self.project/"src/asset_generation/worker.py").is_file(), "本地工作进程入口缺失")
+            raise SandboxUnavailable("Local generation dependencies missing; install the dependencies in requirements-generation.txt") from exc
+        require((self.project/"src/asset_generation/worker.py").is_file(), "Local worker entry point missing")
         return {"backend": "local", "python": self.executable, "python_version": sys.version.split()[0],
                 "packages": versions, "os_isolation": False,
-                "note": "本机独立进程；不隔离宿主文件、网络或系统权限"}
+                "note": "Separate host process; does not isolate host files, network or system permissions"}
 
     def worker_environment(self, temp):
-        # 不继承模型密钥；这不阻止程序主动读取宿主文件或访问网络。
+        # Do not inherit model keys; this does not stop the program from actively reading host files or accessing the network.
         env = {key: os.environ[key] for key in ("SystemRoot", "WINDIR") if key in os.environ}
-        # 无显示器的 Linux 主机需要显式渲染后端（如 Mesa 软件 EGL），只透传渲染相关变量。
+        # Linux hosts without a display need an explicit rendering backend (e.g. Mesa software EGL); pass through only rendering-related variables.
         env.update({key: os.environ[key] for key in RENDER_ENVIRONMENT if key in os.environ})
         system = Path(os.environ.get("SystemRoot", "C:/Windows"))/"System32"
         env.update(PATH=os.pathsep.join((str(Path(self.executable).parent), str(system)))
@@ -121,7 +121,7 @@ class LocalBackend(ExecutionBackend):
     def _run(self, mode, mounts, output):
         from asset_prep.implementation import Guard, ImplementationDrift
         guard = Guard(self.project, self.implementation_identity())
-        require(mode in {"build", "validate", "scene", "inspect"}, "工作进程模式无效")
+        require(mode in {"build", "validate", "scene", "inspect"}, "Invalid worker mode")
         output = Path(output)
         log_path = output.parent/("local-" + mode + ".log")
         from asset_prep.storage import atomic_json
@@ -129,7 +129,7 @@ class LocalBackend(ExecutionBackend):
         receipt = {"mode":mode,"status":"preparing","started_at":time.time(),"pid":None,"exit_code":None}
         budget = {"seconds":self.config.build_timeout_seconds, "estimated_geoms":None}
         try:
-            # 只复制本轮输入；临时目录、日志和最终产物均位于运行目录所在盘。
+            # Copy only this round's inputs; the temporary directory, logs and final artifacts all live on the same drive as the run directory.
             with tempfile.TemporaryDirectory(prefix="local-worker-", dir=output.parent) as directory:
                 workspace = Path(directory).resolve()
                 source, built, temp = workspace/"input", workspace/"output", workspace/"tmp"
@@ -137,7 +137,7 @@ class LocalBackend(ExecutionBackend):
                     folder.mkdir()
                 for path, target in mounts:
                     require(target.startswith("/input/") and ".." not in Path(target).parts,
-                            "本地工作进程输入路径无效")
+                            "Invalid local worker input path")
                     staged = source/target[len("/input/"):]
                     staged.parent.mkdir(parents=True, exist_ok=True)
                     if Path(path).is_dir():
@@ -151,7 +151,7 @@ class LocalBackend(ExecutionBackend):
                     # worker's authoritative validator with the original time bound.
                     budget["estimation_error"] = type(exc).__name__
                 self.last_work_budget = budget
-                # 先登记进程树，再允许启动工作程序，消除登记前派生子进程的窗口。
+                # Register the process tree before allowing the worker to start, closing the window in which children could spawn before registration.
                 gate = "import sys,runpy; token=sys.stdin.buffer.read(1); sys.stdin.close(); " \
                        "sys.argv=sys.argv[1:]; " \
                        "runpy.run_path(sys.argv[0],run_name='__main__') if token==b'1' else sys.exit(1)"
@@ -173,7 +173,7 @@ class LocalBackend(ExecutionBackend):
                 except BaseException:
                     tree.close()
                     raise
-                # 持续排空管道并保留开头与末尾合计至多 1 MiB，避免冗长输出堵塞或无限增大日志。
+                # Keep draining the pipe and keep at most 1 MiB in total from the head and tail, so verbose output cannot block or grow the log without bound.
                 log_errors = []
                 def collect():
                     cap = 1024 * 1024
@@ -220,23 +220,23 @@ class LocalBackend(ExecutionBackend):
                     except Exception as exc:
                         if original is None:
                             raise
-                        original.add_note("工作进程清理也失败：" + type(exc).__name__)
+                        original.add_note("Worker cleanup also failed: " + type(exc).__name__)
                     finally:
                         process.stdin.close()
                         if started:
                             reader.join(timeout=5)
-                        # 无缓冲管道不持有 BufferedReader 的读取锁，可确保关闭路径有界。
+                        # An unbuffered pipe does not hold the BufferedReader read lock, which keeps the close path bounded.
                         process.stdout.close()
                         if started and reader.is_alive():
                             reader.join(timeout=1)
-                require(not reader.is_alive(), "本地工作进程退出后日志管道未关闭，请检查派生进程")
-                require(not log_errors, "本地日志读取失败：" + ",".join(log_errors))
+                require(not reader.is_alive(), "Log pipe not closed after the local worker exited; check for spawned processes")
+                require(not log_errors, "Local log reading failed: " + ",".join(log_errors))
                 guard.check()
                 if code == 78:
-                    raise ImplementationDrift('工作进程拒绝执行不一致的实现版本；日志：'+str(log_path))
+                    raise ImplementationDrift('Worker refused to run a mismatched implementation version; log: '+str(log_path))
                 if code != 0:
                     detail = log_path.read_bytes()[-5000:].decode("utf-8", errors="replace")
-                    message=f"本地 {mode} 进程退出码 {code}：{detail}"
+                    message=f"Local {mode} process exit code {code}: {detail}"
                     if mode != "build" or not (built/"build_error.json").is_file():
                         raise BackendExecutionError(message)
                     raise ValidationError(message)
@@ -251,11 +251,11 @@ class LocalBackend(ExecutionBackend):
         except subprocess.TimeoutExpired as exc:
             receipt["status"]="timeout"
             raise WorkerTimeout(
-                f"本地工作进程 {mode} 超时：超过 {budget['seconds']} 秒未完成，已请求终止进程树；"
-                f"日志保留在 {log_path}（装配日志含阶段起止及耗时；有开始而无结束的阶段可能被超时中断）") from exc
+                f"Local worker {mode} timed out: not finished after {budget['seconds']} s; termination of the process tree requested; "
+                f"log kept at {log_path} (the assembly log has stage start/end and durations; a stage with a start but no end may have been interrupted by the timeout)") from exc
         except OSError as exc:
             receipt["status"]="io_error"
-            raise BackendExecutionError("本地工作进程或产物复制失败：" + str(exc)) from exc
+            raise BackendExecutionError("Local worker or artifact copy failed: " + str(exc)) from exc
         finally:
             if sys.exception() is not None and receipt["status"] in {"preparing","running","exited"}:
                 receipt["status"]="failed"
@@ -263,5 +263,5 @@ class LocalBackend(ExecutionBackend):
             failure=sys.exception()
             try:atomic_json(receipt_path,receipt)
             except OSError as exc:
-                if failure is not None:failure.add_note("退出回执保存失败："+type(exc).__name__)
+                if failure is not None:failure.add_note("Failed to save the exit receipt: "+type(exc).__name__)
                 else:raise

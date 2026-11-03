@@ -1,4 +1,4 @@
-"""确定性的接触事件与连接释放；不接受模型直接写入成功状态。"""
+"""Deterministic contact events and connection release; the model may not write success states directly."""
 
 import math
 import numpy as np
@@ -11,7 +11,7 @@ class InteractionRuntime:
         self.unverified_mechanical_events = list(manifest.get("mechanical_events", []))
         self.manifest_interfaces = manifest["interfaces"]
         if any(type(g) is not int or not 0 <= g < model.ngeom for g in actor_geom_ids):
-            raise ValueError("接触对象几何编号不属于当前模型")
+            raise ValueError("Contact object geom id does not belong to the current model")
         self.actor_geoms = {model.geom(name).id for name in actor_geoms} | set(actor_geom_ids)
         self.pressed = {b["id"]: False for b in self.buttons}
         self.released = set()
@@ -19,12 +19,12 @@ class InteractionRuntime:
     def update(self, data, software_requests=(), *, verified_mechanical_events=()):
         software = {i["id"] for i in self.manifest_interfaces if i["kind"] == "software"}
         if any(event not in software for event in software_requests):
-            raise ValueError("未声明的软件控制事件")
+            raise ValueError("Undeclared software control event")
         events = list(dict.fromkeys(software_requests))
-        # 仅供固定操作检测器调用；模型软件请求仍不能触发机械事件。
+        # Only for the fixed operation detectors; model software requests still cannot trigger mechanical events.
         mechanical = {e["id"] for e in self.unverified_mechanical_events}
         if any(event not in mechanical for event in verified_mechanical_events):
-            raise ValueError("未声明的机械检测事件")
+            raise ValueError("Undeclared mechanical detection event")
         events.extend(event for event in verified_mechanical_events if event not in events)
         for button in self.buttons:
             joint = self.model.joint(button["joint"])

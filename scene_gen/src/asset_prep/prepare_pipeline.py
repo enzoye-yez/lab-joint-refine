@@ -1,4 +1,4 @@
-"""第三版执行与参考资料阶段；只在新运行中使用，不迁移旧实验。"""
+"""Version 3 execution and reference stages; used only in new runs, old experiments are not migrated."""
 
 from copy import deepcopy
 from dataclasses import replace
@@ -44,7 +44,7 @@ def prepare_references(prep, keys, transport):
     if remaining and not state.get('search_unavailable'):
         try: check_reference_capacity(plan, config, store.totals())
         except BudgetExceeded as error:
-            raise BudgetExceeded(str(error).replace('asset_package.json 的 reference_budget_plan','reference_budget_plan.json')) from error
+            raise BudgetExceeded(str(error).replace('reference_budget_plan in asset_package.json','reference_budget_plan.json')) from error
     search = Search(config, keys, store, transport); pages = PageFetcher(config, keys, store, transport)
     result = []
     for asset in assets:
@@ -59,7 +59,7 @@ def prepare_references(prep, keys, transport):
                     if unsupported_search(error):
                         state['search_unavailable'] = {'reason':'Configured search tool is unsupported.', 'diagnostics':error.diagnostics}
                         prep.save(); break
-                    # 无结构化来源是一项资料缺口；服务明确拒绝及鉴权错误必须停止。
+                    # Missing structured sources is a reference gap; explicit service refusals and authentication errors must stop.
                     if not isinstance(error,ReferenceUnavailable): raise
                     item['warnings'].append(str(error))
         if state.get('search_unavailable'): item['warnings'].append(state['search_unavailable']['reason'])
@@ -86,7 +86,7 @@ def prepare_references(prep, keys, transport):
 
 
 def used_excerpts(sources, *values):
-    """只公开有实际依据引用的片段，保留原来源标识与字符偏移。"""
+    """Publish only excerpts with actual evidence citations, keeping the original source id and character offsets."""
     quoted = {}
     def visit(value):
         if isinstance(value,dict):
@@ -101,7 +101,7 @@ def used_excerpts(sources, *values):
         spans = []
         for quote in quoted.get(source['id'],[]):
             start = source['text'].find(quote)
-            require(start>=0, '公开摘录的引用不属于原文')
+            require(start>=0, 'published excerpt citation is not part of the source text')
             spans.append((start,start+len(quote)))
         merged = []
         for start,end in sorted(spans):
@@ -168,7 +168,7 @@ def execute_preparation(documents, config, keys, run_root, transport, environmen
                 destination = publish(store, package)
                 atomic_json(Path(run_root)/'asset_package.json', package)
                 prep.state.update(phase='complete', status=package['status'], delivery=str(destination)); prep.save()
-            else: raise ValidationError('未知任务准备阶段')
+            else: raise ValidationError('unknown task preparation stage')
         load_delivery(prep.state['delivery'])
         return {'status':prep.state['status'], 'delivery':prep.state['delivery'], 'budget':store.totals()}
     except (PrepError, KeyboardInterrupt) as error:

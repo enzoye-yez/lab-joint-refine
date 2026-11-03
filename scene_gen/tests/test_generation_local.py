@@ -46,7 +46,7 @@ class LocalBackendTests(unittest.TestCase):
         report, _ = self.backend.build_and_check(source, self.root, ["A01"], check_profile({}))
         self.assertEqual(report["status"], "error")
         self.assertEqual(report['error_kind'],'backend_execution')
-        self.assertIn("超时", ' '.join(report['coverage']))
+        self.assertIn("timed out", ' '.join(report['coverage']))
         import json
         self.assertEqual(json.loads((self.root/"local-build-exit.json").read_text())["status"],"timeout")
         self.assertFalse(list(self.root.glob("local-worker-*")))

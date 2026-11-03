@@ -54,7 +54,7 @@ class Transport:
     def __init__(self): self.operations=[]; self.requests=[]
     def post(self, url, payload, key, timeout):
         assert url.endswith('/chat/completions'), 'Unexpected network path in offline fixture'
-        data = json.loads(payload['messages'][1]['content'].split('\n以下是任务数据：\n',1)[1])
+        data = json.loads(payload['messages'][1]['content'].split('\nTask data follows:\n',1)[1])
         op = data.get('operation'); self.operations.append(op); self.requests.append(deepcopy(data))
         value = self.respond(data)
         return {'model':'developer_fixture', 'usage':{'completion_tokens':300,'total_tokens':1000},

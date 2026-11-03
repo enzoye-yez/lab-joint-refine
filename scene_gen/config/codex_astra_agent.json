@@ -3,7 +3,7 @@
   "base_url": "https://chatgpt.com/backend-api/codex",
   "model": "gpt-6-astra",
   "search_provider": "model_web",
-  "scope": "根据输入的完整实验规程提取仪器、容器、耗材和必要配件及其要求，不把试剂作为待生成资产。不预设实验类型、结束步骤或排除的实验阶段。",
+  "scope": "From the complete input experimental protocol, extract the instruments, containers, consumables and necessary accessories together with their requirements; reagents are not assets to be generated. Do not presuppose the experiment type, the final step, or any excluded experimental stage.",
   "chunk_chars": 4000,
   "max_document_chars": 1000000,
   "max_input_bytes": 160000,

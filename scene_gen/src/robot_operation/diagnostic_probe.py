@@ -1,4 +1,4 @@
-"""同一完整起态的单参数对照；通过原执行器运行，不修改真实执行现场。"""
+"""Single-parameter comparison from the same full start state; runs through the original executor and never modifies the real execution site."""
 from copy import deepcopy
 from pathlib import Path
 import numpy as np
@@ -11,31 +11,31 @@ def paired_probe(context, query):
     from .recording import Recorder
     from .contracts import validate_graph
     need(context.run_root is not None and context.evidence_root is not None,
-         "局部对照需要完整运行记录和独立证据输出目录", "missing_evidence")
-    need(context.record.get("physics_started", True), "未通过动力学准入，不能局部试探")
+         "A local comparison requires a complete run record and a separate evidence output directory", "missing_evidence")
+    need(context.record.get("physics_started", True), "Dynamics admission not passed; local probing is not allowed")
     task, graph = read(context.run_root/"task.json"), read(context.run_root/"graph.json")
     original = next((n for n in graph["nodes"] if n["id"] == query["node"]), None)
     need(original is not None and original["operation"] not in {"device", "wait", "observe", "check"},
-         "对照必须针对已有机械操作")
+         "A comparison must target an existing mechanical operation")
     parameter = query["parameter"]
-    need(parameter in original["parameters"], "对照不能添加未使用的参数")
-    need(original["parameters"][parameter] != query["value"], "对照参数未发生变化")
+    need(parameter in original["parameters"], "A comparison must not add an unused parameter")
+    need(original["parameters"][parameter] != query["value"], "Comparison parameter is unchanged")
     if parameter == "targets":
         before, after = original["parameters"][parameter], query["value"]
         need(isinstance(after, list) and len(before) == len(after) and
              all({k: v for k, v in a.items() if k not in {"position", "rotation", "offset"}} ==
                  {k: v for k, v in b.items() if k not in {"position", "rotation", "offset"}} for a, b in zip(before, after)),
-             "目标对照不得改变手臂、接口、目标对象或参考坐标系")
+             "A target comparison must not change the arm, interface, target object or reference frame")
     if parameter in {"positions", "controls"}:
         need(isinstance(query["value"], dict) and set(query["value"]) == set(original["parameters"][parameter]),
-             "对照不得改变受控关节或执行器集合")
+             "A comparison must not change the set of controlled joints or actuators")
     snapshot = (context.failure if query["state"] == "failure" else context.node_start if query["state"] == "node_start"
                 else read(context.run_root/"initial.json"))
-    need(snapshot is not None, "缺少完整对照起态")
+    need(snapshot is not None, "Missing full comparison start state")
     if query["state"] != "initial":
-        need(snapshot.get("node") == original["id"], "失败现场不属于待对照节点")
+        need(snapshot.get("node") == original["id"], "Failure snapshot does not belong to the node under comparison")
     root = Path(context.evidence_root)/digest({"query": query, "binding": context.binding(query)})
-    need(not root.exists(), "已有局部试探目录，不能隐式重试中断试探", "interrupted_probe")
+    need(not root.exists(), "A local probe directory already exists; an interrupted probe cannot be retried implicitly", "interrupted_probe")
     root.mkdir(parents=True)
     outcomes = {}
     for label in ("baseline", "variant"):
@@ -57,10 +57,10 @@ def paired_probe(context, query):
         session.recorder = recorder
         result = {"status": "interrupted", "mode": "diagnostic_probe"}
         try:
-            need(not session.unbound_events, "机械事件缺少检测器", "capability_missing")
+            need(not session.unbound_events, "Mechanical event has no detector", "capability_missing")
             session.begin(node)
             session.guard()
-            need(session.evidence.evaluate(node["precondition"]), "局部试探起态不满足节点前提", "probe_precondition")
+            need(session.evidence.evaluate(node["precondition"]), "Local probe start state does not satisfy the node precondition", "probe_precondition")
             session.execute(node)
             while not session.evidence.evaluate(node["completion"]): session.tick()
             result.update(status="success", code=None)
@@ -79,6 +79,6 @@ def paired_probe(context, query):
     return {"status": "valid" if valid else "unknown", "observations": {"cases": outcomes, "variant_improved": improved},
             "coverage": {"kind": "paired_actuator_probe", "node": query["node"], "parameter": parameter,
                          "state_sha256": digest(snapshot), "seconds_per_case": query["seconds"]},
-            "limitations": ["仅说明这一局部参数变化的效果，不证明唯一根因，不代表完整任务成功"],
+            "limitations": ["Shows only the effect of this local parameter change; does not prove a unique root cause or full task success"],
             "rows": [{"kind": "trajectory_probe", "status": "confirmed_observation", "repair_authorized": False,
                       "scope": "trajectory", "observation": {"variant_improved": improved}}] if valid else []}

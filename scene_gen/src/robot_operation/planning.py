@@ -1,4 +1,4 @@
-"""固定数值工具：搜索仅在数据副本中设置候选位姿，不移动执行世界。"""
+"""Fixed numerical tools: search sets candidate poses only in a data copy and never moves the execution world."""
 import heapq
 import math
 import mujoco
@@ -19,19 +19,19 @@ def edge_valid(a, b, valid, resolution):
 
 def rrt_connect(start, goal, limits, valid, rng, iterations=2000, resolution=.04, start_tolerance=0.):
     start, goal, limits = np.asarray(start), np.asarray(goal), np.asarray(limits)
-    need(start.shape == goal.shape and limits.shape == (len(start), 2), "搜索维度不匹配")
+    need(start.shape == goal.shape and limits.shape == (len(start), 2), "Search dimension mismatch")
     def legal(q):
         return bool(np.all(q >= limits[:,0]) and np.all(q <= limits[:,1]) and valid(q))
-    need(np.isfinite(start_tolerance) and start_tolerance>=0,"起态量测容差无效")
+    need(np.isfinite(start_tolerance) and start_tolerance>=0,"Invalid start-state measurement tolerance")
     projected=np.clip(start,limits[:,0],limits[:,1])
     if not np.array_equal(projected,start):
         # Soft constraint observations may cross a limit slightly. Validate the recovery edge;
         # only bounded setpoints are commanded, never teleport the measured state.
         if np.max(np.abs(projected-start))>start_tolerance or not valid(start) or not edge_valid(start,projected,valid,resolution):
-            raise OperationError("path_not_found","实测起态超出可恢复限位或恢复边碰撞")
+            raise OperationError("path_not_found","Measured start state is beyond recoverable limits or the recovery edge collides")
         return [start]+rrt_connect(projected,goal,limits,valid,rng,iterations,resolution)
     if not legal(start) or not legal(goal):
-        raise OperationError("path_not_found", "起点或目标不满足碰撞和限位约束")
+        raise OperationError("path_not_found", "Start or goal violates collision or limit constraints")
     if edge_valid(start, goal, legal, resolution): return [start, goal]
     trees = [([start], [-1]), ([goal], [-1])]
     step = max(resolution*4, .1)
@@ -61,25 +61,25 @@ def rrt_connect(start, goal, limits, valid, rng, iterations=2000, resolution=.04
                 left, right = chain(first, a), chain(second, b)
                 result = left+right[-2::-1]
                 if side: result.reverse()
-                # 有界捷径简化仍检查整条边。
+                # Bounded shortcut smoothing still checks the whole edge.
                 for _ in range(40):
                     if len(result) < 3: break
                     i, j = sorted(rng.choice(len(result), 2, replace=False))
                     if j > i+1 and edge_valid(result[i], result[j], legal, resolution):
                         result[i+1:j] = []
                 return result
-    raise OperationError("path_not_found", "本次有界搜索未找到路径；不构成不可达证明")
+    raise OperationError("path_not_found", "This bounded search found no path; this is not a proof of unreachability")
 
 
 def astar(start, goal, bounds, valid, grid=.05, max_nodes=100000):
     lo, hi = np.asarray(bounds[0]), np.asarray(bounds[1])
     start, goal = np.asarray(start), np.asarray(goal)
-    need(np.all(hi > lo), "导航边界无效")
+    need(np.all(hi > lo), "Invalid navigation bounds")
     key = lambda p: tuple(np.round((p-lo)/grid).astype(int))
     position = lambda k: lo+np.array(k)*grid
     s, g = key(start), key(goal)
     def legal(p): return bool(np.all(p >= lo) and np.all(p <= hi) and valid(p))
-    if not legal(start) or not legal(goal): raise OperationError("path_not_found", "导航端点不合法")
+    if not legal(start) or not legal(goal): raise OperationError("path_not_found", "Invalid navigation endpoint")
     queue, cost, parent = [(0., s)], {s: 0.}, {}
     directions = [(a,b) for a in (-1,0,1) for b in (-1,0,1) if a or b]
     for _ in range(max_nodes):
@@ -101,11 +101,11 @@ def astar(start, goal, bounds, valid, grid=.05, max_nodes=100000):
             if value < cost.get(nxt, math.inf):
                 cost[nxt], parent[nxt] = value, current
                 heapq.heappush(queue, (value+float(np.linalg.norm(q-goal)), nxt))
-    raise OperationError("path_not_found", "本次导航搜索未找到路径")
+    raise OperationError("path_not_found", "This navigation search found no path")
 
 
 def rotation_error(target, actual):
-    # MuJoCo 的四元数顺序为 wxyz。
+    # MuJoCo quaternion order is wxyz.
     qa, qb, neg, delta, velocity = (np.zeros(n) for n in (4,4,4,4,3))
     mujoco.mju_mat2Quat(qa, np.asarray(target).reshape(9))
     mujoco.mju_mat2Quat(qb, np.asarray(actual).reshape(9))
@@ -122,13 +122,13 @@ class Kinematics:
         self.data = mujoco.MjData(model)
         copy_data(self.data, model, data)
         ids = [model.joint(name).id for name in joints]
-        need(all(model.jnt_type[j] in (2,3) for j in ids), "规划关节必须为滑动或转动关节")
+        need(all(model.jnt_type[j] in (2,3) for j in ids), "Planning joints must be slide or hinge joints")
         self.qids, self.vids = model.jnt_qposadr[ids], model.jnt_dofadr[ids]
-        need(all(model.jnt_limited[j] for j in ids), "操作关节必须有显式限位")
+        need(all(model.jnt_limited[j] for j in ids), "Operation joints must have explicit limits")
         self.limits = model.jnt_range[ids].copy()
 
     def solve(self, targets):
-        need(bool(targets),"逆运动学目标不能为空")
+        need(bool(targets),"Inverse kinematics targets must not be empty")
         start = np.clip(self.data.qpos[self.qids],self.limits[:,0],self.limits[:,1])
         best = {"position_error_m":float("inf"),"rotation_error_rad":float("inf")}
         for restart in range(self.settings.ik_restarts):
@@ -154,7 +154,7 @@ class Kinematics:
                 jac, err = np.asarray(jacobians), np.asarray(errors)
                 dq = jac.T @ np.linalg.solve(jac@jac.T+np.eye(len(err))*.0025, err)
                 q = np.clip(q+np.clip(dq,-.12,.12),self.limits[:,0],self.limits[:,1])
-        raise OperationError("ik_not_found", "本次逆运动学未找到有效解；不构成不可达证明",
+        raise OperationError("ik_not_found", "This inverse kinematics run found no valid solution; this is not a proof of unreachability",
                              {**best,"restarts":self.settings.ik_restarts,"iterations_per_restart":self.settings.ik_iterations})
 
 

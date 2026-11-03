@@ -374,7 +374,7 @@ class StandaloneUnknownTests(unittest.TestCase):
         # asset; the gap stays listed as unverified and is never reported as passed.
         result,_=self.run_loop([{"model_py":SOURCE},REVIEW],sandbox=Unknown())
         self.assertEqual(result["status"],"candidate_ready")
-        self.assertIn("检查未完成（量测或探测能力不足）：material_integrity",result["unverified"])
+        self.assertIn("Check not finished (insufficient measurement or probing capability): material_integrity",result["unverified"])
         before=snapshot(self.run/"revisions/0001")
         sandbox=Unknown()
         result,transport=self.run_loop([],resume=True,sandbox=sandbox)

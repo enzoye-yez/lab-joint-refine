@@ -1,4 +1,4 @@
-"""从不可变静态产物派生自由底盘场景，按名字迁移状态。"""
+"""Derive a free-base scene from immutable static artifacts and migrate state by name."""
 from dataclasses import asdict
 from pathlib import Path
 import shutil
@@ -19,7 +19,7 @@ def joint_width(kind):
 
 def initial(model, metadata):
     data = mujoco.MjData(model)
-    need(len(metadata["home_qpos"]) == model.nq and len(metadata["home_ctrl"]) == model.nu, "初态维度不匹配")
+    need(len(metadata["home_qpos"]) == model.nq and len(metadata["home_ctrl"]) == model.nu, "Initial state dimension mismatch")
     data.qpos[:] = metadata["home_qpos"]
     data.ctrl[:] = metadata["home_ctrl"]
     if "home_qvel" in metadata:
@@ -34,11 +34,11 @@ def prepare(source, destination, expected_hash, settings=None):
     settings = settings or Settings()
     source = Path(source).resolve()
     source_hash = identity(source)
-    need(source_hash == expected_hash, "来源场景摘要不一致", "stale_scene")
+    need(source_hash == expected_hash, "Source scene digest mismatch", "stale_scene")
     meta, manifest = read(source/"scene.json"), read(source/"interfaces.json")
     old = load_scene_model(source, dynamics=True)
     before = initial(old, meta)
-    # 此绑定还会拒绝未实际安装的工具；没有原厂夹爪回退。
+    # This binding also rejects tools that are not actually mounted; there is no fallback to the stock gripper.
     actor_groups(old, meta)
     tree = ET.parse(source/"model.xml")
     root = tree.getroot()
@@ -50,10 +50,10 @@ def prepare(source, destination, expected_hash, settings=None):
     if flags is None:flags=SubElement(option,"flag")
     flags.set("multiccd","enable")
     body = root.find(".//body[@name='robot__layout_root']")
-    need(body is not None, "首版动力学转换要求整机的平面布局根")
+    need(body is not None, "The first-version dynamics conversion requires the integrated robot's planar layout root")
     joints = body.findall("joint")
     removed = {"robot__base_x", "robot__base_y", "robot__base_yaw"}
-    need({j.get("name") for j in joints} == removed, "底盘根结构与转换契约不符")
+    need({j.get("name") for j in joints} == removed, "Base root structure does not match the conversion contract")
     root_id = old.body("robot__layout_root").id
     for node in joints:
         body.remove(node)
@@ -75,7 +75,7 @@ def prepare(source, destination, expected_hash, settings=None):
             continue
         other = model.joint(name)
         nq, nv = joint_width(old.jnt_type[j])
-        need(other.type[0] == old.jnt_type[j], "转换改变了非底盘关节类型")
+        need(other.type[0] == old.jnt_type[j], "Conversion changed a non-base joint type")
         qa, va = int(old.jnt_qposadr[j]), int(old.jnt_dofadr[j])
         qb, vb = int(other.qposadr[0]), int(other.dofadr[0])
         data.qpos[qb:qb+nq] = before.qpos[qa:qa+nq]
@@ -86,48 +86,48 @@ def prepare(source, destination, expected_hash, settings=None):
     data.qpos[q+3:q+7] = before.xquat[root_id]
     for a in range(old.nu):
         name = old.actuator(a).name
-        need(bool(name), "执行器必须有稳定名称")
+        need(bool(name), "Actuators must have stable names")
         data.ctrl[model.actuator(name).id] = before.ctrl[a]
-    # 未命名的原厂夹爪联动也必须保持；转换没有增删或重排约束。
-    need(old.neq == model.neq and np.array_equal(old.eq_type,model.eq_type), "转换改变了连接约束")
+    # Unnamed stock-gripper couplings must also be kept; the conversion adds, removes or reorders no constraints.
+    need(old.neq == model.neq and np.array_equal(old.eq_type,model.eq_type), "Conversion changed connection constraints")
     data.eq_active[:] = before.eq_active
     mujoco.mj_forward(model, data)
-    # 检查迁移保持所有身体世界位姿，防止法兰/自由工具的隐式跳变。
-    need(model.nbody == old.nbody and np.array_equal(model.body_parentid, old.body_parentid), "转换改变了身体拓扑")
-    need(all(old.body(b).name == model.body(b).name for b in range(old.nbody)), "转换改变了身体顺序")
+    # Check that migration preserves every body's world pose, preventing implicit jumps of flanges or free tools.
+    need(model.nbody == old.nbody and np.array_equal(model.body_parentid, old.body_parentid), "Conversion changed the body topology")
+    need(all(old.body(b).name == model.body(b).name for b in range(old.nbody)), "Conversion changed the body order")
     errors = {str(b)+":"+old.body(b).name: float(np.linalg.norm(before.xpos[b]-data.xpos[b]))
               for b in range(1, old.nbody)}
-    need(max(errors.values(), default=0) < 1e-6, "自由根迁移改变了装配世界位姿")
-    need(np.max(np.abs(before.xmat-data.xmat), initial=0) < 1e-6, "自由根迁移改变了装配方向")
+    need(max(errors.values(), default=0) < 1e-6, "Free-root migration changed the assembly world pose")
+    need(np.max(np.abs(before.xmat-data.xmat), initial=0) < 1e-6, "Free-root migration changed the assembly orientation")
     meta.update(home_qpos=data.qpos.tolist(), home_qvel=data.qvel.tolist(), home_ctrl=data.ctrl.tolist(),
                 home_eq_active=data.eq_active.tolist())
     meta["operation_conversion"] = {"version": 1, "source_sha256": source_hash,
         "root": "robot__free_base", "removed_joints": sorted(removed),
         "joint_mapping": "name_and_type", "max_body_position_error_m": max(errors.values(), default=0),
-        "approximations": ["沿用来源资产质量、摩擦、执行器及工具惯性建模值；不认证真实硬件动力学"],
+        "approximations": ["Reuses the source assets' modelled mass, friction, actuator and tool inertia values; does not certify real-hardware dynamics"],
         "solver":{"multiple_convex_contacts":True,"source_enableflags":int(old.opt.enableflags),
                   "derived_enableflags":int(model.opt.enableflags)},
         "source": str(source)}
     atomic_json(out/"scene.json", meta)
-    # 准入检查在副本中进行，不暗中改变任务初态。
+    # Admission checks run on a copy and never silently change the task's initial state.
     probe = mujoco.MjData(model)
     copy_data(probe, model, data)
     warnings = []
     for _ in range(max(1, int(settings.settle_seconds/model.opt.timestep))):
         mujoco.mj_step(model, probe)
         if not np.isfinite(probe.qpos).all() or any(w.number for w in probe.warning):
-            warnings.append("非有限状态或求解器警告")
+            warnings.append("Non-finite state or solver warning")
             break
     penetration = max((-c.dist for c in probe.contact), default=0.)
     tilt = float(np.arccos(np.clip(probe.xmat[model.body("robot__layout_root").id].reshape(3,3)[2,2], -1, 1)))
     settled = float(np.max(np.abs(probe.qvel), initial=0))
-    if penetration > settings.penetration_m: warnings.append("初始稳定过程存在过深接触")
-    if tilt > settings.base_tilt_rad: warnings.append("底盘倾斜超过工程边界")
-    if settled > settings.stopped_speed: warnings.append("初始状态未稳定")
+    if penetration > settings.penetration_m: warnings.append("Excessively deep contact during initial settling")
+    if tilt > settings.base_tilt_rad: warnings.append("Base tilt exceeds the engineering bound")
+    if settled > settings.stopped_speed: warnings.append("Initial state did not settle")
     report = {"status": "blocked" if warnings else "pass", "warnings": warnings,
         "max_penetration_m": float(penetration), "base_tilt_rad": tilt, "max_speed": settled,
         "settings": asdict(settings), "initial_state_changed": False,
-        "coverage": "动力学初始化、绑定和静置；不认证完整任务或来源场景待检查项",
+        "coverage": "Dynamics initialization, binding and settling; does not certify the full task or pending source-scene checks",
         "mechanical_events_pending": [e["id"] for e in manifest.get("mechanical_events", [])]}
     atomic_json(out/"admission.json", report)
     return {"scene": str(out), "scene_sha256": identity(out), "admission": report}
@@ -135,9 +135,9 @@ def prepare(source, destination, expected_hash, settings=None):
 
 def load(path, expected_hash):
     root = Path(path)
-    need(identity(root) == expected_hash, "操作场景已变更，旧轨迹失效", "stale_scene")
+    need(identity(root) == expected_hash, "Operation scene changed; old trajectories are invalid", "stale_scene")
     meta, manifest = read(root/"scene.json"), read(root/"interfaces.json")
-    need(meta.get("operation_conversion", {}).get("version") == 1, "不是操作动力学场景")
+    need(meta.get("operation_conversion", {}).get("version") == 1, "Not an operation dynamics scene")
     model = load_scene_model(root, dynamics=True)
-    need(model.joint("robot__free_base").type[0] == mujoco.mjtJoint.mjJNT_FREE, "操作底盘必须自由运动")
+    need(model.joint("robot__free_base").type[0] == mujoco.mjtJoint.mjJNT_FREE, "The operation base must move freely")
     return model, initial(model, meta), meta, manifest

@@ -1,4 +1,4 @@
-"""从实际仿真状态计算条件、保持时间和设备事件。"""
+"""Compute conditions, hold durations and device events from the actual simulation state."""
 from copy import deepcopy
 import mujoco
 import numpy as np
@@ -8,7 +8,7 @@ from .planning import rotation_error
 
 def descendants(model, body):
     root = model.body(body).id if isinstance(body,str) else body
-    if root == 0: return {0}  # 世界自身的地面几何，不包含全部后代机器人和物体。
+    if root == 0: return {0}  # The world's own ground geometry, excluding all descendant robots and objects.
     ids = set()
     for b in range(model.nbody):
         p = b
@@ -87,7 +87,7 @@ class Evidence:
         elif kind == "not": ok = not self.evaluate(rule["item"])
         elif kind == "joint_range":
             j = m.joint(rule["joint"])
-            need(j.type[0] in (2,3), "关节范围检测仅支持标量关节")
+            need(j.type[0] in (2,3), "Joint-range detection supports only scalar joints")
             value = float(d.qpos[j.qposadr[0]])
             lo,hi = vector(rule["range"],2)
             ok,detail = lo <= value <= hi, {"value":value}
@@ -111,7 +111,7 @@ class Evidence:
             detail = {"angular_speed":angular,"linear_speed":linear}
         elif kind == "held":
             arm,body = rule["arm"],rule["body"]
-            need(arm in self.actors, "不存在所选机械臂")
+            need(arm in self.actors, "The selected arm does not exist")
             opposed,touched=self.grip_contacts(arm,body)
             sid,bid = m.site(rule["tcp"]).id,m.body(body).id
             rot = d.site_xmat[sid].reshape(3,3)
@@ -138,10 +138,10 @@ class Evidence:
             ok=bool(rows) and not touching_hand and max(angular,linear)<=self.settings.stopped_speed
             detail={"contacts":rows,"touching_hand":touching_hand}
         elif kind == "device_state":
-            need(rule["device"] in self.devices,"未知设备状态")
+            need(rule["device"] in self.devices,"Unknown device state")
             ok=self.devices[rule["device"]]["state"]==rule["state"]
             detail=deepcopy(self.devices[rule["device"]])
-        else: raise OperationError("capability_missing","未知检测器")
+        else: raise OperationError("capability_missing","Unknown detector")
         if ok:
             self.timers.setdefault(key,float(d.time))
         else: self.timers.pop(key,None)
@@ -151,12 +151,12 @@ class Evidence:
 
     def lock_hold(self,rule):
         # Commit the acquisition anchor once; repeated reads must never erase later slip.
-        need(self.evaluate(rule),"夹持尚未稳定，不能固定保持参考","grasp_lost")
+        need(self.evaluate(rule),"Grasp is not yet stable; cannot fix the hold reference","grasp_lost")
         immediate={**rule,"duration":0};anchor=deepcopy(self.holds[digest(rule)]);anchor["locked"]=True
         self.holds[digest(immediate)]=anchor;self.register([immediate])
 
     def grip_contacts(self,arm,body):
-        need(arm in self.actors,"不存在所选机械臂")
+        need(arm in self.actors,"The selected arm does not exist")
         rows=self.touching(set(self.actors[arm]),self.geoms(body))
         touched={g for r in rows for g in r["geoms"] if g in self.actors[arm]}
         bodies={int(self.model.geom_bodyid[g]) for g in touched}
@@ -171,7 +171,7 @@ class Evidence:
             if state["state"]=="running":
                 if not self.evaluate(self.rules[device]["running_condition"]):
                     state["state"]="fault"
-                    raise OperationError("device_interlock","运行中装载或闭合条件失效",{"device":device})
+                    raise OperationError("device_interlock","Loading or closure condition failed while running",{"device":device})
                 state["elapsed"]+=seconds+logical_extra
                 if state["elapsed"]>=self.rules[device]["duration_seconds"]: state["state"]="complete"
         events=[]
@@ -183,8 +183,8 @@ class Evidence:
         return events
 
     def start(self, device):
-        need(device in self.rules,"未知设备")
+        need(device in self.rules,"Unknown device")
         state,rule=self.devices[device],self.rules[device]
-        need(state["state"]=="idle" and self.evaluate(rule["start_condition"]),"设备启动条件不满足","device_interlock")
+        need(state["state"]=="idle" and self.evaluate(rule["start_condition"]),"Device start condition not met","device_interlock")
         state["state"]="running"
         return rule["interface"]

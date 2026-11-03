@@ -74,7 +74,7 @@ class ManifestTests(unittest.TestCase):
         self.assertEqual(record['inputs'], {'protocol': 'p'})
         self.assertEqual(record['configuration'], {'limits': 1})
         self.assertEqual(set(record['covers']), {'implementation', 'dependencies', 'inputs', 'configuration'})
-        self.assertIn('字节码缓存', record['covers']['implementation'])
+        self.assertIn('bytecode cache', record['covers']['implementation'])
 
 
 class BackendBindingTests(unittest.TestCase):

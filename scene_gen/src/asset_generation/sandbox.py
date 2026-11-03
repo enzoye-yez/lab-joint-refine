@@ -1,4 +1,4 @@
-"""容器执行边界。未安装隔离环境时拒绝执行生成代码，无宿主机回退。"""
+"""Container execution boundary. Without an installed isolation environment, generated code is refused; there is no host fallback."""
 
 import shutil
 import subprocess
@@ -20,15 +20,15 @@ class SandboxUnavailable(PrepError):
 
 
 class BackendExecutionError(ValidationError):
-    """进程超时/传输/本地环境失败，不等同于模型生成了错误几何。"""
+    """Process timeout/transport/local environment failure; not the same as the model generating wrong geometry."""
 
 
 class WorkerTimeout(BackendExecutionError):
-    """工作进程超出时间预算；对已通过准入的同一资产，复查超时由调用方按该资产处理。"""
+    """The worker exceeded its time budget; for the same asset that already passed admission, the caller handles a recheck timeout as that asset's problem."""
 
 
 def extract_artifacts(stream, destination, config):
-    """只拷贝有界普通文件；拒绝链接、设备、路径穿越，不使用extractall。"""
+    """Copy only bounded regular files; reject links, devices and path traversal; never use extractall."""
     destination = Path(destination)
     total = count = 0
     names = set()
@@ -36,21 +36,21 @@ def extract_artifacts(stream, destination, config):
     with tarfile.open(fileobj=stream, mode="r|*") as archive:
         for member in archive:
             count += 1
-            require(count <= config.max_artifact_files * 2 + 1, "容器归档成员过多")
+            require(count <= config.max_artifact_files * 2 + 1, "Too many members in the container archive")
             name = member.name
             if name.startswith("./"):
                 name = name[2:]
             if member.isdir():
-                require(not member.issym() and ".." not in PurePosixPath(name).parts, "容器目录路径无效")
+                require(not member.issym() and ".." not in PurePosixPath(name).parts, "Invalid container directory path")
                 continue
-            require(member.isfile() and not member.issym() and not member.islnk(), "拒绝容器输出中的链接或特殊文件")
+            require(member.isfile() and not member.issym() and not member.islnk(), "Links or special files in container output rejected")
             require(name and name not in names and "\\" not in name and ":" not in name
                     and not PurePosixPath(name).is_absolute() and ".." not in PurePosixPath(name).parts,
-                    "容器输出路径无效或重复")
-            require(PurePosixPath(name).suffix.lower() in allowed, "容器输出包含不允许的文件类型")
+                    "Container output path invalid or duplicated")
+            require(PurePosixPath(name).suffix.lower() in allowed, "Container output contains a disallowed file type")
             names.add(name); total += member.size
             require(len(names) <= config.max_artifact_files and 0 <= member.size and total <= config.max_artifact_bytes,
-                    "容器输出超过文件数或大小上限")
+                    "Container output exceeds the file count or size limit")
             target = safe_path(destination, name)
             target.parent.mkdir(parents=True, exist_ok=True)
             with archive.extractfile(member) as source, target.open("xb") as sink:
@@ -59,15 +59,15 @@ def extract_artifacts(stream, destination, config):
 
 
 class ExecutionBackend:
-    """两种执行后端共享的构建和检查编排，不提供隐式切换。"""
+    """Build and check orchestration shared by both execution backends; no implicit switching."""
 
-    # 由主进程在启动时写入；工作进程用它核对磁盘源码未被替换。
-    # 未显式绑定时，后端按自身启动时看到的磁盘源码绑定一次（惰性、只算一次）。
+    # Written by the main process at startup; the worker uses it to verify that the source on disk was not replaced.
+    # Without explicit binding, the backend binds once to the on-disk source it sees at its own startup (lazily, computed only once).
     implementation = None
 
     def bind_implementation(self, identity):
         from asset_prep import implementation as binding
-        binding.require_identity(identity, where=f'{type(self).__name__} 绑定')
+        binding.require_identity(identity, where=f'{type(self).__name__} binding')
         self.implementation = identity
 
     def implementation_identity(self):
@@ -77,20 +77,20 @@ class ExecutionBackend:
         return self.implementation
 
     def recovery_environment(self):
-        """只观察执行前提是否变化，不使用时钟、空闲内存等易变值绕过重试预算。"""
+        """Only observe whether the execution preconditions changed; never use volatile values such as the clock or free memory to bypass the retry budget."""
         return {'backend':type(self).__name__,
                 'executable_available':bool(self.executable and Path(self.executable).is_file()),
                 'worker_available':(self.project/'src/asset_generation/worker.py').is_file(),
                 'implementation':self.implementation_identity()}
 
     def job_identity(self):
-        """工作进程作业固定携带实现身份；缺失时拒绝下发。"""
+        """Worker jobs always carry the implementation identity; refuse to dispatch when it is missing."""
         from asset_prep import implementation as binding
         return {'implementation':binding.require_identity(self.implementation_identity(),
-                                                          where=f'{type(self).__name__} 下发作业')}
+                                                          where=f'{type(self).__name__} job dispatch')}
 
     def recover_scene(self, artifact, destination, limits, contract, capability, request, input_key):
-        """可信注册能力在场景副本执行；复用原进程隔离、限时及输出限制。"""
+        """Trusted registered capabilities run on the scene copy, reusing the original process isolation, time limits and output limits."""
         from dataclasses import asdict, replace
         from copy import copy
         destination = Path(destination)
@@ -109,7 +109,7 @@ class ExecutionBackend:
         return read_json(output/'report.json',8000000)
 
     def recheck_scene(self, artifact, destination, limits, contract):
-        """在原场景副本上补查，不重建资产、不修改原报告、不重新渲染。"""
+        """Recheck on the original scene copy without rebuilding assets, modifying the original report or re-rendering."""
         from dataclasses import asdict, replace
         from copy import copy
         destination = Path(destination)
@@ -164,7 +164,7 @@ class ExecutionBackend:
             if isinstance(exc,BackendExecutionError):
                 return failed_report(exc),None
             return {"status": "fail", "checks": [{"id": "asset_build", "status": "fail", "detail": str(exc)}],
-                    "renders": [], "manifest": None, "coverage": ["构建未完成，未执行后续检查"]}, None
+                    "renders": [], "manifest": None, "coverage": ["Build not finished; subsequent checks not run"]}, None
 
     def build_candidate(self, script, destination, asset_ids, profile):
         report,_=self.build_and_check(script,destination,asset_ids,profile,admission=True)
@@ -208,7 +208,7 @@ class ExecutionBackend:
         return self.assemble_and_check(plan,environment,artifacts,robot_root,destination,limits,contract,admission=True)
 
     def recheck_asset(self, artifact, destination, asset_ids, profile):
-        """实现升级后重新量测已归档几何；不执行建模脚本。"""
+        """After an implementation upgrade, re-measure the archived geometry; never execute the modelling script."""
         destination = Path(destination)
         job = destination/'job.json'
         atomic_json(job, {'asset_ids':asset_ids, 'profile':profile, **self.job_identity()})
@@ -243,7 +243,7 @@ class ExecutionBackend:
             report["execution_timing"]={"worker_seconds":round(elapsed,3),
                 "budget_seconds":getattr(scene_backend,'last_work_budget',{}).get('seconds',limits.build_timeout_seconds),
                 "base_budget_seconds":limits.build_timeout_seconds,
-                "note":"总时长含输入复制与产物回收；本地日志另记实际工作时限及装配、编译、准入阶段耗时"}
+                "note":"Total duration includes input copying and artifact retrieval; the local log separately records the actual worker time limit and the durations of the assembly, compile and admission stages"}
             return report, output/"renders"
         except ValidationError as exc:
             if phase == 'report' or isinstance(exc,BackendExecutionError):
@@ -255,7 +255,7 @@ class ExecutionBackend:
                 return report,None
             return {"status":"fail", "checks":[{"id":"scene_build", "status":"fail", "detail":str(exc),
                      "instances":[i["id"] for i in plan["instances"]]}], "renders":[],
-                    "coverage":["场景构建未完成"]}, None
+                    "coverage":["Scene build not finished"]}, None
 
 
 class DockerSandbox(ExecutionBackend):
@@ -266,21 +266,21 @@ class DockerSandbox(ExecutionBackend):
 
     def preflight(self):
         if not self.executable:
-            raise SandboxUnavailable("未找到 Docker；可离线预检，但不能执行模型生成的 Python 程序")
+            raise SandboxUnavailable("Docker not found; offline preflight is possible, but Python programs generated by the model cannot be executed")
         try:
             result = subprocess.run([self.executable, "info", "--format", "{{.OSType}}"], capture_output=True,
                                     timeout=15, check=True, text=True)
-            require(result.stdout.strip() == "linux", "需要 Linux 容器后端")
+            require(result.stdout.strip() == "linux", "Requires a Linux container backend")
             image = subprocess.run([self.executable, "image", "inspect", self.config.image, "--format", "{{.Id}}"],
                                    capture_output=True, timeout=15, check=True, text=True)
             self.image_id = image.stdout.strip()
-            require(self.image_id.startswith("sha256:"), "无法确认构建镜像身份")
+            require(self.image_id.startswith("sha256:"), "Cannot confirm the build image identity")
             return {"backend": "docker", "image_id": self.image_id}
         except (OSError, subprocess.SubprocessError, ValidationError) as exc:
-            raise SandboxUnavailable("Docker 服务、Linux 后端或构建镜像尚未就绪；不会自动下载或退回宿主执行") from exc
+            raise SandboxUnavailable("Docker service, Linux backend or build image not ready yet; will not download automatically or fall back to host execution") from exc
 
     def command(self, name, mounts, mode):
-        require(self.image_id is not None, "隔离后端须先预检")
+        require(self.image_id is not None, "The isolated backend must be preflighted first")
         command = [self.executable, "create", "--name", name, "--pull=never", "--network=none", "--read-only",
                    "--cap-drop=ALL", "--security-opt=no-new-privileges", "--pids-limit=64", "--memory=1g",
                    "--memory-swap=1g", "--cpus=2", "--user=65534:65534", "--log-driver=none",
@@ -290,11 +290,11 @@ class DockerSandbox(ExecutionBackend):
                    "--env=MKL_NUM_THREADS=1", "--env=NUMEXPR_NUM_THREADS=1", "--env=LP_NUM_THREADS=2"]
         for source, target in mounts:
             source = str(Path(source).resolve())
-            require("," not in source, "容器挂载路径暂不支持逗号")
+            require("," not in source, "Container mount paths do not support commas yet")
             command.extend(["--mount", f"type=bind,src={source},dst={target},readonly"])
-        require(mode in {"build", "validate", "scene", "inspect"}, "工作进程模式无效")
+        require(mode in {"build", "validate", "scene", "inspect"}, "Invalid worker mode")
         identity = self.job_identity()
-        # 保持容器存活至产物取回；容器退出后tmpfs会卸载。
+        # Keep the container alive until artifacts are retrieved; the tmpfs is unmounted once the container exits.
         launcher = (f"python -B -P /app/runtime_bootstrap.py --expected-code {identity['implementation']} "
                     f"--module asset_generation.worker -- {mode} "
                     f"--implementation {identity['implementation']}; "
@@ -320,10 +320,10 @@ class DockerSandbox(ExecutionBackend):
                 time.sleep(0.2)
             guard.check()
             if done.stdout.strip() == '78':
-                raise ImplementationDrift('容器工作进程拒绝执行不一致的实现版本')
-            # 输出只存在于容器tmpfs。不把容器可写目录直接挂载到仓库。
+                raise ImplementationDrift('Container worker refused to run a mismatched implementation version')
+            # Output exists only in the container tmpfs. Never mount a container-writable directory directly onto the repository.
             with tempfile.TemporaryFile(dir=output.parent) as errors:
-                # Docker cp不支持tmpfs内容，按官方说明在存活容器中流式归档。
+                # Docker cp does not support tmpfs contents, so following the official guidance we stream an archive from the live container.
                 proc = subprocess.Popen([self.executable, "exec", name, "tar", "-C", "/output", "-cf", "-", "."],
                                         stdout=subprocess.PIPE, stderr=errors)
                 timer = threading.Timer(20, proc.kill)
@@ -331,10 +331,10 @@ class DockerSandbox(ExecutionBackend):
                 timer.start()
                 try:
                     files = extract_artifacts(proc.stdout, output, self.config)
-                    require(proc.wait(timeout=20) == 0, "读取容器产物失败")
+                    require(proc.wait(timeout=20) == 0, "Failed to read container artifacts")
                     if done.stdout.strip() != "0":
                         error_file = output/"build_error.json"
-                        detail = read_json(error_file).get("detail", "构建失败") if error_file.is_file() else "工作进程失败"
+                        detail = read_json(error_file).get("detail", "build failed") if error_file.is_file() else "worker failed"
                         raise ValidationError(str(detail)[:5000])
                     return files
                 finally:
@@ -343,14 +343,14 @@ class DockerSandbox(ExecutionBackend):
                     if proc.poll() is None:
                         proc.kill(); proc.wait(timeout=10)
         except subprocess.TimeoutExpired as exc:
-            raise BackendExecutionError("隔离工作进程超时，已请求清理本轮容器") from exc
+            raise BackendExecutionError("Isolated worker timed out; cleanup of this round's container requested") from exc
         except (OSError, subprocess.CalledProcessError, tarfile.TarError) as exc:
-            raise BackendExecutionError("隔离工作进程或产物传输失败") from exc
+            raise BackendExecutionError("Isolated worker or artifact transfer failed") from exc
         finally:
             try:
                 removed = subprocess.run([self.executable, "rm", "--force", name], capture_output=True, timeout=20)
                 if removed.returncode != 0:
-                    raise SandboxUnavailable(f"无法确认临时容器 {name} 已清理，请检查容器服务")
+                    raise SandboxUnavailable(f"Cannot confirm temporary container {name} was cleaned up; check the container service")
             except (OSError, subprocess.TimeoutExpired) as exc:
-                raise SandboxUnavailable(f"清理临时容器 {name} 失败，请检查容器服务") from exc
+                raise SandboxUnavailable(f"Failed to clean up temporary container {name}; check the container service") from exc
 

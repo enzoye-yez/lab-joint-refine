@@ -1,4 +1,4 @@
-"""现有联合运行与通用证据工具之间的固定接入层。"""
+"""Fixed adapter layer between the existing joint run and the generic evidence tools."""
 from copy import deepcopy
 from .common import need, digest, OperationError
 from .diagnostic_tools import DiagnosticContext, normalize, CATALOG
@@ -6,7 +6,7 @@ from .diagnostic_ledger import EvidenceLedger
 
 
 def collect(context, state, queries, save=lambda: None, *, count_stall=True):
-    need(isinstance(queries, list) and 0 < len(queries) <= context.settings.diagnostic_batch, "诊断批次超限")
+    need(isinstance(queries, list) and 0 < len(queries) <= context.settings.diagnostic_batch, "Diagnostic batch too large")
     context.verify_sources()
     ledger = EvidenceLedger(state, context.settings, save,
                             context.evidence_root/"evidence" if context.evidence_root else None)
@@ -36,7 +36,7 @@ def merge(report, records):
     evidence = {r["id"]: r for r in report.get("evidence", [])}
     rows = {digest(row): row for row in report.get("rows", [])}
     for record in records:
-        need(record["binding"]["scene_sha256"] == report["scene_sha256"], "旧版本证据不可进入当前诊断", "stale_evidence")
+        need(record["binding"]["scene_sha256"] == report["scene_sha256"], "Evidence from an older version cannot enter the current diagnosis", "stale_evidence")
         evidence[record["id"]] = record
         if record["status"] != "valid": continue
         for row in record["result"].get("rows", []):
@@ -53,7 +53,7 @@ def inspect_with_ledger(scene, scene_hash, settings, state, *, run_root=None, ev
     from .diagnosis import diagnose_run, inspect_scene
     context = DiagnosticContext(scene, scene_hash, settings, run_root=run_root, evidence_root=evidence_root, guard=guard,cancel_guard=cancel_guard)
     report = diagnose_run(run_root) if run_root else inspect_scene(scene, scene_hash, settings)
-    # 来源初态问题仍保留现有固定检查结果；执行失败观测不会被提升为初态缺陷。
+    # Source initial-state issues keep the existing fixed-check results; execution-failure observations are never promoted to initial-state defects.
     if run_root:
         initial = inspect_scene(scene, scene_hash, settings)
         report["rows"].extend(initial["rows"])
@@ -74,9 +74,9 @@ def inspect_with_ledger(scene, scene_hash, settings, state, *, run_root=None, ev
 
 
 def attribution(report):
-    """提供证据支持的候选来源，不把观测自动解释成唯一根因。"""
+    """Offer evidence-backed candidate sources; never interpret an observation automatically as the unique root cause."""
     if report.get("failure", {}).get("scope") == "engineering":
-        return {"status": "engineering", "candidates": [], "reason": "执行或仿真异常先处理工程问题"}
+        return {"status": "engineering", "candidates": [], "reason": "Execution or simulation fault: resolve the engineering issue first"}
     candidates = []
     for row in report.get("rows", []):
         roles = report.get("instance_roles", {})
@@ -92,46 +92,46 @@ def attribution(report):
         if row.get("kind") == "trajectory_probe" and row.get("observation", {}).get("variant_improved"):
             candidates.append({"target": "trajectory", "basis": "paired_local_improvement", "evidence_id": row["evidence_id"]})
     return {"status": "supported_candidates" if candidates else "unresolved", "candidates": candidates,
-            "limitations": "多个原因可并存；局部成功不证明唯一原因，搜索失败不证明资产缺陷"}
+            "limitations": "Several causes can coexist; a local success does not prove a unique cause, and a failed search does not prove an asset defect"}
 
 
 def repair_ticket(report, request, target, scene_hash):
-    need(target in {"asset", "fixture", "scene"}, "未知返修类别")
-    need(report["scene_sha256"] == scene_hash, "返修依据属于旧场景", "stale_evidence")
-    need(report.get("failure", {}).get("scope") != "engineering", "工程故障不授权改资产")
-    need(isinstance(request, dict) and set(request) <= {"reason", "instances", "evidence_ids", "checks"}, "返修请求字段无效")
-    need(isinstance(request.get("reason"), str) and request["reason"].strip(), "返修需要原因说明")
+    need(target in {"asset", "fixture", "scene"}, "Unknown repair category")
+    need(report["scene_sha256"] == scene_hash, "Repair evidence belongs to an older scene", "stale_evidence")
+    need(report.get("failure", {}).get("scope") != "engineering", "An engineering fault does not authorize asset changes")
+    need(isinstance(request, dict) and set(request) <= {"reason", "instances", "evidence_ids", "checks"}, "Invalid repair request fields")
+    need(isinstance(request.get("reason"), str) and request["reason"].strip(), "A repair requires a stated reason")
     selected = request.get("instances", [])
     checks = request.get("checks", [])
     ids = request.get("evidence_ids", [])
-    need(isinstance(selected, list) and selected and len(set(selected)) == len(selected), "返修须明确实例")
-    need(isinstance(ids, list) and ids, "返修须引用实际证据编号")
-    need(isinstance(checks, list) and 0 < len(checks) <= 16, "返修须声明有界复查")
+    need(isinstance(selected, list) and selected and len(set(selected)) == len(selected), "A repair must name its instances explicitly")
+    need(isinstance(ids, list) and ids, "A repair must cite actual evidence ids")
+    need(isinstance(checks, list) and 0 < len(checks) <= 16, "A repair must declare bounded re-checks")
     roles = report.get("instance_roles", {})
-    need(all(i in roles for i in selected), "返修对象不存在")
-    if target != "scene": need(all(roles[i] == target for i in selected), "返修类别与实际对象角色不符")
+    need(all(i in roles for i in selected), "Repair target does not exist")
+    if target != "scene": need(all(roles[i] == target for i in selected), "Repair category does not match the target's actual role")
     records = {r["id"]: r for r in report.get("evidence", [])}
     need(all(i in records and records[i]["status"] == "valid" and records[i]["binding"]["scene_sha256"] == scene_hash for i in ids),
-         "返修引用无效或过期证据")
+         "Repair cites invalid or stale evidence")
     rows = [r for r in report["rows"] if r.get("evidence_id") in ids]
     for instance in selected:
         relevant = [r for r in rows if instance in r.get("instances", [])]
-        need(relevant, "证据未涉及待修改实例："+instance)
-        if target != "fixture": need(any(r.get("repair_authorized") for r in relevant), "观测不足以授权修改真实仪器或场景")
+        need(relevant, "Evidence does not involve the instance to be modified: "+instance)
+        if target != "fixture": need(any(r.get("repair_authorized") for r in relevant), "Observations are insufficient to authorize modifying the real instrument or scene")
         else:
-            # 无异常的正常接触不能凭模型文字变成设计改良依据。
+            # Normal contact without anomalies cannot become grounds for a design change on the strength of model text.
             need(any(r.get("repair_authorized") or r.get("observation", {}).get("limit_exceeded") or
                      r.get("observation", {}).get("retention_failure_observed") for r in relevant),
-                 "夹具设计试验须有干涉或保持失败证据；普通接触不足以判定设计问题")
+                 "A fixture design trial requires evidence of interference or holding failure; ordinary contact is not enough to establish a design problem")
     normalized = [normalize(q) for q in checks]
     need(all(q["kind"] != "probe" and q["state"] == "initial" for q in normalized),
-         "跨版本复查使用初态量测；实际操作由重新规划后的完整执行验证")
+         "Cross-version re-checks use initial-state measurements; actual operation is verified by a full execution after re-planning")
     from .diagnostic_ledger import covers
     for evidence_id in ids:
         original=records[evidence_id].get("query",{})
         if original.get("state")=="initial" and original.get("kind") in {"contacts","configuration","mechanism","fit"}:
             need(any(q==original or covers(q,original) for q in normalized),
-                 "复查须覆盖原先发现问题的姿态、对象或机构行程；读取几何参数不能代替原量测")
+                 "Re-checks must cover the pose, object or mechanism travel where the problem was originally found; reading geometry parameters cannot replace the original measurement")
     def referenced(query,instance):
         if query["kind"]=="contacts" and not query["bodies"]:return True
         def strings(v):
@@ -140,7 +140,7 @@ def repair_ticket(report, request, target, scene_hash):
             if isinstance(v,dict):return [s for x in v.values() for s in strings(x)]
             return []
         return any(s.startswith(instance+"__") for s in strings(query))
-    need(all(any(referenced(q,i) for q in normalized) for i in selected),"复查没有覆盖全部待修改实例")
+    need(all(any(referenced(q,i) for q in normalized) for i in selected),"Re-checks do not cover all instances to be modified")
     original_pairs=set()
     retention=False
     for row in rows:
@@ -160,7 +160,7 @@ def repair_ticket(report, request, target, scene_hash):
 
 
 def check_obligations(report, ticket, records):
-    # 新场景名变化且无有效查询时返回覆盖缺口，不把旧报告移植到新版本。
+    # If scene names changed and no valid query remains, return a coverage gap; never transplant the old report onto the new version.
     results = [{"query": r["query"], "evidence_id": r["id"], "status": r["status"]} for r in records]
     def defects(record):
         result=set()
@@ -195,7 +195,7 @@ def check_obligations(report, ticket, records):
 
 
 def query_run(run_root, output, queries, *, resume=False):
-    """独立离线补查入口；证据写在新目录，原执行记录保持只读。"""
+    """Standalone offline follow-up query entry point; evidence goes to a new directory and the original execution record stays read-only."""
     from pathlib import Path
     from dataclasses import asdict
     from asset_prep.storage import atomic_json,run_lock
@@ -209,11 +209,11 @@ def query_run(run_root, output, queries, *, resume=False):
     configuration={"version":VERSION,"run_root":str(run_root),"scene_sha256":record["scene_sha256"],
                    "source_receipt":digest(read(run_root/"files.json")),"settings":asdict(settings),
                    "implementation":implementation_digest(source_manifest(project))}
-    need(not output.is_relative_to(run_root) and not run_root.is_relative_to(output),"诊断输出不能覆盖或嵌套原执行记录")
+    need(not output.is_relative_to(run_root) and not run_root.is_relative_to(output),"Diagnostic output must not overwrite or nest with the original execution record")
     if not resume:new_directory(output,[run_root,record["scene_path"]])
-    else:need(output.is_dir(),"待恢复诊断不存在")
+    else:need(output.is_dir(),"Diagnosis to resume does not exist")
     with run_lock(output):
-        if resume:need(read(output/"configuration.json")==configuration,"诊断输入或实现变化，须新建诊断版本")
+        if resume:need(read(output/"configuration.json")==configuration,"Diagnostic inputs or implementation changed; create a new diagnosis version")
         else:atomic_json(output/"configuration.json",configuration)
         state=read(output/"ledger.json") if (output/"ledger.json").exists() else {}
         def save():atomic_json(output/"ledger.json",state)

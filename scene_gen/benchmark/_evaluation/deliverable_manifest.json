@@ -12,11 +12,11 @@
     },
     {
       "path": "NP-002/rubric.json",
-      "sha256": "9897dcd191a5201c1a7b2f518f141a704fb8a34e214e0ef138b8ad07390fd7f0"
+      "sha256": "88ab9f1d0da6422a04016c33f6547eb2784d7c63daec89609faa00a1b4512f4d"
     },
     {
       "path": "NP-002/input_manifest.json",
-      "sha256": "abebf837973b629bddf0b06ffe8b0b850388a7f6b04475344bcbfc20386ace23"
+      "sha256": "acfe6b89fae8498afdb7310e842d1fad0d92c6ef6648dc3508ee6ffc1a44f99b"
     },
     {
       "path": "NP-003/rubric.json",
@@ -44,7 +44,7 @@
     },
     {
       "path": "_evaluation/evaluation_profile.json",
-      "sha256": "39ab3746311d7ff46a9af7ddcfc361e1160126315f05bd2ad70d131299b1f48e"
+      "sha256": "fff305386f63a6e4d91f19bbe653b3bac89dcf986c9e8587bb61568f1389ae40"
     },
     {
       "path": "_evaluation/evaluation_policy.json",
@@ -420,7 +420,7 @@
     },
     {
       "path": "_evaluation/generation_environment.json",
-      "sha256": "8d23f626aaadaba6a8893e63d876449447d6e02fd3a1410a17c9d42b67b23a09"
+      "sha256": "fc2e7ad1bbb3bfc4ebb7a28c32c71a33901a560dd947212fa28d3a7b9b2afd73"
     },
     {
       "path": "_evaluation/mobile_change_register.json",
@@ -852,7 +852,7 @@
     },
     {
       "path": "_dev/mobile_public_environment.json",
-      "sha256": "8d23f626aaadaba6a8893e63d876449447d6e02fd3a1410a17c9d42b67b23a09"
+      "sha256": "fc2e7ad1bbb3bfc4ebb7a28c32c71a33901a560dd947212fa28d3a7b9b2afd73"
     },
     {
       "path": "_dev/mobile_revision.py",

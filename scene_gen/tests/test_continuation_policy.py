@@ -108,7 +108,7 @@ class ContextContinuationTests(unittest.TestCase):
         with self.assertRaises(ContextLimitError):
             m.ask("fixture",self.large(),[],"review")
         self.assertEqual(len(seen),4)
-        self.assertIn("提交结论",seen[-1]["context_read_progress"]["instruction"])
+        self.assertIn("Submit the verdict",seen[-1]["context_read_progress"]["instruction"])
         paid=len(m.store.state["calls"])
         with self.assertRaises(ContextLimitError):
             m.ask("fixture",self.large(),[],"review")

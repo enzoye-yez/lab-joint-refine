@@ -1,4 +1,4 @@
-"""有几何一致性校验的距离证据；异常结果不能进入验收。"""
+"""Distance evidence with geometric consistency checks; anomalous results cannot enter acceptance."""
 
 import math
 import numpy as np
@@ -12,7 +12,7 @@ class MeasurementError(ValidationError):
 
 
 def observe(query, g1, g2, limit=.05):
-    """仅把预期的量测不确定性转成数据；程序错误仍向上传播。"""
+    """Turn only expected measurement uncertainty into data; programming errors still propagate."""
     try:
         value = query.measure(g1, g2, limit)
         return {**value, "outcome": "measured" if value.get("distance_m") is not None else "bounded"}
@@ -56,7 +56,7 @@ class DistanceQuery:
         self.recovery = recovery
 
     def interior_radius(self, g, point):
-        """点周围完全位于碰撞凸体内的球半径；负数表示点不在内部。"""
+        """Radius of the sphere around the point lying entirely inside the collision convex body; negative means the point is not inside."""
         m, d = self.model, self.data
         p = (point-d.geom_xpos[g]) @ d.geom_xmat[g].reshape(3,3)
         size, kind = m.geom_size[g], m.geom_type[g]
@@ -90,7 +90,7 @@ class DistanceQuery:
         return None
 
     def overlap_certificate(self, g1, g2):
-        """共同内接球只证明穿透下界，不伪造精确距离或支撑法向。"""
+        """A common inscribed sphere only proves a lower bound on penetration; never fabricates an exact distance or support normal."""
         centers = [self.data.geom_xpos[g] for g in (g1,g2)]
         points = [(centers[0]+centers[1])/2]
         axes = [*self.data.geom_xmat[g1].reshape(3,3).T,
@@ -100,7 +100,7 @@ class DistanceQuery:
                 a = self.support_point(g1,normal)
                 b = self.support_point(g2,-normal)
                 if a is not None and b is not None:
-                    # 在共同支撑面之间取点；仍须独立核对点确实在两个实体内部。
+                    # Take the point between the common support planes; still independently verify that it really lies inside both solids.
                     points.extend(((a+b)/2, b+(float(a@normal)-float(b@normal))*normal/2,
                                    a-(float(a@normal)-float(b@normal))*normal/2))
         best = None
@@ -108,7 +108,7 @@ class DistanceQuery:
             radii = [self.interior_radius(g,point) for g in (g1,g2)]
             if any(r is None for r in radii):
                 continue
-            radius = min(radii)-2e-6  # 保守扣除数值误差，不放宽穿透容差。
+            radius = min(radii)-2e-6  # Conservatively subtract numerical error; do not loosen the penetration tolerance.
             if radius > 0 and (best is None or radius > best[0]):
                 best = radius, point
         if best is None:
@@ -143,7 +143,7 @@ class DistanceQuery:
         return r@point+d.geom_xpos[g]
 
     def convex_distance(self, g1, g2, limit):
-        """独立GJK凸体距离：上下界收敛后还须通过相同见证点校验；不猜测穿透深度。"""
+        """Independent GJK convex distance: after the bounds converge it must also pass the same witness-point check; never guesses penetration depth."""
         from .convex import closest_witness
         def support(direction):
             a=self.support_point(g1,direction);b=self.support_point(g2,-direction)
@@ -152,15 +152,15 @@ class DistanceQuery:
             return a,b
         solved=closest_witness(support,self.data.geom_xpos[g2]-self.data.geom_xpos[g1],limit=limit)
         if solved is None or solved['upper']<=1e-9:
-            return None  # 实体相交不等于接触；须另有支撑平面证书。
+            return None  # Solid intersection is not contact; a separate support-plane certificate is required.
         if solved['lower']>=limit:
             return {'distance_m':None,'lower_bound_m':limit,'points':None,'normal':None}
         return self.validate(g1,g2,solved['upper'],np.r_[solved['a'],solved['b']],limit)[0]
 
     def feature_support(self, g, normal):
-        """返回整片支撑区域的极值查询，而不是从中任选一个顶点。
+        """Return extreme-value queries over the whole support region instead of picking an arbitrary vertex from it.
 
-        平面区域可以退化成边或点；圆柱端面保留为圆盘，不作多边形近似。
+        A planar region may degenerate to an edge or point; cylinder end faces stay discs, not polygonal approximations.
         """
         from itertools import product
         m,d=self.model,self.data
@@ -187,7 +187,7 @@ class DistanceQuery:
         return None if point is None else lambda tangent:point
 
     def support_witness(self, g1, g2, normal, gap, limit):
-        """平移支撑区域到同一平面求交，再回到原位核对两端实际表面。"""
+        """Translate the support regions onto a common plane to intersect them, then move back and verify the actual surfaces at both ends."""
         from .convex import closest_witness
         first,second=self.feature_support(g1,normal),self.feature_support(g2,-normal)
         if first is None or second is None:
@@ -204,7 +204,7 @@ class DistanceQuery:
         return self.validate(g1,g2,gap,segment,limit,normal_hint=normal)[0]
 
     def separating_faces(self, g):
-        """候选法向由实际几何产生；是否为有效支撑面仍以全体顶点投影验证。"""
+        """Candidate normals come from the actual geometry; whether one is a valid support plane is still verified by projecting all vertices."""
         m,d=self.model,self.data
         rotation=d.geom_xmat[g].reshape(3,3); kind=m.geom_type[g]
         if kind==mujoco.mjtGeom.mjGEOM_BOX:
@@ -258,7 +258,7 @@ class DistanceQuery:
         return center-radius,center+radius
 
     def mesh_support_error(self, g, point, normal):
-        """在凸包支撑面内核对见证点；不能误用原始凹网格三角面。"""
+        """Verify witness points within the convex-hull support face; never misuse the triangles of the original concave mesh."""
         rotation=self.data.geom_xmat[g].reshape(3,3)
         axis=rotation.T@normal
         p=(point-self.data.geom_xpos[g])@rotation
@@ -269,7 +269,7 @@ class DistanceQuery:
         if plane_error>2e-6:
             return plane_error
         points=vertices[projection>=height-2e-6]
-        # 支撑面投影为二维凸多边形；单调链只依赖顶点，不依赖凸包三角化。
+        # The support face projects to a 2D convex polygon; the monotone chain depends only on vertices, not on the hull triangulation.
         seed=np.eye(3)[int(np.argmin(np.abs(axis)))]
         u=np.cross(axis,seed);u/=np.linalg.norm(u);v=np.cross(axis,u)
         points=sorted(set(map(tuple,np.column_stack((points@u,points@v)))))
@@ -321,13 +321,13 @@ class DistanceQuery:
         return abs(float(np.linalg.norm(np.maximum(q,0))+min(q.max(),0)))
 
     def validate(self, g1, g2, distance, segment, limit, normal_hint=None):
-        eps = 2e-6  # 数值一致性阈值，不是允许穿透或悬空的公差。
+        eps = 2e-6  # Numerical consistency threshold, not a tolerance that allows penetration or floating.
         if not math.isfinite(distance) or not np.isfinite(segment).all():
-            return None,"距离或接触点不是有限数"
+            return None,"Distance or contact points are not finite"
         if distance >= limit-1e-10 and np.linalg.norm(segment) < 1e-12:
             return {"distance_m":None,"lower_bound_m":limit,"points":None,"normal":None},None
         if abs(float(np.linalg.norm(segment[3:]-segment[:3]))-abs(distance)) > eps:
-            return None,"接触点间距与有符号距离不一致"
+            return None,"Contact point separation disagrees with the signed distance"
         segment_length=float(np.linalg.norm(segment[3:]-segment[:3]))
         if abs(distance) > 1e-8 and segment_length>1e-12:
             candidates = [(segment[3:]-segment[:3])/segment_length*(1 if distance>0 else -1)]
@@ -353,20 +353,20 @@ class DistanceQuery:
                     errors = surface_errors
                     break
         if normal is None:
-            return None,"无法核对最近点、接触法向与实际碰撞形状支撑面"
+            return None,"Cannot verify the closest points and contact normal against the support face of the actual collision shape"
         return {"distance_m":distance,"lower_bound_m":None,"points":segment.tolist(),
                 "normal":normal,"surface_errors_m":errors},None
 
     def analytic_face(self, g1, g2, limit):
-        """支撑平面下界加支撑区域求交见证；适用于网格面、箱体面及圆柱端面。"""
+        """Support-plane lower bound plus support-region intersection witness; applies to mesh faces, box faces and cylinder end faces."""
         m,d=self.model,self.data
         for face,other,reverse in ((g1,g2,False),(g2,g1,True)):
             for normal in self.separating_faces(face):
                 normal=normal/np.linalg.norm(normal)
                 far=self.interval(face,normal)[1]; near=self.interval(other,normal)[0]
                 gap=near-far
-                # 刚体变换和点积会把精确接触变成机器舍入量级的微小负值。
-                # 仅容纳浮点运算误差，不使用碰撞/承托验收公差放宽求解范围。
+                # Rigid transforms and dot products turn an exact contact into a tiny negative value at machine rounding level.
+                # Only absorb floating-point error; do not use the collision/support acceptance tolerance to widen the solver range.
                 roundoff=64*np.finfo(float).eps*max(1.,abs(far),abs(near),
                     float(np.linalg.norm(d.geom_xpos[face])),float(np.linalg.norm(d.geom_xpos[other])))
                 if not math.isfinite(gap) or gap < -roundoff or roundoff>1e-9:
@@ -384,14 +384,14 @@ class DistanceQuery:
                     result=self.support_witness(g1,g2,-normal if reverse else normal,gap,limit)
                 if result is not None:
                     if gap<0:
-                        # 原样保留有符号投影及其数值不确定区间，不伪造精确零。
+                        # Keep the signed projection and its numerical uncertainty interval as-is; never fabricate an exact zero.
                         result['distance_bounds_m']=[gap,0.]
                         result['roundoff_bound_m']=roundoff
                     return result
         return None
 
     def box_overlap(self, g1, g2, limit):
-        """两个箱体的分离轴定理；仅在还能构造表面见证点时输出穿透深度。"""
+        """Separating axis theorem for two boxes; outputs penetration depth only when surface witness points can still be constructed."""
         m,d=self.model,self.data
         if any(m.geom_type[g]!=mujoco.mjtGeom.mjGEOM_BOX for g in (g1,g2)):
             return None
@@ -485,4 +485,4 @@ class DistanceQuery:
             result = self.overlap_certificate(g1,g2)
             if result is not None:
                 return {**result,"recovered_from":errors}
-        raise MeasurementError(f"距离证据不可靠：{m.geom(g1).name} / {m.geom(g2).name}；{errors}")
+        raise MeasurementError(f"Unreliable distance evidence: {m.geom(g1).name} / {m.geom(g2).name}; {errors}")

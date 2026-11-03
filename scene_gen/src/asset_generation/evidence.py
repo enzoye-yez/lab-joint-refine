@@ -1,4 +1,4 @@
-"""只读检查工具：编译已归档几何、摆静态检查姿态、拍图和量距；从不执行建模代码。"""
+"""Read-only check tools: compile archived geometry, set static check poses, render images and measure distances; never execute modelling code."""
 
 from pathlib import Path
 import math
@@ -15,10 +15,10 @@ from .distance import MeasurementError
 
 
 def requests_valid(requests, scope):
-    require(isinstance(scope,str) and scope in {'asset','scene'}, '检查范围无效')
-    require(isinstance(requests, list) and 1 <= len(requests) <= 4, "一次补证据须有1至4个请求")
+    require(isinstance(scope,str) and scope in {'asset','scene'}, 'Invalid check scope')
+    require(isinstance(requests, list) and 1 <= len(requests) <= 4, "One additional-evidence call must have 1 to 4 requests")
     for request in requests:
-        require(isinstance(request, dict), "检查请求须为对象")
+        require(isinstance(request, dict), "Check request must be an object")
         if "question" in request:
             require(isinstance(request["question"],str) and 1<=len(request["question"])<=80,"invalid question identity")
         configuration = request.get("configuration")
@@ -26,15 +26,15 @@ def requests_valid(requests, scope):
             require(scope=="asset" and isinstance(configuration,str), "configuration only supported for assets")
         request = {k:v for k,v in request.items() if k not in {"configuration","question"}}
         kind = request.get("kind")
-        require(isinstance(kind,str), '检查种类须为文本')
+        require(isinstance(kind,str), 'Check kind must be text')
         from .inspection_registry import REGISTRY
         if kind in REGISTRY:
             REGISTRY[kind].validate(request,scope)
         elif kind == "inventory":
-            require(set(request) == {"kind"}, "清单请求不接受其他字段")
+            require(set(request) == {"kind"}, "Inventory request accepts no other fields")
         elif kind == "view":
             require({"kind","joints","hide_bodies","focus_body","azimuth","elevation"} <= set(request) <=
-                    {"kind","joints","hide_bodies","focus_body","azimuth","elevation","focus_geoms","hide_sites","zoom","diagnostic_light"}, "视图字段无效")
+                    {"kind","joints","hide_bodies","focus_body","azimuth","elevation","focus_geoms","hide_sites","zoom","diagnostic_light"}, "Invalid view fields")
             for flag in ("hide_sites","diagnostic_light"):
                 require(flag not in request or type(request[flag]) is bool, "observation flag must be boolean")
             if "focus_geoms" in request:
@@ -42,35 +42,35 @@ def requests_valid(requests, scope):
                         all(isinstance(g,str) and g for g in request["focus_geoms"]), "invalid target geometries")
             require(type(request.get("zoom",1)) in (int,float) and math.isfinite(request.get("zoom",1)) and
                     .25 <= request.get("zoom",1) <= 4, "invalid observation zoom")
-            require(isinstance(request["joints"], dict) and len(request["joints"]) <= 16, "检查姿态关节数超限")
+            require(isinstance(request["joints"], dict) and len(request["joints"]) <= 16, "Too many joints in the check pose")
             require(all(isinstance(n,str) and type(v) in (int,float) and math.isfinite(v)
-                        for n,v in request["joints"].items()), "关节姿态无效")
+                        for n,v in request["joints"].items()), "Invalid joint pose")
             require(isinstance(request["hide_bodies"], list) and len(request["hide_bodies"]) <= 16
-                    and all(isinstance(n,str) for n in request["hide_bodies"]), "隐藏部件列表无效")
-            require(request["focus_body"] is None or isinstance(request["focus_body"],str), "视图焦点无效")
+                    and all(isinstance(n,str) for n in request["hide_bodies"]), "Invalid hidden parts list")
+            require(request["focus_body"] is None or isinstance(request["focus_body"],str), "Invalid view focus")
             require(all(type(request[k]) in (int,float) and math.isfinite(request[k]) for k in ("azimuth","elevation"))
-                    and -360 <= request["azimuth"] <= 360 and -90 <= request["elevation"] <= 90, "相机角度超限")
+                    and -360 <= request["azimuth"] <= 360 and -90 <= request["elevation"] <= 90, "Camera angle out of range")
         elif kind in {"clearance","perimeter","mount"}:
-            require(scope == "scene" and set(request) == {"kind","instance","distance_m"}, "仅场景支持实例净空量测")
+            require(scope == "scene" and set(request) == {"kind","instance","distance_m"}, "Instance clearance measurement is supported only for scenes")
             require(isinstance(request["instance"],str) and type(request["distance_m"]) in (int,float)
-                    and math.isfinite(request["distance_m"]) and 0 < request["distance_m"] <= 1, "量测范围无效")
+                    and math.isfinite(request["distance_m"]) and 0 < request["distance_m"] <= 1, "Invalid measurement range")
         elif kind == "pairs":
-            require(scope == 'scene' and set(request)=={'kind','pairs','distance_m'},'几何对检查字段无效')
+            require(scope == 'scene' and set(request)=={'kind','pairs','distance_m'},'Invalid geom-pair check fields')
             require(isinstance(request['pairs'],list) and 1<=len(request['pairs'])<=32 and
-                    all(isinstance(p,list) and len(p)==2 and all(isinstance(n,str) and n for n in p) for p in request['pairs']),'几何对须为最多32个实际名称对')
-            require(type(request['distance_m']) in (int,float) and math.isfinite(request['distance_m']) and 0<request['distance_m']<=1,'量测范围无效')
+                    all(isinstance(p,list) and len(p)==2 and all(isinstance(n,str) and n for n in p) for p in request['pairs']),'Geom pairs must be at most 32 pairs of actual names')
+            require(type(request['distance_m']) in (int,float) and math.isfinite(request['distance_m']) and 0<request['distance_m']<=1,'Invalid measurement range')
         elif kind == 'support':
             require(scope=='scene' and {'kind','instance'}<=set(request)<={'kind','instance','object_geoms','support_geoms','support_tolerance_m','collision_tolerance_m'}
-                    and isinstance(request['instance'],str),'承托检查字段无效')
+                    and isinstance(request['instance'],str),'Invalid support check fields')
             for field in ('support_tolerance_m','collision_tolerance_m'):
                 require(field not in request or type(request[field]) in (int,float) and math.isfinite(request[field]) and request[field]>=0,'invalid fixed tolerance')
             for key in ('object_geoms','support_geoms'):
                 if key in request:
-                    require(isinstance(request[key],list) and 1<=len(request[key])<=128 and all(isinstance(n,str) and n for n in request[key]),'承托几何选择无效')
+                    require(isinstance(request[key],list) and 1<=len(request[key])<=128 and all(isinstance(n,str) and n for n in request[key]),'Invalid support geom selection')
         else:
-            require(False, "不支持的补证据工具")
+            require(False, "Unsupported additional-evidence tool")
     from asset_prep.storage import digest
-    require(len({digest(r) for r in requests})==len(requests), '检查请求不能重复')
+    require(len({digest(r) for r in requests})==len(requests), 'Check requests must not repeat')
     return requests
 
 
@@ -78,8 +78,8 @@ def descendants(model, name):
     try:
         root = model.body(name).id
     except KeyError:
-        raise ValueError("未知部件：" + name) from None
-    require(root > 0, "不能隐藏或聚焦世界根节点")
+        raise ValueError("Unknown part: " + name) from None
+    require(root > 0, "Cannot hide or focus the world root")
     result = {root}
     for body in range(root + 1, model.nbody):
         if int(model.body_parentid[body]) in result:
@@ -112,13 +112,13 @@ def clearance(model, data, request, max_pairs=200000):
     owners = [owner(model,g) for g in range(model.ngeom)]
     omitted = {"unassigned", "environment", "table", "floor"}
     target = request["instance"]
-    require(target in owners and target not in omitted, "净空目标不是已知场景实例")
-    # 有限视觉几何也参与；不受碰撞位掩码过滤。承托台面、地面不属于周边设备净空。
+    require(target in owners and target not in omitted, "Clearance target is not a known scene instance")
+    # Finite visual geometry also counts; not filtered by collision bitmasks. Supporting tabletops and the ground are not part of surrounding-equipment clearance.
     ids = [g for g in range(model.ngeom) if owners[g] not in omitted]
     boxes = {g:bounds(model,data,g) for g in ids}
     left = [g for g in ids if owners[g] == target]
     right = [g for g in ids if owners[g] != target]
-    require(left and right, "净空量测缺少目标或其他实例几何")
+    require(left and right, "Clearance measurement is missing the target or other instances' geometry")
     lower = np.array([boxes[g][0] for g in right])
     upper = np.array([boxes[g][1] for g in right])
     nearest, pair, count = limit, None, 0
@@ -142,7 +142,7 @@ def clearance(model, data, request, max_pairs=200000):
             distance=measurement['distance_m']
             if distance is None:
                 continue
-            require(math.isfinite(distance), "距离结果非有限值")
+            require(math.isfinite(distance), "Distance result is not finite")
             if distance < nearest:
                 nearest, pair = distance, [model.geom(g).name,model.geom(other).name]
     if skipped:
@@ -155,12 +155,12 @@ def clearance(model, data, request, max_pairs=200000):
             "distance_recoveries":query.recoveries,
             "other_instances":sorted({owners[g] for g in right}),
             "excluded_owners":sorted(omitted),
-            "meaning":"当前初始姿态的三维碰撞形状距离；网格使用凸包。阈值来自模型查询，不自动作为用户验收标准；不证明其他姿态或散热性能。"}
+            "meaning":"3D collision-shape distance in the current initial pose; meshes use convex hulls. The threshold comes from the model's query and is not automatically a user acceptance criterion; does not prove other poses or thermal performance."}
 
 
 def inspect_artifact(root, scope, requests, output):
     from scene_generation.geometry import bounds
-    require(scope in {"asset","scene"}, "补证据阶段无效")
+    require(scope in {"asset","scene"}, "Invalid additional-evidence stage")
     requests_valid(requests,scope)
     root, output = Path(root),Path(output)
     from .configurations import selection, catalogue
@@ -227,8 +227,8 @@ def inspect_artifact(root, scope, requests, output):
             for name,value in request["joints"].items():
                 joint = model.joint(name).id
                 require(model.jnt_type[joint] in (mujoco.mjtJoint.mjJNT_HINGE,mujoco.mjtJoint.mjJNT_SLIDE)
-                        and model.jnt_limited[joint], "检查姿态只支持有明确限位的铰链或滑动关节")
-                require(model.jnt_range[joint,0] <= value <= model.jnt_range[joint,1], "检查姿态超过原模型限位")
+                        and model.jnt_limited[joint], "Check poses only support hinge or slide joints with explicit limits")
+                require(model.jnt_range[joint,0] <= value <= model.jnt_range[joint,1], "Check pose exceeds the original model's limits")
                 data.qpos[model.jnt_qposadr[joint]] = value
             geometry_state(model,data)
             from .observation import render_observation

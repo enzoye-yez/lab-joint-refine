@@ -1,4 +1,4 @@
-"""生成模块专用传输进程：截止时终止网络进程，凭据仅通过标准输入传递。"""
+"""Transport process dedicated to generation: kills the network process at the deadline; credentials are passed only via stdin."""
 
 import json
 import os
@@ -19,7 +19,7 @@ class GenerationTransport:
         started = time.monotonic()
         env = dict(os.environ, PYTHONPATH=str(Path(__file__).resolve().parents[1]),
                    PYTHONDONTWRITEBYTECODE="1", PYTHONIOENCODING="utf-8")
-        # 不通过命令行、进程环境或临时文件传递本次密钥。
+        # Never pass this request's key via the command line, process environment or temporary files.
         for name in ("HARNESS_MODEL_API_KEY", "HARNESS_MODEL_API_KEY2", "TAVILY_API_KEY", "OPENAI_API_KEY"):
             env.pop(name,None)
         request = json.dumps({"url":url,"payload":payload,"key":key,"timeout":timeout},ensure_ascii=False).encode("utf-8")
@@ -39,7 +39,7 @@ class GenerationTransport:
                 self.check_cancel()
                 left=timeout+5-(time.monotonic()-started)
                 if left<=0:
-                    raise ProviderError("生成请求超过进程级截止时间；网络进程已终止，请求结果仍不明",uncertain=True,
+                    raise ProviderError("Generation request exceeded the process-level deadline; network process killed, request outcome still unknown",uncertain=True,
                         diagnostics={"failure":"process_deadline","phase":"network_worker",
                             "elapsed_seconds":round(time.monotonic()-started,3),"timeout_seconds":timeout})
                 try:
@@ -52,7 +52,7 @@ class GenerationTransport:
             if process is not None:tree.stop(process)
             else:tree.close()
         if result.returncode != 0 or len(result.stdout) > 16000000:
-            raise ProviderError("生成网络进程异常退出；请求结果不明",uncertain=True,
+            raise ProviderError("Generation network process exited abnormally; request outcome unknown",uncertain=True,
                                 diagnostics={"failure":"network_worker_exit","exit_code":result.returncode})
         try:
             response = json.loads(result.stdout)
@@ -61,13 +61,13 @@ class GenerationTransport:
             error = response["error"]
             raise ProviderError(error["message"],uncertain=error["uncertain"],diagnostics=error["diagnostics"])
         except (ValueError,KeyError,TypeError):
-            raise ProviderError("生成网络进程返回格式无效；请求结果不明",uncertain=True) from None
+            raise ProviderError("Generation network process returned an invalid format; request outcome unknown",uncertain=True) from None
 
 
 def transport_for(config, workspace=None):
-    """按服务配置选择传输：codex 走本机登录的 Codex CLI，其余走 HTTPS 网络进程。
+    """Choose the transport from the provider config: codex uses the locally logged-in Codex CLI, everything else uses the HTTPS network process.
 
-    workspace 保存编码 agent 会话目录（通常是运行目录），便于事后审计。
+    workspace holds the coding agent session directory (usually the run directory) for later audit.
     """
     if config.provider == "codex":
         from .codex_transport import CodexTransport
@@ -86,8 +86,8 @@ def worker():
             exc.diagnostics = {"failure": "dns_error", "phase": "resolve"}
         output = {"ok":False,"error":{"message":str(exc),"uncertain":exc.uncertain,"diagnostics":exc.diagnostics}}
     except Exception:
-        # 不回显请求、密钥或含请求变量的异常堆栈。
-        output = {"ok":False,"error":{"message":"网络进程发生未分类错误","uncertain":True,"diagnostics":{}}}
+        # Never echo the request, key or exception tracebacks containing request variables.
+        output = {"ok":False,"error":{"message":"Unclassified error in the network process","uncertain":True,"diagnostics":{}}}
     sys.stdout.buffer.write(json.dumps(output,ensure_ascii=False).encode("utf-8"))
 
 

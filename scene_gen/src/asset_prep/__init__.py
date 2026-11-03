@@ -1,3 +1,3 @@
-"""湿实验资产准备模块；不生成几何或执行模型代码。"""
+"""Wet-lab asset preparation module; does not generate geometry or execute model code."""
 
 __version__ = "0.1.0"

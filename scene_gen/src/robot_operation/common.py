@@ -1,4 +1,4 @@
-"""公开工程参数、有限输入和版本绑定。"""
+"""Public engineering parameters, bounded inputs and version binding."""
 from dataclasses import asdict, dataclass
 import json
 import math
@@ -15,7 +15,7 @@ class OperationError(ValueError):
 
 
 def copy_data(target, model, source):
-    """3.3.7 Python绑定使用完整积分状态复制，不依赖未导出的C函数。"""
+    """The 3.3.7 Python bindings copy the full integration state; no dependence on unexported C functions."""
     import mujoco
     spec = mujoco.mjtState.mjSTATE_INTEGRATION
     state = np.zeros(mujoco.mj_stateSize(model, spec))
@@ -31,27 +31,27 @@ def need(condition, message, code="invalid_contract"):
 
 def read(path):
     path = Path(path)
-    need(path.is_file() and path.stat().st_size <= 32_000_000, "输入缺失或超过大小限制")
+    need(path.is_file() and path.stat().st_size <= 32_000_000, "Input missing or exceeds the size limit")
     def reject(value):
-        raise OperationError("invalid_contract", "禁止非有限数字：" + value)
+        raise OperationError("invalid_contract", "Non-finite numbers are not allowed: " + value)
     return json.loads(path.read_text(encoding="utf-8-sig"), parse_constant=reject)
 
 
 def vector(value, size):
     out = np.asarray(value, dtype=float)
-    need(out.shape == (size,) and np.isfinite(out).all(), "向量长度或数值无效")
+    need(out.shape == (size,) and np.isfinite(out).all(), "Invalid vector length or values")
     return out
 
 
 def number(value, minimum=0, maximum=1e8):
     need(type(value) in (int, float) and math.isfinite(value) and minimum <= value <= maximum,
-         "数值超出工程边界")
+         "Value outside engineering bounds")
     return value
 
 
 @dataclass(frozen=True)
 class Settings:
-    # 工程默认值，不是厂商认证或隐藏评分阈值；每次交付完整保存。
+    # Engineering defaults, not vendor-certified values or hidden scoring thresholds; saved in full with every delivery.
     settle_seconds: float = 2.0
     control_period: float = .02
     image_period: float = .1
@@ -90,12 +90,12 @@ class Settings:
     @classmethod
     def load(cls, path=None):
         values = read(path) if path else {}
-        need(isinstance(values, dict) and set(values) <= set(cls.__dataclass_fields__), "未知工程参数")
+        need(isinstance(values, dict) and set(values) <= set(cls.__dataclass_fields__), "Unknown engineering parameter")
         result = cls(**values)
         for key, value in asdict(result).items():
             number(value, 0 if key in {"seed", "local_retries", "graph_revisions", "scene_repairs"} else 1e-9)
             if type(cls.__dataclass_fields__[key].default) is int:
-                need(type(value) is int, "次数和种子必须是整数")
+                need(type(value) is int, "Counts and seeds must be integers")
         return result
 
 
@@ -106,9 +106,9 @@ def identity(root):
 
 def new_directory(path, sources=()):
     target = Path(path).resolve()
-    need(not target.exists(), "输出目录已存在；使用新的运行名称", "output_exists")
+    need(not target.exists(), "Output directory already exists; use a new run name", "output_exists")
     for source in sources:
         parent = Path(source).resolve()
-        need(not target.is_relative_to(parent) and not parent.is_relative_to(target), "输入与输出目录不能嵌套")
+        need(not target.is_relative_to(parent) and not parent.is_relative_to(target), "Input and output directories must not be nested")
     target.mkdir(parents=True)
     return target

@@ -1,4 +1,4 @@
-"""版本化、可持久化的局部事实—身份—字段—提交状态机。"""
+"""Versioned, persistent state machine: local facts -> identity -> fields -> commit."""
 
 import copy
 from . import blocks
@@ -13,13 +13,13 @@ from .storage import digest
 
 VERSION='asset_workflow_v2'
 LOCAL = INVENTORY + """
-本次只提取 units 标定的局部原文事实，sources 中 focus 区间外的文字只帮助理解，不能据此新增区间外对象。
-不负责分配全局资产身份，id只在本次候选清单内唯一；后续身份解析负责复用同一器具。
-返回 {"inventory":上述清单,"consumed_units":本次完整处理的前缀单元数}。
-单次最多 asset_limit 项候选；内容较密时，只处理较短的完整单元前缀，下一次会继续处理剩余单元。
-consumed_units 必须大于0且不超过给定单元数。不能把超过本次前缀的内容当作已处理。
-若首个单元本身无法在上限内完整提取，返回 {"split_unit":true}；不要因为后续单元过多而要求拆分。
-候选为空也应明确处理的单元数。不根据历史资产推断本段未出现的事实。"""
+This time extract only the local source facts delimited by units; text in sources outside the focus spans only aids understanding and must not be used to add objects outside those spans.
+You are not responsible for assigning global asset identities; ids need only be unique within this candidate list; the later identity resolution reuses the same physical item.
+Return {"inventory":the list above,"consumed_units":the number of leading units fully processed this time}.
+At most asset_limit candidates per call; when content is dense, process only a shorter prefix of complete units, and the next call will continue with the remaining units.
+consumed_units must be greater than 0 and not exceed the number of given units. Content beyond this prefix must not be treated as processed.
+If the first unit by itself cannot be fully extracted within the limit, return {"split_unit":true}; do not request a split just because there are many following units.
+Even with no candidates, state the number of units processed. Do not infer facts absent from this segment based on historical assets."""
 
 
 def empty_catalog():
@@ -52,7 +52,7 @@ def plan_tasks(documents,config,*,sources=None):
         if request_size(config,LOCAL,local_data(block,documents,config))>min(24000,planning_limit(config)):
             pending[0:0]=blocks.split_task(block)
         else: result.append(block)
-    require(bool(result),'没有可提取的结构块')
+    require(bool(result),'no structural blocks to extract')
     return result
 
 
@@ -70,7 +70,7 @@ def seed_active(task,draft,catalog):
 
 
 def confirmed_field_aliases(state):
-    """只复用同一稳定资产中一致的已完成映射；冲突映射留给模型重新判断。"""
+    """Reuse only consistent completed mappings within the same stable asset; conflicting mappings are left for the model to judge again."""
     observed = {}
     decisions = [decision for commit in state['commits'] for decision in commit['decisions']]
     decisions.extend((state.get('active') or {}).get('decisions', []))
@@ -86,9 +86,9 @@ def confirmed_field_aliases(state):
 
 def run_workflow(documents,config,model,state=None,persist=None,publish=None,*,task_context=None):
     state=copy.deepcopy(state) if state is not None else new_workflow(documents,config)
-    require(state['version']==VERSION and state['sources_sha256']==digest(documents['sources']), '工作流版本或原文不一致')
+    require(state['version']==VERSION and state['sources_sha256']==digest(documents['sources']), 'workflow version or source text mismatch')
     if task_context is not None:
-        require(state.setdefault('task_sha256',digest(task_context))==digest(task_context), '资产工作流的任务定义已变化')
+        require(state.setdefault('task_sha256',digest(task_context))==digest(task_context), 'the task definition of the asset workflow has changed')
     def save():
         if persist: persist(copy.deepcopy(state))
     def emit():
@@ -106,8 +106,8 @@ def run_workflow(documents,config,model,state=None,persist=None,publish=None,*,t
             def validate(value):
                 fields(value,'inventory consumed_units')
                 count=value['consumed_units']
-                require(type(count) is int and 0<count<=len(task['units']), '候选分页必须推进连续原文单元')
-                require(len(value['inventory']['assets'])<=config.extraction_max_assets,'候选页超过资产上限')
+                require(type(count) is int and 0<count<=len(task['units']), 'a candidate page must advance through contiguous source units')
+                require(len(value['inventory']['assets'])<=config.extraction_max_assets,'candidate page exceeds the asset limit')
                 validate_inventory(value['inventory'],blocks.excerpts(task['units'][:count],documents),
                                    config.max_assets,allow_empty=True)
                 return value
@@ -124,15 +124,15 @@ def run_workflow(documents,config,model,state=None,persist=None,publish=None,*,t
         draft=active['draft']
         while active['cursor']<len(draft['assets']):
             candidate=draft['assets'][active['cursor']]
-            # 身份尚未确认时由解析器在得到 target_id 后选择该资产的别名表。
+            # While identity is unconfirmed, the resolver selects the alias table of that asset once target_id is known.
             decision=decision_for(candidate,active['assets'],documents['sources'],model,config,active['candidate_state'],save,
                                   aliases=confirmed_field_aliases(state))
             updated,mapping,keys=apply_decisions({'decisions':[decision]},active['assets'],[candidate],
                                                 documents['sources'],resolved_identity=True)
-            require(len(updated)<=config.max_assets,'资产数量超过配置上限；已保存待提交候选')
+            require(len(updated)<=config.max_assets,'asset count exceeds the configured limit; pending candidates have been saved')
             old=next((a for a in active['assets'] if a['id']==decision['target_id']),None)
             if old and old['category']!=candidate['category']:
-                draft['issues'].append('身份解析跨类别复用 '+old['id']+'；保留已有类别，需语义复核')
+                draft['issues'].append('identity resolution reused '+old['id']+' across categories; the existing category is kept and needs semantic review')
             active['assets']=updated; active['mapping'].update(mapping)
             active['keys'].extend([[aid,key,value] for (aid,key),value in keys.items()])
             active['decisions'].append(decision); active['audit'].append(copy.deepcopy(active['candidate_state']))

@@ -22,19 +22,45 @@ def task_binding(run, task):
         'layout':run.state['plan'] if layout else None})
 
 
+def gained(comparison, key):
+    """Whether a compared round made progress on task key. A per-pair collision task
+    (scene_collisions:a|b) gains when the row passed or a hit between a and b went away
+    or got shallower."""
+    resolved=set(comparison.get('resolved_checks',[]))
+    rows=[r for field in ('improved_checks','partially_improved_checks') for r in comparison.get(field,[])]
+    if key in resolved or any(r.get('check')==key for r in rows):return True
+    check,_,pair=key.partition(':')
+    if check!='scene_collisions' or not pair:return False
+    if check in resolved:return True
+    owners=set(pair.split('|'))
+    def between(unit):
+        names=unit.removeprefix('pair:').split('|')
+        return len(names)==2 and {n.split('__',1)[0] for n in names}==owners
+    return any(r.get('check')==check and any(between(u) for u in r.get('removed',[])+[r.get('reduced','')])
+               for r in rows)
+
+
+def touched(history_entry, jobs, task):
+    """A round counts against a task only when it could have fixed it: it edited one of the
+    task's jobs, or it changed the layout of a task that a layout edit can address."""
+    action=history_entry.get('action') or {}
+    if set(action.get('jobs',[]))&jobs:return True
+    layout=any(action.get(k) for k in ('placements','layout','table_modifications','edge_mounts','end_effectors','robot_posture'))
+    return layout and task.get('repair_level')!='asset_structure'
+
+
 def schedule(run, tasks):
     history=run.state.get('repair_history',[])
+    items={i['id']:i for i in run.state['plan']['instances']}
     for task in tasks:
         task['binding']=task_binding(run,task)
         key=task.get('check_id',task['id'])
+        jobs={items[i]['job'] for i in task.get('instances',[]) if i in items}
         relevant=[h for h in history if h.get('status')=='evaluated'
-            and h.get('task_bindings',{}).get(key)==task['binding']]
+            and h.get('task_bindings',{}).get(key)==task['binding'] and touched(h,jobs,task)]
         failures=[]
         for h in reversed(relevant):
-            comparison=h.get('comparison') or {}
-            gained=set(comparison.get('resolved_checks',[])) | {
-                r['check'] for field in ('improved_checks','partially_improved_checks') for r in comparison.get(field,[])}
-            if h.get('selection')=='adopted' and key in gained:break
+            if h.get('selection')=='adopted' and gained(h.get('comparison') or {},key):break
             failures.append(h)
         attempts=sum(h.get('status')=='evaluated' and key in h.get('target_checks',h.get('task_bindings',{})) for h in history)
         task['scheduling']={'attempts':attempts,'no_progress':len(failures),

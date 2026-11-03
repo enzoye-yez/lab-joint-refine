@@ -14,6 +14,42 @@ from .edge_mounts import boundary_evidence, validate_mounts
 from .layout import top_prefix, table_for, table_geometry
 
 
+SUPPORT_OVERHANG_M = .03
+
+
+def support_fit(item, bounds, support_bounds):
+    """An object resting on another instance has to fit on it in its home pose. A part much
+    wider than its support (a flat 203x254 mm filter on a 54x68 mm folded foil) is in the
+    wrong initial state: assembly never folds, loads or moves anything."""
+    span = np.asarray(bounds[1][:2])-np.asarray(bounds[0][:2])
+    base = np.asarray(support_bounds[1][:2])-np.asarray(support_bounds[0][:2])
+    excess = span-base
+    allowed = np.maximum(SUPPORT_OVERHANG_M, .5*base)
+    ok = bool(np.all(excess <= allowed))
+    row = {"id":"support_fit:"+item["id"],"status":"pass" if ok else "fail",
+           "detail":"Home-pose footprint of an instance resting on another instance against the footprint of that support",
+           "instances":[item["id"],item["support_instance"]],
+           "footprint_mm":[round(float(v)*1000,1) for v in span],"support_footprint_mm":[round(float(v)*1000,1) for v in base]}
+    if not ok:
+        row["repair_hint"] = (f"{item['id']} spans {row['footprint_mm'][0]:.0f} x {row['footprint_mm'][1]:.0f} mm at home but its "
+            f"support {item['support_instance']} is {row['support_footprint_mm'][0]:.0f} x {row['support_footprint_mm'][1]:.0f} mm. "
+            "The model's default pose (every joint at 0) is the scene's initial state; build the part in the state the "
+            "protocol starts in (folded, loaded, closed) instead of expecting scene assembly to change it.")
+    return row
+
+
+def representative(hits, limit=100):
+    """The deepest hit of every instance pair first, then the rest by depth: a cut at limit
+    keeps every colliding pair visible (a plain cut hid whole pairs behind one large one)."""
+    depth=lambda h:h.get('distance_m') if type(h.get('distance_m')) in (int,float) else 0.
+    ordered=sorted(hits,key=depth)
+    first,rest,seen=[],[],set()
+    for hit in ordered:
+        pair=tuple(sorted(hit.get('instances',[])))
+        (rest if pair in seen else first).append(hit);seen.add(pair)
+    return (first+rest)[:limit]
+
+
 def upward_resultant(contacts):
     """多个无摩擦接触的法向锥能否形成竖直合力；不认证力矩或稳定性。"""
     normals = np.array([c['normal'] for c in contacts])
@@ -284,7 +320,7 @@ def scene_checks(root, limits, contract, render_dir=None, recovery=False, checkp
         limits.collision_tolerance_m,query=query,max_pairs=pair_budget),query)
     hits, gaps = scan['collisions'], scan['coverage_gaps']
     add("scene_collisions",not hits,"跨实例实际几何距离与机器人自接触",
-        sorted({i for h in hits for i in h['instances']}),collisions=hits[:100],
+        sorted({i for h in hits for i in h['instances']}),collisions=representative(hits),
         collision_count=len(hits),coverage_gaps=gaps,examined_pairs=scan['examined_pairs'],
         complete=scan['complete'],unexamined_pairs=scan['unexamined_pairs'],
         scale=scale,budget=pair_budget)
@@ -323,6 +359,8 @@ def scene_checks(root, limits, contract, render_dir=None, recovery=False, checkp
         if not evidence['complete']:
             rows[-1].update(status="fail" if evidence.get('unsupported_components') else "partial",
                             coverage_gaps=evidence['measurement_errors'])
+        if support:
+            rows.append(support_fit(item, (lo, hi), aggregate_bounds(model,data,support)))
         if item["placement"] == "table":
             boundary = boundary_evidence(model,local_geometry.get(item.get("table_id"),geometry),
                                          item,{**env,"table":table_for(item,plan,env)},mounts)

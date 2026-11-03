@@ -85,10 +85,14 @@ def _scoped_review(value, stage, deferred=(), expected_units=None, preview=False
         motion_coverage(value)
     if expected_units is not None:
         units = value.get("prototype_units")
-        require("prototype_units" in value and (type(units) is int and units > 0 or units is None and value["verdict"] == "uncertain"),
-                "重复实例任务必须报告单模型内的资产单元数量")
-        require(value["verdict"] in {"repair", "uncertain"} or units == expected_units,
-                "单模型内资产数量不匹配，不能接受或延后")
+        # A multi-configuration model may report one count per configuration.
+        counts = list(units.values()) if isinstance(units, dict) and units else [units]
+        require("prototype_units" in value and (all(type(u) is int and u > 0 for u in counts)
+                                                or units is None and value["verdict"] == "uncertain"),
+                "Repeated-instance jobs must report prototype_units: the number of complete asset units in one model "
+                "(an integer, or {configuration: integer})")
+        require(value["verdict"] in {"repair", "uncertain"} or all(u == expected_units for u in counts),
+                "The number of asset units in one model does not match; cannot accept")
     pending = value.get("deferred", [])
     require(isinstance(pending, list) and len(pending) <= 64, "待验证项必须为有界列表")
     pending = value["deferred"] = [deferred_item(item) for item in pending]

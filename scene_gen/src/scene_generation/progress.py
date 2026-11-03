@@ -102,7 +102,7 @@ def repair_tasks(report, review, plan, input_key):
     from .recovery import repairable_rows
     from .diagnostics import localization
     tasks=[]
-    for row in repairable_rows(report):
+    for row in collision_pairs(repairable_rows(report)):
         check=row["id"]
         level="asset_structure" if any(k in check for k in ("material","integrity","interaction","specification")) else "inspect_then_choose"
         tasks.append({"id":"check:"+check,"input_key":input_key,"check_id":check,
@@ -124,6 +124,23 @@ def repair_tasks(report, review, plan, input_key):
         jobs={i["job"] for i in items if i["id"] in task["instances"]}
         task["shared_asset_instances"]=[i["id"] for i in items if i["job"] in jobs]
     return tasks
+
+
+def collision_pairs(rows):
+    """One row per colliding instance pair. Unrelated collisions in one scene_collisions row
+    used to form one repair task: each round could edit only some of the owning assets, and
+    every round counted against all of them until the whole task was deferred."""
+    out=[]
+    for row in rows:
+        if row.get("id")!="scene_collisions" or not row.get("collisions"):
+            out.append(row);continue
+        groups={}
+        for hit in row["collisions"]:
+            groups.setdefault(tuple(sorted(hit.get("instances",[]))),[]).append(hit)
+        for pair,hits in sorted(groups.items()):
+            out.append({**row,"id":"scene_collisions:"+"|".join(pair),"instances":list(pair),
+                        "collisions":hits,"collision_count":len(hits)})
+    return out
 
 
 def defect_units(row):
@@ -158,13 +175,29 @@ def severity(row):
     return values
 
 
+def rebuilt(a, b, missing):
+    """Every missing geom left a rigid group that now holds geoms it did not have before."""
+    def members(record):
+        return {key:{n for island in group['confirmed']+group['possible'] for n in island}
+                for key,group in record['rigid_groups'].items()}
+    before,after=members(a),members(b)
+    replaced=lambda key:bool(after.get(key,set())-before[key])
+    owner=lambda name:next((key for key,names in before.items() if name in names),None)
+    return all(owner(n) is not None and n not in after.get(owner(n),set()) and replaced(owner(n)) for n in missing)
+
+
 def connectivity_delta(old, new):
     """Compare partitions of the same named material, not hashes of whole islands."""
     a,b=old.get('connectivity'),new.get('connectivity')
     if a and b and a.get('version')==b.get('version')==2:
         names,current=set(a['geoms']),set(b['geoms'])
-        if not names<=current or a['rigid_groups'].keys()!=b['rigid_groups'].keys():
-            return {'split':[sorted(names-current) or ['rigid_group_changed']], 'merged':[]}
+        if a['rigid_groups'].keys()!=b['rigid_groups'].keys() or not names<=current and rebuilt(a,b,names-current):
+            # Regrouped bodies, or material removed from a body that gained new material in
+            # its place, is a rebuild (a merged weld chain, a remodelled connector), not a split
+            # of the old partition. Nothing compares; the new row's own named defects decide.
+            return None
+        if not names<=current:
+            return {'split':[sorted(names-current)], 'merged':[]}
         split,merged=[],[]
         for key,group in a['rigid_groups'].items():
             after=b['rigid_groups'][key]

@@ -6,7 +6,8 @@ from types import SimpleNamespace
 from copy import deepcopy
 import mujoco
 from asset_generation.material import integrity
-from scene_generation.progress import repair_comparison
+from scene_generation.progress import repair_comparison, connectivity_delta, repair_tasks
+from scene_generation.checks import representative
 from scene_generation.repair_schedule import schedule, action_tasks
 from asset_prep.phase_budget import enter, PhaseBudgetExceeded
 from asset_prep.storage import Store
@@ -106,6 +107,36 @@ class QualityLoopTests(unittest.TestCase):
         new=material(True);new.update(status='fail',collisions=[{'geom1':'a','geom2':'c','distance_m':-.1}],collision_count=1)
         self.assertFalse(repair_comparison({'checks':[old]},{'checks':[new]})['adopt'])
 
+    def test_rebuilt_connector_is_not_a_split(self):
+        old,new=material(),material(True)
+        for record in (new['connectivity'],):
+            record['geoms']=[g if g!='b' else 'b_tip' for g in record['geoms']]
+            for group in record['rigid_groups'].values():
+                for key in ('confirmed','possible'):
+                    group[key]=[[('b_tip' if n=='b' else n) for n in island] for island in group[key]]
+        self.assertIsNone(connectivity_delta(old,new))
+
+    def test_collisions_split_into_one_task_per_instance_pair(self):
+        hits=[{'geom1':'p__x','geom2':'q__y','distance_m':-.01,'instances':['p','q']},
+              {'geom1':'r__x','geom2':'s__y','distance_m':-.003,'instances':['r','s']}]
+        row={'id':'scene_collisions','status':'fail','instances':['p','q','r','s'],'collisions':hits,'collision_count':2}
+        tasks=repair_tasks({'checks':[row]},None,{'instances':[{'id':i,'job':i} for i in 'pqrs']},'key')
+        self.assertEqual(sorted(t['check_id'] for t in tasks),['scene_collisions:p|q','scene_collisions:r|s'])
+        self.assertEqual(representative(list(reversed(hits)),limit=2)[0]['instances'],['p','q'])
+
+    def test_round_on_another_job_does_not_count_against_a_task(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);(root/'a.py').write_text('a');(root/'b.py').write_text('b')
+            run=SimpleNamespace(root=root,implementation_guard=SimpleNamespace(expected='code'),contract={},env={},
+                state={'plan':{'jobs':[{'id':k,'depends_on':[]} for k in ('a','b')],
+                    'instances':[{'id':k,'job':k} for k in ('a','b')]},
+                    'jobs':{k:{'source':k+'.py','assembly_readiness':{'artifact_sha256':k}} for k in ('a','b')}})
+            tasks=[{'id':'a','check_id':'a','instances':['a'],'repair_level':'asset_structure'}]
+            binding=schedule(run,deepcopy(tasks))[0]['binding']
+            run.state['repair_history']=[{'status':'evaluated','task_bindings':{'a':binding},'selection':'baseline_preserved',
+                                          'action':{'jobs':['b']}}]*3
+            self.assertEqual([t['id'] for t in schedule(run,deepcopy(tasks))],['a'])
+
     def test_checker_version_mismatch_requires_remeasurement(self):
         old,new=material(),material(True);old.pop('connectivity')
         self.assertEqual(repair_comparison({'checks':[old]},{'checks':[new]})['outcome'],'coverage_lost')
@@ -119,7 +150,8 @@ class QualityLoopTests(unittest.TestCase):
                     'jobs':{k:{'source':k+'.py','assembly_readiness':{'artifact_sha256':k}} for k in ('a','b')}})
             tasks=[{'id':k,'check_id':k,'instances':[k],'repair_level':'asset_structure'} for k in ('a','b')]
             first=schedule(run,deepcopy(tasks));binding=first[0]['binding']
-            run.state['repair_history']=[{'status':'evaluated','task_bindings':{'a':binding},'selection':'baseline_preserved','mechanism':'m'}]
+            run.state['repair_history']=[{'status':'evaluated','task_bindings':{'a':binding},'selection':'baseline_preserved','mechanism':'m',
+                                          'action':{'jobs':['a']}}]
             self.assertEqual(schedule(run,deepcopy(tasks))[0]['id'],'b')
             run.state['repair_history']*=3
             self.assertEqual([t['id'] for t in schedule(run,deepcopy(tasks))],['b'])

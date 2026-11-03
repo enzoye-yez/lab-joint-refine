@@ -236,7 +236,10 @@ class SceneRun:
                 "reference_only_jobs":job["depends_on"],
                 "robot_mounts":[mount_for(self.state["plan"],self.env,i["id"]) for i in instances if i["placement"]=="robot"],
                 "scope_rule":"asset角色交付指定资产；tool/fixture角色只交付该装置，asset_ids为服务范围且必须原样写入清单。dependencies仅供读取接口和配合参考，不能据此增加交付对象。",
-                "expected_model_units":1 if job["role"] == "asset" and len(job["asset_ids"]) == 1 and len(instances) > 1 else None,
+                # One unit per model only when every instance is the same configuration; a
+                # configuration may legitimately compose several units (a rack with its tubes).
+                "expected_model_units":1 if job["role"] == "asset" and len(job["asset_ids"]) == 1 and len(instances) > 1
+                                       and len({i.get("configuration") for i in instances}) == 1 else None,
                 "rule":"每个场景实例复制一次本模型；不要在单模型中按场景总数量重复生成完整资产"}
 
     def dependency_images(self, job, required=True):
@@ -382,6 +385,13 @@ class SceneRun:
                         "修复当前错误时不能重新引入已被拒绝的另一表示；若两种表示分别触发不同约束，"
                         "说明该部件需要的表达方式尚未声明正确，应按检查器给出的合法类别与约束类型重新声明，"
                         "而不是在两种已知被拒方案之间切换。")
+        instruction += ("\nThe model's default pose (every joint at 0) is the instance's initial state in the scene. Scene assembly "
+                        "only places each instance by its position and yaw; it never folds, loads, opens or moves parts, and asset "
+                        "keyframes are dropped. Build each part in the state the protocol starts in."
+                        "\nWhere a hose, tube or cable ends on a port of another instance or configuration, compute the port in "
+                        "this model's local frame from scene_layout, run the last segment coaxially with the port axis, and mate "
+                        "without interpenetration: a hose bore fits over a barb or nozzle whose outer radius is smaller than the bore, "
+                        "or the hose stops 0.5 mm short of a solid face. Never end a hose inside solid port geometry.")
         if self.limits.validation_mode == "static":
             instruction += "\n当前仅验收静态场景外观和几何。仍按资料建立运动关节、按钮、连接及接口；本轮跳过操作验证并不允许把可动仪器简化为不可动外壳。"
         if job["role"] != "asset":

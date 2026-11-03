@@ -7,6 +7,48 @@ from asset_prep.storage import atomic_json
 from .contracts import visual_result
 
 
+LIST_LIMIT = 8
+
+
+def compact_report(report, *, passed_detail=True):
+    """A check report as a model reads it: list evidence capped at LIST_LIMIT entries (with the
+    total kept), without the manifest and render list the model already has as files/images.
+    passed_detail=False reduces passing rows to their id."""
+    if not isinstance(report, dict):
+        return report
+    def row(r):
+        if not passed_detail and r.get("status") == "pass":
+            return {"id": r.get("id"), "status": "pass"}
+        out = {}
+        for k, v in r.items():
+            if isinstance(v, list) and len(v) > LIST_LIMIT:
+                out[k], out[k+"_total"] = v[:LIST_LIMIT], len(v)
+            else:
+                out[k] = v
+        return out
+    out = {k: v for k, v in report.items() if k not in {"checks", "manifest", "renders"}}
+    out["checks"] = [row(r) for r in report.get("checks", []) if isinstance(r, dict)]
+    return out
+
+
+def author_feedback(feedback):
+    """What an author acts on: confirmed defects, failing checks and motion requirements that are
+    missing or wrong. A reviewer's unverified notes are the model's own unconstrained design
+    choices, and deferrals belong to later stages; neither is a defect, so neither is sent."""
+    if not isinstance(feedback, dict):
+        return feedback
+    out = dict(feedback)
+    if isinstance(out.get("numerical"), dict):
+        out["numerical"] = compact_report(out["numerical"], passed_detail=False)
+    visual = out.get("visual")
+    if isinstance(visual, dict):
+        out["visual"] = {k: visual[k] for k in ("verdict", "findings", "source") if k in visual}
+        gaps = [r for r in visual.get("motion_coverage") or [] if isinstance(r, dict) and r.get("verdict") != "ok"]
+        if gaps:
+            out["visual"]["motion_coverage"] = gaps
+    return out
+
+
 def retain_batch_defects(previous, current):
     """The final page decides, having been shown every earlier page's findings.
 

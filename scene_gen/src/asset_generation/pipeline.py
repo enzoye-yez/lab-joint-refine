@@ -7,7 +7,7 @@ from pathlib import Path
 from asset_prep.errors import PrepError, StaleEvidence, UncertainRequest, ValidationError
 from asset_prep.storage import Store, atomic_json, digest, file_hash, safe_path
 from .contracts import author_result, require
-from .review import ask_review
+from .review import ask_review, author_feedback
 from .inputs import image_record, public_bundle
 from .model import GenerationModel
 from .prompts import AUTHOR, REVIEW
@@ -134,7 +134,7 @@ def execute(bundle, profile, config, generation, keys, run_root, transport, sand
                 elif not resume_review:
                     from .authoring import capabilities
                     value, call = model.ask(AUTHOR, {"authoring_capabilities":capabilities(generation,backend),"input": public_bundle(bundle), "profile": profile,
-                        "current_model_py": previous, "feedback": feedback, "iteration": iteration},
+                        "current_model_py": previous, "feedback": author_feedback(feedback), "iteration": iteration},
                         bundle["images"]+preview_images, "author")
                     source = author_result(value, previous, generation.max_script_bytes)
                     script = destination/"model.py"

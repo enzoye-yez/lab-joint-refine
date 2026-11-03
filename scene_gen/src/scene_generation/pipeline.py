@@ -8,6 +8,7 @@ from asset_generation.inputs import public_bundle, image_record
 from asset_generation.model import GenerationModel, request_summary
 from asset_generation.pipeline import snapshot
 from asset_generation.prompts import AUTHOR, REVIEW
+from asset_generation.review import author_feedback, compact_report
 from asset_prep.storage import Store, atomic_json, digest, file_hash, safe_path
 from asset_prep import implementation
 from asset_prep.errors import PrepError, StaleEvidence, UncertainRequest, ValidationError, ProviderError, ContextLimitError
@@ -257,7 +258,7 @@ class SceneRun:
         scene_images=[image_record(safe_path(self.root,path),self.root,self.generation)
                       for path in self.state.get("published_scene",{}).get("preview_paths",[])[:3]]
         images = list({im["sha256"]:im for im in references + bundle["images"] + previews + scene_images}.values())
-        context = {"input":public_bundle(bundle),"job":job,"checks":report,
+        context = {"input":public_bundle(bundle),"job":job,"checks":compact_report(report),
                    "dependencies":self.dependency_context(job),"reference_policy":record["reference_policy"],
                    "fixed_contract":self.contract["jobs"].get(job["id"],{}),
                    "instance_contract":self.instance_contract(job),
@@ -362,7 +363,7 @@ class SceneRun:
         profile, reference_policy, previews = inputs["profile"], inputs["reference_policy"], inputs["previews"]
         from asset_generation.authoring import capabilities
         context = {"authoring_capabilities":capabilities(self.generation,self.store.state.get("joint_backend",self.store.state["identity"].get("backend"))),"input":public_bundle(bundle),"job":job,"dependencies":self.dependency_context(job),
-                   "environment":self.env,"profile":profile,"current_model_py":previous,"feedback":feedback,
+                   "environment":self.env,"profile":profile,"current_model_py":previous,"feedback":author_feedback(feedback),
                    "table_edit_policy":table_policy(self.env),"table_modifications":self.state["plan"].get("table_modifications", []),
                    "edge_mount_policy":EDGE_MOUNT_POLICY,"edge_mounts":self.state['plan'].get('edge_mounts',[]),
                    "fixed_contract":self.contract["jobs"].get(key,{}),

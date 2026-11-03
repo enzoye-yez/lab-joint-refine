@@ -7,6 +7,7 @@
 import json
 from pathlib import Path
 import sys
+import time
 
 from asset_generation.contracts import GenerationConfig, check_profile
 from asset_generation.local import LocalBackend
@@ -46,7 +47,9 @@ def run(workspace):
     destination = runs / f"{len(list(runs.iterdir())) + 1:03d}"
     destination.mkdir()
     project = Path(__file__).resolve().parents[2]
-    backend = LocalBackend(GenerationConfig(), project)
+    config = GenerationConfig()
+    backend = LocalBackend(config, project)
+    started = time.monotonic()
     report, renders = backend.build_and_check(workspace / "model.py", destination, job["asset_ids"],
                                               check_profile(job["profile"]))
     rows = report.get("checks", [])
@@ -57,7 +60,11 @@ def run(workspace):
                "incomplete": [compact(r, 3) for r in rows if r.get("status") == "partial"],
                "passed": [r["id"] for r in rows if r.get("status") == "pass"],
                "renders": sorted(str(p) for p in Path(renders).glob("**/*.png")) if renders else [],
-               "note": "partial 仅因量测不可靠或缺少探测器时不是缺陷；fail 必须修复。"}
+               "seconds": round(time.monotonic() - started, 1),
+               "framework_budget_seconds": config.build_timeout_seconds,
+               "note": "partial only means a measurement was unreliable or no probe exists; it is not a defect. "
+                       "Every fail must be fixed. The framework recheck runs the same checks under the budget above "
+                       "(per configuration); a model that takes longer is rejected as a timeout."}
     (destination / "summary.json").write_text(json.dumps(summary, ensure_ascii=False, indent=1), encoding="utf-8")
     print(json.dumps(summary, ensure_ascii=False, indent=1))
     return 0 if summary["status"] in {"pass", "partial"} else 1

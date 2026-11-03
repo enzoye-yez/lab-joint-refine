@@ -138,6 +138,40 @@ def parse_events(stdout):
     return message, usage, error
 
 
+PROJECT = Path(__file__).resolve().parents[2]
+# Evaluation material and everything written about it; no model request may read these.
+HIDDEN = ("benchmark/NP-002/rubric.json", "benchmark/_evaluation", "benchmark/_dev", "docs", "reports", "scripts",
+          "AGENTS.md")
+
+
+def isolation(writable):
+    """bwrap prefix for a codex process: the home directory holds only the codex login, the
+    installed runtimes and this project (read-only apart from the request folder), and the
+    project's evaluation material is hidden. Codex's own sandbox restricts writes, not reads,
+    so this is what keeps the rubric and other project copies out of reach."""
+    if os.name == "nt":
+        return []
+    if shutil.which("bwrap") is None:
+        raise ProviderError("bwrap is required to keep evaluation files out of model requests", uncertain=False,
+                            diagnostics={"failure": "isolation_missing"})
+    home = Path.home()
+    prefix = ["bwrap", "--dev-bind", "/", "/", "--tmpfs", str(home),
+              "--bind", str(home/".codex"), str(home/".codex"), "--ro-bind", str(home/".local"), str(home/".local"),
+              "--ro-bind", str(PROJECT), str(PROJECT)]
+    # The project's virtual environment may be a link into another project copy; only it is shown.
+    venv = Path(sys.prefix).resolve()
+    if venv.is_relative_to(home) and not venv.is_relative_to(PROJECT):
+        prefix += ["--ro-bind", str(venv), str(venv)]
+    for name in HIDDEN:
+        path = PROJECT/name
+        if path.is_dir():
+            prefix += ["--tmpfs", str(path)]
+        elif path.exists():
+            prefix += ["--ro-bind", "/dev/null", str(path)]
+    folder = Path(writable).resolve()
+    return prefix + ["--bind", str(folder), str(folder), "--chdir", str(folder), "--die-with-parent", "--"]
+
+
 def is_author_phase(phase):
     return phase == "author" or (phase or "").startswith("asset:")
 
@@ -157,7 +191,7 @@ class CodexTransport:
         return bool(self.agent)
 
     def command(self, model, folder, images, sandbox="read-only"):
-        command = [self.executable, "exec", "--model", model, "--sandbox", sandbox, "--ephemeral",
+        command = isolation(folder) + [self.executable, "exec", "--model", model, "--sandbox", sandbox, "--ephemeral",
                    "--skip-git-repo-check", "--ignore-user-config", "--json",
                    "--cd", str(folder), "-c", f'model_reasoning_effort="{self.reasoning_effort}"']
         for image in images:

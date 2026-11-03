@@ -483,10 +483,11 @@ def settle(xml_path, qpos0=None):
     start = {b: (data.xpos[b].copy(), data.xquat[b].copy()) for b in free}
     for _ in range(int(SETTLE_SECONDS/model.opt.timestep)):
         mujoco.mj_step(model, data)
-        if not (np.isfinite(data.qpos).all() and np.isfinite(data.qvel).all()):
+        # MuJoCo resets a diverged state and carries on; stop at the first warning instead.
+        if not (np.isfinite(data.qpos).all() and np.isfinite(data.qvel).all()) or any(w.number for w in data.warning):
             break
     finite = bool(np.isfinite(data.qpos).all() and np.isfinite(data.qvel).all())
-    warnings = [int(w.number) for w in data.warning if w.number]
+    warnings = [mujoco.mjtWarning(i).name for i, w in enumerate(data.warning) if w.number]
     drift = []
     for b in free:
         p0, q0 = start[b]
@@ -497,10 +498,18 @@ def settle(xml_path, qpos0=None):
             drift.append({"body": model.body(b).name, "displacement_mm": round(dp*1000, 2),
                           "rotation_deg": round(math.degrees(angle), 2)})
     ok = finite and not warnings and not drift
-    return {"id": "numerical_stability", "status": "pass" if ok else "fail",
-            "detail": f"在 z=0 临时地面上重力静置 {SETTLE_SECONDS:g} 秒：数值有限、无引擎警告、自由部件位移<2 mm 且转角<1°",
-            "finite": finite, "warnings": warnings, "drifting_bodies": drift[:30],
-            "simulation_seconds": float(data.time)}
+    row = {"id": "numerical_stability", "status": "pass" if ok else "fail",
+           "detail": f"Gravity settle for {SETTLE_SECONDS:g} s on a temporary ground at z=0: finite state, no engine "
+                     "warnings, every free part moves < 2 mm and turns < 1 deg",
+           "finite": finite, "warnings": warnings, "drifting_bodies": drift[:30],
+           "simulation_seconds": float(data.time)}
+    if not finite or warnings:
+        row["unstable"] = True
+        row["repair_hint"] = (f"The model diverged after {data.time:.3f} s ({', '.join(warnings) or 'non-finite state'}). "
+                              "Typical causes: bodies under ~1 g or with tiny inertia, very stiff or conflicting "
+                              "equality constraints, free parts starting in deep penetration, joint armature/damping of 0 on "
+                              "light links. Drive, retention and probe checks were skipped until this is fixed.")
+    return row
 
 
 def _carried_mass(model, body, active, exclude=()):

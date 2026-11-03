@@ -348,11 +348,16 @@ def _validate_one(root, asset_ids, profile, render_dir=None, *, model_file="mode
             "未归入机构的关节无法按机构扫描" if uncovered else "资产没有可动关节", unswept_joints=uncovered[:40])
     poses.extend(mechanism_poses[:8])
     results.extend(motion.mechanism_retention(model, manifest, qpos0))
+    # Settle first: every later check simulates, and a diverging model only burns the time
+    # budget there (MuJoCo resets and keeps stepping) before the whole recheck times out.
+    stability = motion.settle(safe_path(Path(root), model_file), qpos0)
+    results.append(stability)
+    unstable = stability.get("unstable", False)
     stops = []
-    results.extend(motion.mechanism_drive(model, manifest, qpos0, stops))
+    if not unstable:
+        results.extend(motion.mechanism_drive(model, manifest, qpos0, stops))
     # Where a drive stopped short, the author and reviewer see that pose, blockers highlighted.
     poses.extend(stops[:4])
-    results.append(motion.settle(safe_path(Path(root), model_file), qpos0))
     mujoco.mj_resetData(model, data)
     mujoco.mj_forward(model, data)
     renders = []
@@ -366,10 +371,14 @@ def _validate_one(root, asset_ids, profile, render_dir=None, *, model_file="mode
                 "关节检查为独立姿态采样；按钮力学、连接释放与复合机构需专门操作探测",
                 "资料中未绑定只读数值检查的尺寸仍未获独立量测认证"]
     from .probes import interaction_probes
+    if unstable:
+        add("dynamic_checks", "fail", "Mechanism drive, button, release and lock probes were not run: the model is "
+            "numerically unstable (see numerical_stability)", repair_hint=stability["repair_hint"])
     try:
-        probe_rows = interaction_probes(root, manifest, model_file) if manifest["buttons"] or manifest["connections"] else []
+        probe_rows = [] if unstable else interaction_probes(root, manifest, model_file) if manifest["buttons"] or manifest["connections"] else []
         probe_rows = [r for r in probe_rows if not (r["id"].startswith("release_probe:") and r.get("complete") is False)]
-        probe_rows.extend(motion.release_probes(model, manifest, qpos0))
+        if not unstable:
+            probe_rows.extend(motion.release_probes(model, manifest, qpos0))
         add("interaction_probes", "fail" if any(r["status"] == "fail" for r in probe_rows) else "pass",
             "按钮压头、软件释放与机械释放探测汇总；跨资产插拔与抓取由轨迹阶段验证",
             probes=[r["id"] for r in probe_rows])

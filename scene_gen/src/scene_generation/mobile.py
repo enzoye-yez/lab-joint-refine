@@ -233,7 +233,7 @@ def assess(model, data, plan, env, geometry, manifest=None):
                               else "needs_layout_review"})
     from .layout_metrics import measure
     return {"compactness":measure(plan,by_instance), "method":"whole_robot_envelope_and_per_arm_shoulder_distance",
-            "qualification":"使用实际姿态整机水平外廓（含双臂和已装工具）的保守圆包络及逐臂肩部距离；升降建议使用所有采样姿态外廓的并集。包络相交仅需布局复核，不证明实际碰撞；操作接口方向仅在声明时筛查，肩部到目标线段仅筛查其他对象包围盒，每臂每升降姿态最多8个候选，自身机构和完整开合未验证；未求解操作姿态、臂部绕障、轮式导航或操作轨迹，不能认证任务可执行",
+            "qualification":"uses a conservative circular envelope of the whole-robot horizontal outline in the actual pose (both arms and mounted tools included) and per-arm shoulder distances; lift recommendations use the union of outlines over all sampled poses. Envelope intersection only calls for a layout re-check and does not prove actual collision; operation interface direction is screened only where declared, shoulder-to-target segments are screened only against other objects' bounding boxes, at most 8 candidates per arm per lift pose, the robot's own mechanism and full opening/closing are not verified; operation poses, arm obstacle avoidance, wheeled navigation and operation trajectories are not solved, so this cannot certify that the task is executable",
             "base_radius_m":radius,"declared_posture_radius_m":current_radius,"robot_posture":plan.get("robot_posture",{}),
             "lift_sampling":"current_only_coupled_tool" if coupled else "current_and_limits",
             "grid_step_m":step,"reachable_cells":len(reached),
@@ -264,7 +264,7 @@ def articulation(model, data):
                    np.linalg.norm(probe.xmat[b]-rotations[b])>1e-8)
         rows.append({"joint":name,"instance":name.split("__")[0],"range": [float(lo),float(hi)],
                      "limited":bool(model.jnt_limited[j]),"kinematic_motion":moved,
-                     "qualification":"只检查单关节运动学变化；未认证闭链约束、驱动、空间无碰撞或操作可用性"})
+                     "qualification":"checks only single-joint kinematic change; closed-chain constraints, actuation, collision-free motion in space and operational usability are not certified"})
     return rows
 
 
@@ -278,7 +278,7 @@ def boundaries(plan, env, geometry, model):
         boxes = [b for g,b in geometry.items() if owner(model,g)==i["id"]]
         ok = bool(boxes) and all(np.all(lo[:2]>=-room) and np.all(hi[:2]<=room) for lo,hi in boxes)
         result.append({"id":"room_boundary:"+i["id"],"status":"pass" if ok else "fail",
-                       "instances":[i["id"]],"detail":"实际几何处于已确定房间平面边界内"})
+                       "instances":[i["id"]],"detail":"actual geometry lies within the determined room floor-plan bounds"})
     violations = []
     for t in plan["layout"]["tables"]:
         points = [world_xy([x,y],t) for x in (-t["size"][0]/2,t["size"][0]/2)
@@ -300,6 +300,6 @@ def boundaries(plan, env, geometry, model):
     ids = {t for v in violations for t in v["tables"]}
     result.append({"id":"workspace_layout","status":"fail" if violations else "pass",
                    "instances":["environment"]+[i["id"] for i in plan["instances"] if i.get("table_id") in ids],
-                   "detail":"工作台位于房间内且独立地面占用区域不重叠；非实际几何穿透量测",
+                   "detail":"benches are inside the room and their separate floor footprints do not overlap; not a measurement of actual geometry penetration",
                    "violations":violations})
     return result

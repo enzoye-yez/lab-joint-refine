@@ -1,1 +1,1 @@
-"""完整场景生成、装配与受限修复；不执行实验流程。"""
+"""Full-scene generation, assembly and bounded repair; does not execute the experimental protocol."""

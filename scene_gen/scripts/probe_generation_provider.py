@@ -1,4 +1,4 @@
-"""用户执行的单请求服务诊断；不读取实验输入，不生成资产，无自动重试。"""
+"""User-run single-request provider diagnostic; does not read experiment inputs, generate assets or retry automatically."""
 
 import argparse
 from datetime import datetime, timezone
@@ -16,20 +16,20 @@ from asset_prep.storage import atomic_json
 def main(argv=None, transport=None):
     project = Path(__file__).resolve().parents[1]
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--execute", action="store_true", help="发送一次真实请求，可能计费")
+    parser.add_argument("--execute", action="store_true", help="send one real request; may be billed")
     parser.add_argument("--provider-config", type=Path, default=project / "config/default.json")
     parser.add_argument("--generation-config", type=Path, default=project / "config/generation.json")
     args = parser.parse_args(argv)
     config = Config.load(args.provider_config)
     generation = GenerationConfig.load(args.generation_config)
     if not args.execute:
-        print("未发送请求；加 --execute 才执行单次服务诊断。")
+        print("No request sent; add --execute to run the single provider diagnostic.")
         return 0
     keys = credentials(project)
     key = config.model_key(keys)
     if not key:
-        raise PrepError("缺少项目模型服务凭据")
-    # 保留正式生成的模型、参数名、输出上限和图文消息结构，输入仅为无敏感内容的短文本。
+        raise PrepError("missing project model-provider credentials")
+    # Keep the production model, parameter names, output limit and text+image message structure; the input is only a short non-sensitive text.
     payload = {"model": config.model, "stream": False,
                config.output_token_parameter: generation.max_output_tokens,
                "messages": [{"role": "system", "content": "Reply with the JSON object {\"ok\": true} only."},
@@ -41,7 +41,7 @@ def main(argv=None, transport=None):
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
     path = project / ".cache" / "provider_probes" / (stamp + ".json")
     atomic_json(path, report)
-    print("发送一次短文本服务诊断；不会重试，也不生成实验资产。", flush=True)
+    print("Sending one short-text provider diagnostic; no retries, no experiment assets generated.", flush=True)
     try:
         response = (transport or transport_for(config)).post(
             config.base_url.rstrip("/") + "/chat/completions", payload, key, config.timeout_seconds)
@@ -59,7 +59,7 @@ def main(argv=None, transport=None):
     finally:
         atomic_json(path, report)
         print(json.dumps(report, ensure_ascii=False))
-        print("诊断文件：" + str(path))
+        print("diagnostic file: " + str(path))
     return 0 if report["status"] == "response_received" else 2
 
 

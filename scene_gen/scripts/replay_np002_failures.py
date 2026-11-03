@@ -94,7 +94,7 @@ def main():
     from scene_generation.preview import export_preview
     export_preview(artifact,root/'preview',{
         'status':'incomplete_scene','provenance':'archived_model_output_replay',
-        'validation_mode':'static','qualification':'归档模型离线诊断装配；存在缺件、接口缺陷，质量和操作未验证',
+        'validation_mode':'static','qualification':'offline diagnostic assembly of archived models; has missing parts and interface defects; quality and operation are not verified',
         'assembly':{'available':True,'complete':False,'missing_jobs':missing,'quality_accepted':False}})
     unchanged=before==snapshot(old) and robot_before==snapshot(robot)
     stable=code==implementation_digest(source_manifest(PROJECT))
@@ -113,7 +113,7 @@ def main():
         'backend':backend.preflight()}
     atomic_json(root/'replay.json',result)
     print(json.dumps({k:result[k] for k in ('status','implementation','model_api_calls','source_unchanged')},ensure_ascii=False))
-    print('可加载归档资产：'+', '.join(artifacts)+'；缺失任务：'+str(len(missing)))
+    print('loadable archived assets: '+', '.join(artifacts)+'; missing jobs: '+str(len(missing)))
     return 0 if result['status']=='pass' else 1
 
 

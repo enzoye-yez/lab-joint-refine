@@ -3,3 +3,4 @@
 runs/
 __pycache__/
 reports/
+MUJOCO_LOG.TXT

@@ -154,7 +154,7 @@ class MobileLayoutTests(unittest.TestCase):
         self.plan["instances"]=[];self.plan["jobs"]=[];self.plan["layout"]["docks"]=[]
         report=scene_checks(self.build(),self.limits,numerical_contract({}))
         self.assertEqual(report["layout_assessment"]["instances"],[])
-        self.assertIn("不能认证",report["layout_assessment"]["qualification"])
+        self.assertIn("cannot certify",report["layout_assessment"]["qualification"])
 
     def test_table_cut_uses_its_local_frame_and_no_central_robot(self):
         self.plan["table_modifications"]=[{"id":"pocket","instance":"station","center":[0,0],
@@ -188,8 +188,8 @@ class MobileLayoutTests(unittest.TestCase):
             and "current_model_py" in p["messages"][1]["content"][0]["text"])
         tool_context=json.loads(tool_request["messages"][1]["content"][0]["text"])
         self.assertEqual(tool_context["table_edit_policy"]["robot_protected_half_size_m"],0)
-        self.assertNotIn("桌面整体和机械臂安装区固定",tool_request["messages"][0]["content"])
-        self.assertIn("工作台局部坐标",tool_request["messages"][0]["content"])
+        self.assertNotIn("The tabletop as a whole and the robot-arm mounting zone are fixed",tool_request["messages"][0]["content"])
+        self.assertIn("local coordinates of the worktable",tool_request["messages"][0]["content"])
         self.assertTrue((self.root/"run/scene_document.md").is_file())
         self.assertTrue(run.state["layout_refinement"]["complete"])
         self.assertGreaterEqual(sum(s["kind"]=="scene_candidate" for s in run.state["stages"]),3)
@@ -206,7 +206,7 @@ class MobileLayoutTests(unittest.TestCase):
         self.assertFalse(result["assembly"]["complete"])
         self.assertEqual(result["budget"]["model_calls"],2)
         self.assertIn("tool",result["assembly"]["missing_jobs"])
-        self.assertIn("未装配",(self.root/"run/scene_document.md").read_text(encoding="utf-8"))
+        self.assertIn("not assembled",(self.root/"run/scene_document.md").read_text(encoding="utf-8"))
 
     def test_asset_author_can_receive_more_than_one_image_page(self):
         run,transport=self.run_fixture([self.plan,{"context_notes":[]},
@@ -220,19 +220,20 @@ class MobileLayoutTests(unittest.TestCase):
         pages=[p["messages"][1]["content"] for p in transport.requests[1:]]
         self.assertEqual([sum(v["type"]=="image_url" for v in page) for page in pages],[24,1])
 
-    def test_invalid_refinement_does_not_block_assets(self):
+    def test_room_is_arranged_without_a_model_call_before_the_tool(self):
         review={"verdict":"accept", "motion_coverage": [],"findings":[],"unverified":[]}
         run,_=self.run_fixture([self.plan,{"model_py":"def build(output_dir):\n pass"},
-            {},{}, {}, {"model_py":"def build(output_dir):\n # TOOL_FIXTURE\n pass"},review,review,review])
+            {"model_py":"def build(output_dir):\n # TOOL_FIXTURE\n pass"},review,review,review])
         result=run.run()
         self.assertTrue(result["assembly"]["complete"])
-        self.assertEqual(len(run.state["layout_refinement"]["attempts"]),3)
+        self.assertEqual(run.state["layout_refinement"]["method"],"deterministic_rows")
+        self.assertTrue(run.state["plan"]["layout"]["docks"])
 
     def test_plan_failure_still_delivers_description(self):
         run,_=self.run_fixture([{}]*5)
         with self.assertRaises(ValidationError):
             run.run()
-        self.assertIn("暂无可加载模型",(self.root/"run/scene_document.md").read_text(encoding="utf-8"))
+        self.assertIn("No loadable model yet",(self.root/"run/scene_document.md").read_text(encoding="utf-8"))
 
     def test_cross_table_reassignment_carries_child(self):
         child=copy.deepcopy(self.plan["instances"][0])
@@ -298,7 +299,7 @@ class MobileLayoutTests(unittest.TestCase):
             '<geom type="box" pos=".1 0 0" size=".1 .01 .01"/></body></worldbody></mujoco>')
         rows=articulation(model,mujoco.MjData(model))
         self.assertTrue(rows[0]["kinematic_motion"])
-        self.assertIn("未认证",rows[0]["qualification"])
+        self.assertIn("not certified",rows[0]["qualification"])
 
 
 if __name__=="__main__":

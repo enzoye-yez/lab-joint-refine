@@ -1,4 +1,4 @@
-"""查看已导出场景；不调用模型、不执行建模脚本、不推进仿真时间。"""
+"""View an exported scene; does not call the model, run modeling scripts, or advance simulation time."""
 
 import argparse
 import html
@@ -16,8 +16,8 @@ from asset_prep.storage import atomic_json, digest, safe_path
 
 def preview_summary(result):
     """Only navigation and qualification metadata; never copy diagnostic rows."""
-    require(isinstance(result, dict), "结果报告必须为对象")
-    require(isinstance(result.get("assembly", {}), dict), "结果装配状态必须为对象")
+    require(isinstance(result, dict), "result report must be an object")
+    require(isinstance(result.get("assembly", {}), dict), "result assembly status must be an object")
     view = {k: result.get(k) for k in ("status", "provenance", "validation_mode", "qualification",
                                       "scene_artifact", "scene_sha256", "verification_scope", "quality_progress")}
     view["assembly"] = {k: result.get("assembly", {}).get(k) for k in
@@ -40,21 +40,21 @@ def write_preview_index(root, result):
 def resolve_artifact(project, run):
     root = safe_path(Path(project)/"runs", run)
     report = safe_path(root, "result.json")
-    require(report.is_file(), "缺少结果文件 result.json；尚未发布场景结果")
+    require(report.is_file(), "missing result file result.json; no scene result has been published yet")
     index = safe_path(root, "preview.json")
     if index.is_file():
         record = read_json(index)
-        require(isinstance(record, dict) and record.get("schema_version") == 1 and isinstance(record.get("view"), dict), "预览索引格式无效")
-        require(record.get("result_sha256") == report_hash(report), "预览索引与结果版本不一致；请重新发布结果")
+        require(isinstance(record, dict) and record.get("schema_version") == 1 and isinstance(record.get("view"), dict), "invalid preview index format")
+        require(record.get("result_sha256") == report_hash(report), "preview index does not match the result version; republish the result")
         result = record["view"]
     else:
         # Legacy runs predate the small index. Bounded compatibility read, no archive mutation.
-        require(report.stat().st_size <= 64000000, "旧版结果报告超过 64 MB 兼容读取上限；需迁移预览索引")
+        require(report.stat().st_size <= 64000000, "legacy result report exceeds the 64 MB compatibility read limit; migrate the preview index")
         result = preview_summary(read_json(report, 64000000))
-    require(isinstance(result.get("scene_artifact"), str), "尚无已发布场景；部分场景也可预览，请查看任务状态")
+    require(isinstance(result.get("scene_artifact"), str), "no published scene yet; partial scenes can also be previewed, check the job status")
     artifact = safe_path(root, result["scene_artifact"])
-    require((artifact/"model.xml").is_file(), "已发布场景的 model.xml 文件缺失")
-    require(digest(snapshot(artifact)) == result["scene_sha256"], "场景文件已变化，不能复用原结果证据")
+    require((artifact/"model.xml").is_file(), "model.xml file of the published scene is missing")
+    require(digest(snapshot(artifact)) == result["scene_sha256"], "scene files changed; the original result evidence cannot be reused")
     return root, artifact, result
 
 
@@ -63,33 +63,33 @@ def resolve_asset(project, run, job):
     from asset_prep.state_archive import read_state
     state = read_state(root/"state.json")
     record = state["scene"]["jobs"].get(job)
-    require(record and record.get("artifact"), "指定任务尚无可查看的资产")
+    require(record and record.get("artifact"), "the specified job has no viewable asset yet")
     artifact = safe_path(root, record["artifact"])
     stage = next(s for s in state["scene"]["stages"]
                  if s["directory"] == record.get("artifact_stage", record["stage"]))
     stage_root = safe_path(root, stage["directory"])
-    require(artifact.is_relative_to(stage_root), "资产不属于声明的归档")
+    require(artifact.is_relative_to(stage_root), "asset does not belong to the declared archive")
     prefix = artifact.relative_to(stage_root).as_posix() + "/"
     expected = {k.replace("\\", "/")[len(prefix):]:v for k,v in stage["files"].items()
                 if k.replace("\\", "/").startswith(prefix)}
-    require(expected and snapshot(artifact) == expected, "资产归档摘要不一致")
+    require(expected and snapshot(artifact) == expected, "asset archive digest mismatch")
     return artifact, record["status"]
 
 
 def export_preview(artifact, destination, result):
     destination = Path(destination)
-    require(not destination.exists(), "预览目录已存在，请换一个目录以保留证据")
+    require(not destination.exists(), "preview directory already exists; choose another directory to preserve evidence")
     model = load_scene_model(artifact)
     meta = read_json(Path(artifact)/"scene.json",8000000)
     paths = render_views(model,[("scene",meta["home_qpos"])],destination,width=1280,height=960)
-    title = "静态场景预览（未执行操作仿真）"
+    title = "Static scene preview (no operation simulation run)"
     details = json.dumps({k:result.get(k) for k in ("status","provenance","validation_mode","qualification","unverified_count","report","assembly")},ensure_ascii=False,indent=2)
     figures = "".join(f'<figure><img src="{html.escape(p,quote=True)}"><figcaption>{html.escape(p)}</figcaption></figure>' for p in paths)
     (destination/"index.html").write_text(
         '<!doctype html><html lang="zh-CN"><meta charset="utf-8">'
         f'<title>{title}</title><style>body{{max-width:1200px;margin:32px auto;font:16px system-ui;background:#f2f4f7;color:#16202a}}'
         'figure{display:inline-block;margin:8px;max-width:100%}img{width:560px;max-width:100%}pre{white-space:pre-wrap;background:white;padding:20px}</style>'
-        f'<h1>{title}</h1><p>图片只显示初始姿态。工程样例或未通过验收的结果不能作为正式实验成功证据。</p>{figures}<pre>{html.escape(details)}</pre></html>',encoding="utf-8")
+        f'<h1>{title}</h1><p>Images show the initial pose only. Engineering samples or results that failed acceptance cannot serve as evidence of formal experimental success.</p>{figures}<pre>{html.escape(details)}</pre></html>',encoding="utf-8")
     return destination/"index.html"
 
 
@@ -118,26 +118,26 @@ def show_static(artifact, *, asset=False):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="静态查看已发布的完整或部分场景，鼠标旋转/缩放，不运行操作仿真")
-    parser.add_argument("--run",required=True,help="runs（运行结果）目录下的运行名称")
-    parser.add_argument("--job",help="查看指定单资产任务，例如 asset_A06；可查看待审查候选")
-    parser.add_argument("--render-only",action="store_true",help="只导出三视图和网页，不打开交互窗口")
-    parser.add_argument("--output",type=Path,help="新的预览输出目录，默认 runs/运行名称/preview")
+    parser = argparse.ArgumentParser(description="Statically view a published full or partial scene with mouse rotate/zoom; no operation simulation is run")
+    parser.add_argument("--run",required=True,help="run name under the runs (run results) directory")
+    parser.add_argument("--job",help="view a specific single-asset job, e.g. asset_A06; candidates pending review can be viewed")
+    parser.add_argument("--render-only",action="store_true",help="only export the three views and the web page; do not open an interactive window")
+    parser.add_argument("--output",type=Path,help="new preview output directory, default runs/<run name>/preview")
     args = parser.parse_args(argv)
     try:
         project = Path(__file__).resolve().parents[2]
         if args.job:
-            require(not args.render_only and args.output is None, "单资产查看不使用 --render-only 或 --output")
+            require(not args.render_only and args.output is None, "single-asset viewing does not use --render-only or --output")
             artifact, status = resolve_asset(project,args.run,args.job)
-            print(f"单资产静态查看：{args.job}；审查状态 {status}；有模型不代表通过验收。")
+            print(f"Single-asset static view: {args.job}; review status {status}; having a model does not mean acceptance passed.")
             show_static(artifact, asset=True)
             return 0
         root, artifact, result = resolve_artifact(project,args.run)
         if args.render_only:
             print(export_preview(artifact,args.output or root/"preview",result))
         else:
-            require(args.output is None,"--output 仅用于 --render-only")
-            print("静态查看："+result["status"]+"；关闭窗口结束，不推进物理时间。")
+            require(args.output is None,"--output is only for --render-only")
+            print("Static view: "+result["status"]+"; close the window to exit; physics time is not advanced.")
             show_static(artifact)
         return 0
     except (PrepError,OSError,ValueError,KeyError) as exc:

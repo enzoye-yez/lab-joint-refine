@@ -67,8 +67,8 @@ def schedule(run, tasks):
             'status':'deferred' if len(failures)>=3 else 'ready',
             'change_mechanism':len(failures)>=2,
             'failed_mechanisms':list(dict.fromkeys(h.get('mechanism') for h in failures if h.get('mechanism'))),
-            'reason':'连续三次修改与验证未改善，保留问题并处理独立任务' if len(failures)>=3 else None,
-            'reopen_when':'相关资产、依赖、检查实现或有效证据变化；恢复与目录变化不重置'}
+            'reason':'Three consecutive edit-and-verify rounds did not improve; issue kept, independent jobs proceed' if len(failures)>=3 else None,
+            'reopen_when':'Related asset, dependency, check implementation or valid evidence changes; resume and directory changes do not reset'}
     # Every eligible issue gets a turn before an equally bound issue repeats. Turns are
     # counted by assets the repair actually changed: target_checks lists every open
     # task each round, so counting it gave all tasks the same number and the order

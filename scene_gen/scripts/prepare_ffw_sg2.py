@@ -95,11 +95,11 @@ def prepare(project, rebuild=False):
     record.write_text(json.dumps({
         "manufacturer":"ROBOTIS","model":"FFW-SG2","revision":REVISION,"source":BASE,
         "files":files,"model_variants":variants,
-        "adaptations":["新增无实体平面布局坐标，保留原整机根部高度及所有原连杆姿态。",
-                      "腕部、肩部及工具中心标记为工程接口；工具中心为夹爪中间的工程参考点。",
-                      "替换变体移除对应夹爪可分离几何、手指、驱动、联动及接触排除；保留上游腕部合并惯性，无法据此认证换装后的精确动力学。",
-                      "上游仿真关节范围与硬件文档存在差异；本次保留固定模型范围，未用网页参数覆盖。",
-                      "标准夹爪负载使用厂商标称0.5kg；不把上游合并惯性当成独立夹爪称重结果。"]
+        "adaptations":["Added non-physical planar layout coordinates; kept the original whole-robot root height and all original link poses.",
+                      "Wrist, shoulder and tool center are marked as engineering interfaces; the tool center is the engineering reference point midway between the gripper fingers.",
+                      "Replacement variants remove the corresponding gripper's detachable geometry, fingers, actuators, couplings and contact exclusions; the upstream merged wrist inertia is kept, so exact dynamics after the tool swap cannot be certified from it.",
+                      "Upstream simulation joint ranges differ from the hardware documentation; the fixed model ranges are kept here and not overridden with web-page parameters.",
+                      "The stock gripper payload uses the manufacturer nominal 0.5 kg; the upstream merged inertia is not treated as a standalone gripper weighing result."]
     },ensure_ascii=False,indent=2),"utf-8")
 
 

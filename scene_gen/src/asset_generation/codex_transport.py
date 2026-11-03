@@ -52,6 +52,13 @@ When finished reply with only one line of JSON: {{"done": true, "checks_run": <n
 The framework will independently rebuild, check and review your model.py; passing the self-check is not acceptance.
 """
 
+SKILLS = Path(__file__).resolve().parent / "skills"
+SKILLS_NOTE = """
+Skills: `skills/*/SKILL.md` hold modelling recipes for this framework's checks (stability, material integrity,
+buttons, connections, lids, slides, hoses). Read them before the first edit and follow them where they apply;
+instructions.md stays authoritative.
+"""
+
 CHECK_SCRIPT = """#!/usr/bin/env bash
 # Local self-check: build model.py and run the single-asset checks (CPU rendering, no GPU).
 export MUJOCO_GL=egl PYOPENGL_PLATFORM=egl __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json
@@ -179,9 +186,10 @@ def is_author_phase(phase):
 class CodexTransport:
     """Same post interface as GenerationTransport; url and key are unused."""
 
-    def __init__(self, executable="codex", reasoning_effort="high", *, agent=False, workspace_root=None, max_checks=12):
+    def __init__(self, executable="codex", reasoning_effort="high", *, agent=False, workspace_root=None, max_checks=12,
+                 skills=False):
         self.executable, self.reasoning_effort = executable, reasoning_effort
-        self.agent, self.workspace_root, self.max_checks = agent, workspace_root, max_checks
+        self.agent, self.workspace_root, self.max_checks, self.skills = agent, workspace_root, max_checks, skills
         self.check_cancel = lambda: None
         self.phase = None  # GenerationModel sets the request phase before each post.
 
@@ -235,8 +243,12 @@ class CodexTransport:
                          encoding="utf-8")
         check.chmod(0o755)
         note = " (previous round's version; repair it from here)" if previous else " (currently empty; write it from scratch)"
-        (workspace / "AGENT_TASK.md").write_text(AGENT_TASK.format(current_note=note, max_checks=self.max_checks),
-                                                 encoding="utf-8")
+        task_text = AGENT_TASK.format(current_note=note, max_checks=self.max_checks)
+        if self.skills:
+            # Modelling recipes distilled from repeated check failures, read before the first edit.
+            shutil.copytree(SKILLS, workspace / "skills")
+            task_text += SKILLS_NOTE
+        (workspace / "AGENT_TASK.md").write_text(task_text, encoding="utf-8")
         task = "Read AGENT_TASK.md in the current directory and follow it exactly."
         stdout, stderr, code, elapsed = self.run(
             self.command(payload["model"], workspace, images, sandbox="workspace-write"), workspace, task, timeout)

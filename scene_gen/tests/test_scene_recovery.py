@@ -119,7 +119,7 @@ class SceneRecoveryTests(unittest.TestCase):
         self.assertIn("OSError"," ".join(caught.exception.__notes__))
 
     def test_planning_attempts_are_independent_of_asset_budget(self):
-        with self.assertRaisesRegex(ValidationError,"场景计划格式修复次数耗尽"):
+        with self.assertRaisesRegex(ValidationError,"Scene plan format repair attempts exhausted"):
             self.run_loop([{},{}],limits=SceneConfig(max_plan_attempts=2))
         state=json.loads((self.root/"run/state.json").read_text(encoding="utf-8"))
         self.assertEqual(len(state["calls"]),2)

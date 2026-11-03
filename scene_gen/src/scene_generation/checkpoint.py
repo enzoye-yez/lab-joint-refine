@@ -1,4 +1,4 @@
-"""审查前写入检查点；恢复只复用摘要匹配的构建结果，不替模型宣布通过。"""
+"""Write a checkpoint before review; recovery reuses only build results whose digests match and never declares a pass on the model's behalf."""
 
 from copy import deepcopy
 
@@ -21,22 +21,22 @@ def recover_review_checkpoint(run):
     pending = run.state["pending"]
     checkpoint = pending.get("review_checkpoint")
     if not checkpoint:
-        # 旧版本或尚未构建完成的现场不猜测为有效资产。
-        run.commit("abandoned", {"reason": "中断工作区保留，未完成构建不进入场景"})
+        # An old-version or not-yet-built workspace is never assumed to be a valid asset.
+        run.commit("abandoned", {"reason": "interrupted workspace kept; an unfinished build does not enter the scene"})
         return
     actual = snapshot(safe_path(run.root, pending["directory"]))
     expected = checkpoint["files"]
     if any(actual.get(name) != sha for name, sha in expected.items()):
-        raise StaleEvidence("审查检查点的模型、检查或图像被修改，禁止复用")
+        raise StaleEvidence("review checkpoint model, checks or images were modified; reuse forbidden")
     extras = set(actual) - set(expected)
     if any(not (name == "review.json" or name == "record.json" or
                 name.startswith(("review_format_", "evidence_")) or
                 checkpoint['kind']=='scene_check' and (name in {'checks.json','checks_before_recovery.json'}
                                                        or name.startswith('main_check_recovery/')))
            for name in extras):
-        raise StaleEvidence("审查检查点出现未登记的构建产物，禁止复用")
+        raise StaleEvidence("review checkpoint contains unregistered build outputs; reuse forbidden")
     if checkpoint["job_versions"] != {key: job["stage"] for key, job in run.state["jobs"].items()}:
-        raise StaleEvidence("审查中断后依赖资产版本变化，不能复用旧检查点")
+        raise StaleEvidence("dependency asset version changed after review was interrupted; the old checkpoint cannot be reused")
     record = deepcopy(checkpoint["record"])
     directory = pending["directory"]
     if checkpoint["kind"] == "asset":
@@ -45,6 +45,6 @@ def recover_review_checkpoint(run):
     elif checkpoint["kind"] in {"scene","scene_check"}:
         run.state["scene_review_resume"] = {**record, "stage": directory}
     else:
-        raise StaleEvidence("未知审查检查点类型")
-    # 与解除 pending 同一次持久化，避免已归档而资产状态尚未登记的窗口。
+        raise StaleEvidence("unknown review checkpoint type")
+    # Persist together with clearing pending, avoiding a window where the stage is archived but the asset state is not yet recorded.
     run.commit("review_pending", record)

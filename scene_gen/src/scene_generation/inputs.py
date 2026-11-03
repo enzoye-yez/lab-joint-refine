@@ -1,4 +1,4 @@
-"""评测资料清单直读，绝不调用资产提取或联网搜索。"""
+"""Read the evaluation material manifest directly; never call asset extraction or web search."""
 
 import re
 from pathlib import Path
@@ -10,17 +10,17 @@ from asset_prep.storage import file_hash, digest
 
 def catalog(path, generation, protocol_pdf=None, max_protocol_chars=1000000):
     path = Path(path).resolve()
-    require(path.is_file() and path.stat().st_size <= 4000000, "资料包缺失或过大")
+    require(path.is_file() and path.stat().st_size <= 4000000, "asset package missing or too large")
     if path.suffix.lower() == ".md":
         source = path.read_text(encoding="utf-8-sig")
         ids = re.findall(r"^###\s+(A\d+)\s*[｜|].*$",source,re.M)
     else:
         source = read_json(path,4000000)
         ids = [a["asset_id"] for a in source["assets"]]
-    require(ids and len(ids) <= 128 and len(set(ids)) == len(ids), "资料包资产清单无效")
+    require(ids and len(ids) <= 128 and len(set(ids)) == len(ids), "invalid asset list in the asset package")
     from .benchmark_input import load_public, summary_text, attach_bundle
     public = load_public(path, protocol_pdf)
-    # 每项逐个核对图片，避免全场景图片数被误算成单次请求限制。
+    # Check images per item so the whole-scene image count is not mistaken for the per-request limit.
     bundles = {a:load_package(path,[a],generation) for a in ids}
     identity = {"package_sha256":file_hash(path),"assets":{a:b["identity"] for a,b in bundles.items()}}
     if public:
@@ -32,11 +32,11 @@ def catalog(path, generation, protocol_pdf=None, max_protocol_chars=1000000):
             attach_bundle(bundle, public)
     protocol = None
     if protocol_pdf is not None:
-        # 只复用本地文档解析器，不进入提取、工作流或搜索模块。
+        # Reuse only the local document parser; do not enter the extraction, workflow or search modules.
         from asset_prep.documents import load_documents
         documents = load_documents(Path(protocol_pdf).resolve(),None,max_protocol_chars)
         protocol = {"kind":"protocol_pdf_text", **documents,
-                    "representation":"原文全部页面的可提取文本；图片及表格版式不由文本解析认证，仪器图片使用资料包原图"}
+                    "representation":"extractable text of all source pages; images and table layout are not certified by text parsing, instrument images use the original images from the asset package"}
         identity["protocol"] = {"files":documents["files"],"parsing":documents["parsing"],"content_sha256":digest(protocol)}
     prepared = source if isinstance(source, dict) and source.get('schema_version') == '2.0' else None
     return {"path":str(path),"asset_ids":ids,"source":source,"identity":identity,"bundles":bundles,"protocol":protocol,"benchmark_public":public,

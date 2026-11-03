@@ -5,8 +5,8 @@ import time
 import mujoco
 import mujoco.viewer
 
-parser=argparse.ArgumentParser(description="TIAGo OMNI 整机关节与外观查看；不执行实验或动力学")
-parser.add_argument("--flange",action="store_true",help="查看生产装配用的无夹爪腕部配置")
+parser=argparse.ArgumentParser(description="TIAGo OMNI whole-robot joint and appearance viewer; runs no experiment or dynamics")
+parser.add_argument("--flange",action="store_true",help="view the gripperless wrist configuration used for production assembly")
 args=parser.parse_args()
 project=Path(__file__).resolve().parents[1]
 path=project/"data/robots/tiago_omni"/("model.xml" if args.flange else "stock_gripper.xml")

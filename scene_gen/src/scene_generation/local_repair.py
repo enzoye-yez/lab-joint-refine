@@ -18,7 +18,7 @@ def cached_check(run,binding):
         from asset_prep.errors import StaleEvidence
         stage=next(s for s in run.state['stages'] if s['directory']==record['directory'])
         if snapshot(safe_path(run.root,stage['directory']))!=stage['files']:
-            raise StaleEvidence('局部检查归档被修改，不能复用')
+            raise StaleEvidence('Local check archive was modified; cannot be reused')
     return record
 
 
@@ -89,7 +89,7 @@ def precheck(run):
     comparison={'outcome':'regressed' if regression else 'ineffective','adopt':False,
         'new_defects':[d for c in comparisons for d in c['comparison']['new_defects']],
         'coverage_lost':[],'resolved_checks':[],'remaining_checks':entry['target_checks'],
-        'rule':'局部复查已证明退步或目标无改善；未声明场景质量通过'}
+        'rule':'Local recheck proved a regression or no improvement on the target; scene quality is not declared passed'}
     entry.update(status='evaluated',comparison=comparison,outcome=comparison['outcome'],
         output_key=run.repair_input_key(),scene=entry['baseline']['scene'],
         calls_consumed=len(run.store.state['calls'])-entry['call_start'])

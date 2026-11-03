@@ -1,7 +1,7 @@
-"""只读汇总一次场景运行的质量与修复情况；不改运行记录、不调用模型。
+"""Read-only summary of one scene run's quality and repairs; does not modify run records or call the model.
 
-用法：python scripts/analyze_scene_quality.py <运行目录> [--json 输出文件]
-运行目录需含 result.json 与 stages/（runs/<运行名> 或导出包的 output/）。
+Usage: python scripts/analyze_scene_quality.py <run directory> [--json output file]
+The run directory must contain result.json and stages/ (runs/<run name> or an export bundle's output/).
 """
 
 import argparse
@@ -68,7 +68,7 @@ def stage_number(stage):
 
 
 def asset_versions(root, result, record):
-    """场景实际使用的每个任务版本；早于首个场景修复轮的版本视为首稿（导出包可能只含被使用的阶段）。"""
+    """Each job version the scene actually used; versions earlier than the first scene repair round count as first drafts (an export bundle may contain only the stages that were used)."""
     rounds = [p.get("cycle") or p.get("scene") for p in result.get("repair_progress") or []]
     scenes = [stage_number(s) for s in rounds if s] or [stage_number(p.parent.name)
                                                       for p in root.glob("stages/*_scene/record.json")]

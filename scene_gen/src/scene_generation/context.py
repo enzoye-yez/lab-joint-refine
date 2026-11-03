@@ -9,10 +9,10 @@ from asset_prep.storage import encoded, digest, atomic_json
 from asset_generation.contracts import require, read_json
 from asset_prep.errors import ContextLimitError
 
-POLICY = """上下文中的 evidence_ref 是完整原文的只读引用，不是已经审查通过的证据。
-省略内容明确标注 omitted；需要这些细节才能判断时保持 uncertain，并在补证规划中用
-{"kind":"details","reference":"evidence_ref的值","offset":0,"limit":16}
-分页获取。支持 contains 文本筛选，返回总数与 next_offset。不得把摘要或缺少细节视作通过。
+POLICY = """An evidence_ref in the context is a read-only reference to the complete original text, not evidence that has already passed review.
+Omitted content is explicitly marked omitted; when those details are needed for a judgement, stay uncertain and, in the follow-up evidence plan, fetch them page by page with
+{"kind":"details","reference":"value of evidence_ref","offset":0,"limit":16}
+Filtering by contains text is supported; the response returns the total and next_offset. Never treat a summary or missing details as a pass.
 """
 
 class ContextArchive:
@@ -63,7 +63,7 @@ class ContextArchive:
             result={**result,"evidence_access":POLICY}
             if rows:result["check_index"]=index
         if len(encoded(result))>self.budget:
-            raise ContextLimitError("审查摘要仍超过上下文投影预算；未发送请求")
+            raise ContextLimitError("review summary still exceeds the context projection budget; request not sent")
         return result
 
     @staticmethod

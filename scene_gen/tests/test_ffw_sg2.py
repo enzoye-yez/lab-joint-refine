@@ -195,8 +195,8 @@ class FfwTests(unittest.TestCase):
         validate_model_posture({"robot_posture":{"lift_joint":-.2,"arm_l_joint4":-.8}},self.catalogue)
         self.assertGreater(len(self.env["robot"]["joints"]),16)
         prompt=for_environment(PLAN,self.env)
-        self.assertNotIn("恰好一个tool任务",prompt)
-        self.assertNotIn("唯一tool实例",prompt)
+        self.assertNotIn("Exactly one tool job",prompt)
+        self.assertNotIn("The single tool instance",prompt)
         self.assertIn("end_effectors",prompt)
 
     def run_fixture(self,replies,calls=30,resume=False):
@@ -230,7 +230,7 @@ class FfwTests(unittest.TestCase):
         self.assertEqual(result["status"],"static_candidate_ready")
         self.assertEqual(set(resumed.state["jobs"]),{"instrument"})
         self.assertEqual(result["budget"]["model_calls"],2+len(transport.requests))
-        self.assertIn("原厂保留",(run.root/"scene_document.md").read_text(encoding="utf-8"))
+        self.assertIn("stock kept",(run.root/"scene_document.md").read_text(encoding="utf-8"))
 
     def test_new_tool_scheduler_and_rollback_restore_plan_without_refunding(self):
         from scene_generation.scene_first import collect

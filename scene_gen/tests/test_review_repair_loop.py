@@ -47,7 +47,7 @@ class ReviewRepairContractTests(unittest.TestCase):
         good,errors=resolution_feedback([answer("a"),answer("a","unresolved"),answer("b"),answer("evil")],{"a","b"})
         self.assertEqual(set(good),{"b"})
         self.assertEqual([e["id"] for e in errors],["a","evil"])
-        with self.assertRaisesRegex(ValidationError,"未知=.*extra"):
+        with self.assertRaisesRegex(ValidationError,"unknown=.*extra"):
             scoped_review({**ACCEPT,"extra":1},"asset")
     def test_incremental_receipt_and_attempt_budget_survive_interruption(self):
         seen=[];receipt={};pending=[{"id":k,"stage":"scene"} for k in ("a","b")]
@@ -73,12 +73,12 @@ class ReviewRepairContractTests(unittest.TestCase):
         request=deepcopy(evidence_fixtures.VIEW)
         single={"bodies":["base","lid"],"geoms":[],"joints":[]}
         validate_inventory([request],single,"asset")
-        with self.assertRaisesRegex(ValidationError,"可用configuration"):
+        with self.assertRaisesRegex(ValidationError,"available configuration"):
             validate_inventory([request],{"configurations":{"closed":single}},"asset")
         validate_inventory([{**request,"configuration":"closed"}],{"configurations":{"closed":single}},"asset")
-        with self.assertRaisesRegex(ValidationError,"未知对象"):
+        with self.assertRaisesRegex(ValidationError,"unknown objects"):
             validate_inventory([{**request,"focus_body":"invented"}],single,"asset")
-        with self.assertRaisesRegex(ValidationError,"未知关节"):
+        with self.assertRaisesRegex(ValidationError,"unknown joint"):
             validate_inventory([{**request,"joints":{"invented":1}}],single,"asset")
     def test_successful_duplicate_returns_evidence_without_tool_execution(self):
         fixture=evidence_fixtures.EvidenceLoopTests();fixture.setUp();self.addCleanup(fixture.doCleanups)

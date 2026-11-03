@@ -14,48 +14,48 @@ def arms(env):
 
 
 def validate_robot(robot):
-    require(isinstance(robot,dict), "机器人配置无效")
+    require(isinstance(robot,dict), "Invalid robot configuration")
     common={"name","directory","joints","home"}
     extra={"mobile"}
     required=(common|{"arms","shared_joints","model_variants"} if "arms" in robot else
               common|{"attachment_site","payload_kg","reach_m"})
-    require(required <= set(robot) <= required|extra, "机器人配置字段无效")
-    require(all(isinstance(robot[k],str) and robot[k] for k in ("name","directory")), "机器人来源缺失")
+    require(required <= set(robot) <= required|extra, "Invalid robot configuration fields")
+    require(all(isinstance(robot[k],str) and robot[k] for k in ("name","directory")), "Robot source missing")
     joints=robot["joints"]
     require(isinstance(joints,list) and joints and all(isinstance(j,str) and j for j in joints)
-            and len(joints)==len(set(joints)), "机器人关节无效")
+            and len(joints)==len(set(joints)), "Invalid robot joints")
     require(isinstance(robot["home"],list) and len(robot["home"])==len(joints)
-            and all(finite(q) for q in robot["home"]), "机器人初始姿态无效")
+            and all(finite(q) for q in robot["home"]), "Invalid robot initial posture")
     entries=arms({"robot":robot})
-    require(isinstance(entries,list) and entries, "至少声明一只机械臂")
+    require(isinstance(entries,list) and entries, "Declare at least one robot arm")
     ids=[]
     grouped=list(robot.get("shared_joints",[]))
     for arm in entries:
         require(isinstance(arm,dict) and set(arm)=={"id","joints","wrist_site","tcp_site","shoulder_site","reach_m","payload_kg","stock"},
-                "机械臂字段无效")
-        require(isinstance(arm["id"],str) and re.fullmatch(r"[A-Za-z][A-Za-z0-9_]{0,47}",arm["id"]), "机械臂编号无效")
+                "Invalid robot arm fields")
+        require(isinstance(arm["id"],str) and re.fullmatch(r"[A-Za-z][A-Za-z0-9_]{0,47}",arm["id"]), "Invalid robot arm id")
         ids.append(arm["id"])
-        require(isinstance(arm["joints"],list) and arm["joints"] and all(isinstance(j,str) for j in arm["joints"]), "机械臂关节组无效")
-        require(all(isinstance(arm[k],str) and arm[k] for k in ("wrist_site","tcp_site")), "机械臂接口缺失")
-        require(arm["shoulder_site"] is None or isinstance(arm["shoulder_site"],str), "肩部接口无效")
-        require(all(finite(arm[k]) and arm[k]>0 for k in ("reach_m","payload_kg")), "机械臂规格无效")
+        require(isinstance(arm["joints"],list) and arm["joints"] and all(isinstance(j,str) for j in arm["joints"]), "Invalid robot arm joint group")
+        require(all(isinstance(arm[k],str) and arm[k] for k in ("wrist_site","tcp_site")), "Robot arm interface missing")
+        require(arm["shoulder_site"] is None or isinstance(arm["shoulder_site"],str), "Invalid shoulder interface")
+        require(all(finite(arm[k]) and arm[k]>0 for k in ("reach_m","payload_kg")), "Invalid robot arm specification")
         grouped.extend(arm["joints"])
         stock=arm["stock"]
         if stock is not None:
-            require(isinstance(stock,dict) and set(stock)=={"name","joints","adapter_site","mass_kg","mass_source"}, "原厂末端字段无效")
-            require(all(isinstance(stock[k],str) and stock[k] for k in ("name","adapter_site","mass_source")), "原厂末端来源或接口缺失")
+            require(isinstance(stock,dict) and set(stock)=={"name","joints","adapter_site","mass_kg","mass_source"}, "Invalid stock end-effector fields")
+            require(all(isinstance(stock[k],str) and stock[k] for k in ("name","adapter_site","mass_source")), "Stock end-effector source or interface missing")
             require(isinstance(stock["joints"],list) and all(isinstance(j,str) for j in stock["joints"])
-                    and finite(stock["mass_kg"]) and stock["mass_kg"]>0, "原厂末端关节或质量无效")
+                    and finite(stock["mass_kg"]) and stock["mass_kg"]>0, "Invalid stock end-effector joints or mass")
             grouped.extend(stock["joints"])
-    require(len(ids)==len(set(ids)), "机械臂编号重复")
+    require(len(ids)==len(set(ids)), "Duplicate robot arm id")
     if "arms" in robot:
-        require(len(grouped)==len(set(grouped)) and set(grouped)==set(joints), "公共、手臂、夹爪关节必须无重叠且覆盖初始关节")
+        require(len(grouped)==len(set(grouped)) and set(grouped)==set(joints), "Shared, arm and gripper joints must not overlap and must cover the initial joints")
         variants=robot["model_variants"]
-        require(isinstance(variants,dict) and variants.get("")=="model.xml", "整机默认变体缺失")
+        require(isinstance(variants,dict) and variants.get("")=="model.xml", "Default whole-robot variant missing")
         for key,value in variants.items():
             require(isinstance(key,str) and isinstance(value,str) and value.endswith(".xml")
-                    and re.fullmatch(r"[A-Za-z0-9_.-]+",value), "整机变体路径无效")
-            require(not key or key==",".join(sorted(set(key.split(",")))) and set(key.split(","))<=set(ids), "整机变体编号无效")
+                    and re.fullmatch(r"[A-Za-z0-9_.-]+",value), "Invalid whole-robot variant path")
+            require(not key or key==",".join(sorted(set(key.split(",")))) and set(key.split(","))<=set(ids), "Invalid whole-robot variant id")
 
 
 def bindings(plan, env):
@@ -65,36 +65,36 @@ def bindings(plan, env):
     tools=[i for i in plan["instances"] if i["placement"]=="robot"]
     return {a["id"]:{"mode":"replace" if tools and len(entries)==1 else "stock",
                     "instance":tools[0]["id"] if tools and len(entries)==1 else None,
-                    "reason":"旧单臂输入"} for a in entries}
+                    "reason":"legacy single-arm input"} for a in entries}
 
 
 def validate_bindings(plan, env, *, partial=False):
     entries={a["id"]:a for a in arms(env)}
     value=bindings(plan,env)
-    require(isinstance(value,dict) and set(value)==set(entries), "末端选择必须覆盖每只机械臂")
+    require(isinstance(value,dict) and set(value)==set(entries), "End-effector selection must cover every robot arm")
     items={i["id"]:i for i in plan["instances"]}
     used=[]
     removed=[]
     for key,binding in value.items():
-        require(isinstance(binding,dict) and set(binding)=={"mode","instance","reason"}, "末端选择字段无效")
+        require(isinstance(binding,dict) and set(binding)=={"mode","instance","reason"}, "Invalid end-effector selection fields")
         mode=binding["mode"]
         require(mode in ("stock","adapter","replace") and isinstance(binding["reason"],str)
-                and 0<len(binding["reason"])<=4000, "末端选择须有明确理由")
+                and 0<len(binding["reason"])<=4000, "End-effector selection requires an explicit reason")
         if mode=="stock":
-            require(binding["instance"] is None, "原厂末端不能引用生成实例")
-            require(entries[key]["stock"] is not None or partial, "裸腕不能冒充原厂夹爪")
+            require(binding["instance"] is None, "A stock end-effector cannot reference a generated instance")
+            require(entries[key]["stock"] is not None or partial, "A bare wrist cannot pose as a stock gripper")
         else:
             target=binding["instance"]
-            require(isinstance(target,str) and target not in used, "定制末端实例缺失或重复占用")
-            require(partial and target not in items or target in items and items[target]["placement"]=="robot", "末端须引用机器人上的实例")
+            require(isinstance(target,str) and target not in used, "Custom end-effector instance missing or already bound")
+            require(partial and target not in items or target in items and items[target]["placement"]=="robot", "The end-effector must reference an instance placed on the robot")
             used.append(target)
             if mode=="adapter":
-                require(entries[key]["stock"] is not None, "没有原厂夹爪不能装夹爪适配件")
+                require(entries[key]["stock"] is not None, "A gripper adapter cannot be mounted without a stock gripper")
             elif entries[key]["stock"] is not None:
                 removed.append(key)
-    require(set(used)&set(items)=={i["id"] for i in items.values() if i["placement"]=="robot"}, "生成末端必须恰好绑定一次")
+    require(set(used)&set(items)=={i["id"] for i in items.values() if i["placement"]=="robot"}, "Each generated end-effector must be bound exactly once")
     key=",".join(sorted(removed))
-    require(not key or key in env["robot"].get("model_variants",{}), "整机缺少所选腕部替换变体")
+    require(not key or key in env["robot"].get("model_variants",{}), "The whole robot lacks the selected wrist replacement variant")
     return value
 
 
@@ -110,15 +110,15 @@ def mount_for(plan, env, instance):
         if binding["instance"]==instance:
             site=arm["stock"]["adapter_site"] if binding["mode"]=="adapter" else arm["wrist_site"]
             return {"arm":arm["id"],"mode":binding["mode"],"site":site,"reason":binding["reason"]}
-    raise ValueError("工具没有声明机械臂安装点："+instance)
+    raise ValueError("Tool declares no robot arm mount point: "+instance)
 
 
 def validate_posture(value, env):
-    require(isinstance(value,dict), "机器人姿态须为关节到数值的映射")
-    require(not value or env is not None, "机器人姿态缺少环境约定")
+    require(isinstance(value,dict), "Robot posture must map joints to numbers")
+    require(not value or env is not None, "Robot posture lacks an environment contract")
     if value:
         require(all(isinstance(k,str) and k in env["robot"]["joints"] and finite(v)
-                    for k,v in value.items()), "机器人姿态引用未知关节或无效数值")
+                    for k,v in value.items()), "Robot posture references an unknown joint or an invalid value")
 
 
 def joint_catalogue(root, env):
@@ -131,7 +131,7 @@ def joint_catalogue(root, env):
     result={}
     for name in env["robot"]["joints"]:
         j=mujoco.mj_name2id(model,mujoco.mjtObj.mjOBJ_JOINT,name)
-        require(j>=0,"配置关节不存在："+name)
+        require(j>=0,"Configured joint does not exist: "+name)
         result[name]={"type":"slide" if model.jnt_type[j]==mujoco.mjtJoint.mjJNT_SLIDE else "hinge",
                       "range":model.jnt_range[j].tolist() if model.jnt_limited[j] else None,
                       "follows":model.joint(coupled[j]).name if j in coupled else None}
@@ -140,10 +140,10 @@ def joint_catalogue(root, env):
 
 def validate_model_posture(plan, catalogue):
     for name,q in plan.get("robot_posture",{}).items():
-        require(name in catalogue,"姿态引用未知模型关节："+name)
+        require(name in catalogue,"Posture references an unknown model joint: "+name)
         spec=catalogue[name]
-        require(not spec["follows"],"不能独立指定联动从关节："+name)
-        require(spec["range"] is None or spec["range"][0]<=q<=spec["range"][1],"机器人姿态越界："+name)
+        require(not spec["follows"],"A coupled follower joint cannot be set independently: "+name)
+        require(spec["range"] is None or spec["range"][0]<=q<=spec["range"][1],"Robot posture out of range: "+name)
 
 
 def initialize(model, data, env, prefix="robot__", posture=None):
@@ -156,10 +156,10 @@ def initialize(model, data, env, prefix="robot__", posture=None):
         jid=mujoco.mj_name2id(model,mujoco.mjtObj.mjOBJ_JOINT,prefix+name)
         if jid<0:
             # Only removable stock joints may be absent in a verified variant.
-            require(any(a["stock"] and name in a["stock"]["joints"] for a in arms(env)), "机器人关节缺失："+name)
+            require(any(a["stock"] and name in a["stock"]["joints"] for a in arms(env)), "Robot joint missing: "+name)
             continue
-        require(model.jnt_type[jid] in (mujoco.mjtJoint.mjJNT_HINGE,mujoco.mjtJoint.mjJNT_SLIDE), "机器人初始化只支持标量关节")
-        require(not model.jnt_limited[jid] or model.jnt_range[jid,0]<=q<=model.jnt_range[jid,1], "机器人初始姿态越界："+name)
+        require(model.jnt_type[jid] in (mujoco.mjtJoint.mjJNT_HINGE,mujoco.mjtJoint.mjJNT_SLIDE), "Robot initialization supports only scalar joints")
+        require(not model.jnt_limited[jid] or model.jnt_range[jid,0]<=q<=model.jnt_range[jid,1], "Robot initial posture out of range: "+name)
         data.qpos[model.jnt_qposadr[jid]]=q
     for aid in range(model.nu):
         jid=int(model.actuator_trnid[aid,0])
@@ -189,16 +189,16 @@ def synchronize_grippers(model,data,prefix="robot__"):
 
 
 POLICY = """
-机器人以environment.robot中的公共机构和arms机械臂清单为准。不同手臂共用底盘和升降，不是两个独立机器人。
-计划增加end_effectors:{机械臂id:{mode:"stock|adapter|replace",instance:生成末端实例id或null,reason:依据}}，覆盖每只机械臂。
-stock保留原厂夹爪，instance=null，不生成假工具任务。adapter保留夹爪，在声明的固定外壳adapter_site装适配总成；
-不能假装固定外壳接口会随夹指运动。replace移除对应原厂夹爪，在wrist_site装完整专用末端。一次任务每臂最多一个定制总成。
-按需生成0到机械臂数量个tool任务；每个tool实例placement=robot，局部原点对应该选择的安装点，位置为零。
-所有定制实例必须恰好绑定一次。优先使用原厂夹爪，不能只因有两只手就生成两套复杂工具。原厂整机不是模型生成资产。
-计划及修复可选robot_posture:{实际关节名:位置}指定当前移动与静态展示姿态，默认environment.robot.home。
-未给出的关节沿用默认值，必须遵守整机实际限位；夹爪联动从主关节推导，不能独立指定被动指节。
-不允许修改机器人源码、官方关节限位、夹爪联动或验收标准。粗略接近性不是双臂协同轨迹证明。
-修复可提供完整end_effectors更新安装选择；仅能换装本轮允许修改的工具或tool_additions新增工具。
-若原厂夹爪经确认不足，tool_additions:[{job:完整tool任务,instance:完整robot实例}]可按需增加工具，
-同时提供end_effectors绑定和明确原因。新增工具须列在jobs修复清单中，共用当前预算，不重新提取资产或增加假仪器。
+The robot is defined by the shared mechanisms and the arms list in environment.robot. Different arms share the base and lift; they are not independent robots.
+The plan adds end_effectors:{arm id:{mode:"stock|adapter|replace",instance:generated end-effector instance id or null,reason:justification}}, covering every arm.
+stock keeps the stock gripper, instance=null, and generates no fake tool job. adapter keeps the gripper and mounts an adapter assembly on the declared fixed-housing adapter_site;
+do not pretend the fixed-housing interface moves with the fingers. replace removes that arm's stock gripper and mounts a complete dedicated end-effector on wrist_site. At most one custom assembly per arm per task.
+Generate 0 up to the number of arms tool jobs as needed; each tool instance has placement=robot, its local origin at the selected mount point, position zero.
+Every custom instance must be bound exactly once. Prefer stock grippers; do not generate two complex tools merely because there are two hands. The stock whole robot is not a model-generated asset.
+Plans and repairs may give robot_posture:{actual joint name:position} for the current mobile and static display posture; default environment.robot.home.
+Unlisted joints keep their defaults and must respect the whole robot's actual limits; gripper coupling is derived from the driving joint, and passive finger joints cannot be set independently.
+Do not modify the robot source, official joint limits, gripper coupling or acceptance criteria. Rough proximity is not proof of a coordinated dual-arm trajectory.
+A repair may provide a complete end_effectors to update mount choices; it may only swap tools allowed to change this round or tools added via tool_additions.
+If stock grippers are confirmed insufficient, tool_additions:[{job:complete tool job,instance:complete robot instance}] may add tools as needed,
+together with the end_effectors binding and an explicit reason. Added tools must be listed in the jobs repair list and share the current budget; do not re-extract assets or add fake instruments.
 """

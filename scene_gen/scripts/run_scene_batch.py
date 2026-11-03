@@ -1,4 +1,4 @@
-"""用户启动的顺序静态实验队列；请求故障暂停队列，几何失败可继续下一项。"""
+"""User-launched sequential static experiment queue; a request fault pauses the queue, a geometry failure moves on to the next entry."""
 
 import argparse
 from datetime import datetime, timezone
@@ -32,13 +32,13 @@ TERMINAL = {"completed", "failed", "preview_failed", "blocked_unknown_request", 
 
 @contextmanager
 def awake_while_running():
-    """仅在当前队列期间请求系统保持唤醒，不改永久电源计划，不阻止手动休眠。"""
+    """Request that the system stay awake only while this queue runs; does not change the permanent power plan or block manual sleep."""
     kernel = None
     if os.name == "nt":
         import ctypes
         kernel = ctypes.windll.kernel32
         if not kernel.SetThreadExecutionState(0x80000001):
-            print("未能请求系统保持唤醒，请检查电脑休眠设置。",flush=True)
+            print("Could not request the system to stay awake; check the computer sleep settings.",flush=True)
     try:
         yield
     finally:
@@ -70,14 +70,14 @@ def code_files(project):
 def prepare(project, root, args):
     protocols = args.protocols
     if len(protocols) != len(set(protocols)) or any(not re.fullmatch(r"NP-\d{3}", p) for p in protocols):
-        raise ValueError("规程编号须为不重复的 NP-001 等形式")
+        raise ValueError("protocol ids must be unique and of the form NP-001")
     generation = read(project / (getattr(args, "generation_config", None) or "config/generation.json"))
     generation["max_iterations"] = args.asset_iterations
     generation["max_images"] = max(generation["max_images"], 128)
     GenerationConfig(**generation)
     provider = read(project / (getattr(args, "provider_config", None) or "config/default.json"))
     if getattr(args,"model",None):provider["model"]=args.model
-    Config(**provider)  # 只允许非敏感配置字段；不复制凭据。
+    Config(**provider)  # Only non-sensitive config fields are allowed; credentials are not copied.
     scene = read(project / (getattr(args, "scene_config", None) or "config/scene.json"))
     scene.update(max_iterations=args.scene_iterations, max_model_calls=args.max_model_calls,
                  max_reserved_tokens=args.max_reserved_tokens, validation_mode="static")
@@ -88,16 +88,16 @@ def prepare(project, root, args):
         source = args.input_root.resolve() / protocol
         pdf, package = source / "source.pdf", source / "asset_package.md"
         if not package.is_file():
-            raise ValueError(f"缺少 {protocol} 的资料包：{source}")
+            raise ValueError(f"missing material package for {protocol}: {source}")
         from scene_generation.benchmark_input import load_public, bind_environment, PUBLIC_PATH
         public = load_public(package)
         use_pdf = not public or 'source.pdf' in public['identity']['files']
         if use_pdf and not pdf.is_file():
-            raise ValueError(f"缺少 {protocol} 的原文：{source}")
+            raise ValueError(f"missing source text for {protocol}: {source}")
         bind_environment({'benchmark_public':public}, env, project / env['robot']['directory'])
         run = args.batch + "_" + protocol.lower().replace("-", "")
         if (project / "runs" / run).exists():
-            raise ValueError(f"运行目录已存在，不能覆盖：{run}")
+            raise ValueError(f"run directory already exists, cannot overwrite: {run}")
         if public:
             inputs.extend(source / name for name in public['identity']['files'])
             inputs.extend([source / 'input_manifest.json', (source / PUBLIC_PATH).resolve()])
@@ -119,11 +119,11 @@ def prepare(project, root, args):
 def verify(manifest, project):
     frozen = manifest["frozen"]
     if any(str(path.resolve()) not in frozen for path in code_files(project)):
-        raise ValueError("生成框架新增了源文件，请建立新批次")
+        raise ValueError("the generation framework gained new source files; create a new batch")
     for name, expected in frozen.items():
         path = Path(name)
         if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != expected:
-            raise ValueError(f"批次使用的代码、输入或配置已变化：{name}；请建立新批次")
+            raise ValueError(f"code, input or config used by the batch has changed: {name}; create a new batch")
 
 
 def save(root, manifest, project):
@@ -138,20 +138,20 @@ def refresh_assets(project, run):
     try:
         return export_assets(project, run, refresh=True, allow_empty=True)
     except (OSError, ValueError, KeyError) as exc:
-        # 展示失败不能中断生成；保留原有图片与页面供检查。
-        print(f"资产预览暂未刷新：{run}；{exc}", flush=True)
+        # A display failure must not interrupt generation; keep the existing images and pages for inspection.
+        print(f"asset preview not refreshed yet: {run}; {exc}", flush=True)
         return None
 
 
 def render_index(root, manifest, project):
-    """只刷新派生页面，不修改实验账本、资产或旧批次状态。"""
+    """Refresh only derived pages; do not modify the experiment ledger, assets or old batch state."""
     def href(path):
         return html.escape(quote(os.path.relpath(path, root).replace("\\", "/"), safe="/"), quote=True)
     rows = []
     for entry in manifest["entries"]:
         folder = project / "runs" / entry["run"]
         gallery = refresh_assets(project, entry["run"])
-        asset_link = f'<a href="{href(gallery)}">查看已有资产图片</a>' if gallery else "尚未生成图片"
+        asset_link = f'<a href="{href(gallery)}">View existing asset images</a>' if gallery else "No images generated yet"
         if gallery:
             sources = read(gallery.parent / "sources.json")
             thumbnails = []
@@ -162,19 +162,19 @@ def render_index(root, manifest, project):
                                       f'src="{href(folder / first)}" alt="{html.escape(asset["job"],quote=True)}"></a>')
             asset_link += '<div>' + ''.join(thumbnails) + '</div>'
         preview = entry.get("preview")
-        link = f'<a href="{href(Path(preview))}">完整场景预览</a>' if preview else "尚无完整场景"
+        link = f'<a href="{href(Path(preview))}">Full scene preview</a>' if preview else "No full scene yet"
         rows.append("<tr>" + "".join(f"<td>{html.escape(str(value))}</td>" for value in (
             entry["protocol"], entry["run"], entry["status"], entry.get("result_status", ""),
             entry.get("model_calls", ""), entry.get("reported_total_tokens", ""),
             entry.get("request_failure", {}).get("diagnostics", {}).get("http_status", ""),
             entry.get("request_failure", {}).get("provider_error", {}).get("message", ""))) +
-            f'<td>{asset_link}</td><td>{link}</td><td><a href="{href(folder)}">实验目录</a></td></tr>')
-    page = ('<!doctype html><meta charset="utf-8"><title>顺序实验汇总</title>'
+            f'<td>{asset_link}</td><td>{link}</td><td><a href="{href(folder)}">Experiment folder</a></td></tr>')
+    page = ('<!doctype html><meta charset="utf-8"><title>Sequential experiment summary</title>'
             '<style>body{font-family:system-ui;margin:30px}td,th{padding:10px;border:1px solid #ccc}'
-            'table{border-collapse:collapse}</style><h1>静态场景实验汇总</h1>'
-            '<p>成功表示交付静态候选或布局预览；不表示完成规程操作或全部适配验证。刷新页面可更新。</p>'
-            '<table><tr><th>输入</th><th>运行名称</th><th>队列状态</th><th>生成结果</th>'
-            '<th>请求尝试数</th><th>服务报告令牌</th><th>响应状态码</th><th>服务错误摘要</th><th>单资产图片</th><th>完整场景</th><th>产物</th></tr>' +
+            'table{border-collapse:collapse}</style><h1>Static scene experiment summary</h1>'
+            '<p>Success means a static candidate or layout preview was delivered; it does not mean the protocol operations or full adaptation validation were completed. Refresh the page to update.</p>'
+            '<table><tr><th>Input</th><th>Run name</th><th>Queue status</th><th>Generation result</th>'
+            '<th>Request attempts</th><th>Provider-reported tokens</th><th>Response status code</th><th>Provider error summary</th><th>Per-asset images</th><th>Full scene</th><th>Artifacts</th></tr>' +
             ''.join(rows) + '</table>')
     (root / "index.html").write_text(page, encoding="utf-8")
 
@@ -187,11 +187,11 @@ def progress(run_root):
         jobs = scene.get("jobs", {})
         ready = sum(j.get("assembly_readiness",{}).get("loadable") or j.get("status") in {"candidate_ready", "assembly_ready"} for j in jobs.values())
         counts = request_summary(calls)
-        return (f"请求尝试 {counts['attempts']}，成功响应 {counts['successful_responses']}，重试 {counts['retry_attempts']}；资产就绪 {ready}/{len(jobs)}；"
-                f"场景轮次 {len(scene.get('rounds', []))}；状态 {scene.get('status', '准备中')}；"
-                f"阶段 {scene.get('activity',{}).get('phase','待记录')} / {scene.get('activity',{}).get('event','')}")
+        return (f"request attempts {counts['attempts']}, successful responses {counts['successful_responses']}, retries {counts['retry_attempts']}; assets ready {ready}/{len(jobs)}; "
+                f"scene rounds {len(scene.get('rounds', []))}; status {scene.get('status', 'preparing')}; "
+                f"phase {scene.get('activity',{}).get('phase','not yet recorded')} / {scene.get('activity',{}).get('event','')}")
     except (OSError, ValueError):
-        return "正在准备输入或等待账本写入"
+        return "preparing input or waiting for the ledger to be written"
 
 
 def run_child(command, log, project, run_root):
@@ -228,7 +228,7 @@ def execute(manifest, root, project, runner=run_child):
         verify(manifest, project)
         run_root = project / "runs" / entry["run"]
         config = root / "config"
-        # 使用队列准备时冻结的身份，不能启动时重新计算并自行认可新源码。
+        # Use the identity frozen when the queue was prepared; do not recompute it at launch and self-approve new source.
         expected = implementation_digest({Path(path).relative_to(project/'src').as_posix():sha
             for path,sha in manifest['frozen'].items() if Path(path).is_relative_to(project/'src')})
         command = [sys.executable, "-m", "scene_generation", "--backend", "local", "--static-only",
@@ -246,12 +246,12 @@ def execute(manifest, root, project, runner=run_child):
         entry.update(status="running", started_at=now())
         manifest["status"] = "running"
         save(root, manifest, project)
-        print(f"[{index}/{len(manifest['entries'])}] 开始 {entry['protocol']} → {entry['run']}", flush=True)
-        print(f"  日志：{root / (entry['run'] + '.log')}", flush=True)
+        print(f"[{index}/{len(manifest['entries'])}] start {entry['protocol']} → {entry['run']}", flush=True)
+        print(f"  log: {root / (entry['run'] + '.log')}", flush=True)
         code = (0 if rendering_resume else
                 runner(command, root / (entry["run"] + ".log"), project, run_root))
         entry["exit_code"] = code
-        if code in {130, -1073741510, 3221225786}:  # 控制台中断：停止整个队列。
+        if code in {130, -1073741510, 3221225786}:  # Console interrupt: stop the whole queue.
             raise KeyboardInterrupt
         try:
             result = read(run_root / "result.json")
@@ -263,7 +263,7 @@ def execute(manifest, root, project, runner=run_child):
         entry["status"] = "failed"
         failure = result.get("request_failure")
         if result.get("scene_artifact") and not (run_root/"pause.request").exists():
-            # 每次导出使用新目录，保留中断时的部分渲染。
+            # Each export uses a new directory, keeping partial renders from interruptions.
             destination = run_root / "preview"
             suffix = 1
             while destination.exists():
@@ -289,15 +289,15 @@ def execute(manifest, root, project, runner=run_child):
             entry.update(status="paused_provider", request_failure=failure, paused_at=now())
             manifest["status"] = "paused_provider"
             save(root, manifest, project)
-            print(f"请求故障，队列已暂停于 {entry['protocol']}；后续输入保持排队。"
-                  f" 响应状态码：{failure.get('diagnostics', {}).get('http_status')}；"
-                  f"说明：{failure.get('provider_error', {}).get('message', '未提供错误详情')}。", flush=True)
+            print(f"Request fault; queue paused at {entry['protocol']}; remaining inputs stay queued."
+                  f" Response status code: {failure.get('diagnostics', {}).get('http_status')}；"
+                  f"Details: {failure.get('provider_error', {}).get('message', 'no error details provided')}.", flush=True)
             return 3
         entry.pop("request_failure", None)
         entry["finished_at"] = now()
         save(root, manifest, project)
         print(f"[{index}/{len(manifest['entries'])}] {entry['protocol']}：{entry['status']}；"
-              f"生成结果 {entry['result_status']}", flush=True)
+              f"generation result {entry['result_status']}", flush=True)
     manifest["status"] = ("completed" if all(e["status"] == "completed" for e in manifest["entries"])
                           else "completed_with_failures")
     save(root, manifest, project)
@@ -305,14 +305,14 @@ def execute(manifest, root, project, runner=run_child):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="按顺序运行静态场景实验；默认仅准备，--execute 才调用模型")
-    parser.add_argument("--batch", required=True, help="新批次名称；使用 --resume 接续未完成队列")
+    parser = argparse.ArgumentParser(description="Run static scene experiments sequentially; by default only prepares, --execute calls the model")
+    parser.add_argument("--batch", required=True, help="new batch name; use --resume to continue an unfinished queue")
     parser.add_argument("--protocols", nargs="+", default=[f"NP-{i:03d}" for i in range(1, 6)])
     parser.add_argument("--input-root", type=Path, default=Path(__file__).resolve().parents[1] / "benchmark")
-    parser.add_argument("--scene-config", type=Path, help="场景配置；相对路径以项目根目录为准，仅用于新批次")
-    parser.add_argument("--generation-config", type=Path, help="资产生成配置；相对路径以项目根目录为准，仅用于新批次")
-    parser.add_argument("--provider-config", type=Path, help="显式服务配置；仅用于新批次，随后冻结并传给运行入口")
-    parser.add_argument("--environment",type=Path,help="机器人及工作台环境配置；仅用于新批次，随后冻结")
+    parser.add_argument("--scene-config", type=Path, help="scene config; relative paths resolve against the project root; only for new batches")
+    parser.add_argument("--generation-config", type=Path, help="asset generation config; relative paths resolve against the project root; only for new batches")
+    parser.add_argument("--provider-config", type=Path, help="explicit provider config; only for new batches, then frozen and passed to the run entry point")
+    parser.add_argument("--environment",type=Path,help="robot and workbench environment config; only for new batches, then frozen")
     parser.add_argument("--max-model-calls", type=int, default=BUDGET["max_model_calls"])
     parser.add_argument("--max-reserved-tokens", type=int, default=BUDGET["max_reserved_tokens"])
     parser.add_argument("--scene-iterations", type=int, default=80)
@@ -320,11 +320,11 @@ def main(argv=None):
     parser.add_argument("--model", help="New batch model override, saved in frozen provider configuration")
     parser.add_argument("--execute", action="store_true")
     parser.add_argument("--retry-uncertain", action="store_true",
-                        help="接续因结果不明请求而阻断的实验，并允许重发该请求；先确认原请求已终止")
-    parser.add_argument("--resume", action="store_true", help="使用已存清单及预算；跳过已结束实验，不重试失败项")
+                        help="continue an experiment blocked by a request with unknown outcome and allow resending it; first confirm the original request has terminated")
+    parser.add_argument("--resume", action="store_true", help="use the saved manifest and budgets; skip finished experiments, do not retry failed ones")
     args = parser.parse_args(argv)
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,39}", args.batch):
-        parser.error("批次名称须为 1–40 个字母、数字、下划线或连字符，首位为字母或数字")
+        parser.error("batch name must be 1-40 letters, digits, underscores or hyphens, starting with a letter or digit")
     project = Path(__file__).resolve().parents[1]
     root = safe_path(project / "runs" / "batches", args.batch)
     manifest = None
@@ -333,24 +333,24 @@ def main(argv=None):
             path = root / "batch.json"
             if path.exists():
                 if not args.resume:
-                    raise ValueError("批次已存在；换新名称，或 --resume 接续原队列")
+                    raise ValueError("batch already exists; choose a new name, or use --resume to continue the existing queue")
                 manifest = read(path)
                 verify(manifest, project)
             else:
                 if args.resume:
-                    raise ValueError("没有可恢复的批次")
+                    raise ValueError("no batch to resume")
                 manifest = prepare(project, root, args)
                 save(root, manifest, project)
-            print(f"批次 {args.batch}：{len(manifest['entries'])} 个实验，严格顺序执行。", flush=True)
-            print(f"每个实验预算：{manifest['budgets']}；恢复时使用此已保存预算。", flush=True)
-            print(f"汇总：{root / 'index.html'}", flush=True)
+            print(f"batch {args.batch}: {len(manifest['entries'])} experiments, executed strictly in order.", flush=True)
+            print(f"per-experiment budget: {manifest['budgets']}; resuming uses this saved budget.", flush=True)
+            print(f"summary: {root / 'index.html'}", flush=True)
             if args.retry_uncertain:
                 for entry in manifest["entries"]:
                     if entry["status"] == "blocked_unknown_request":
                         entry.update(status="queued", retry_uncertain=True)
                 save(root, manifest, project)
             if not args.execute:
-                print("仅准备清单，未调用模型。启动请在同一命令加 --resume --execute。")
+                print("Prepared the manifest only; the model was not called. To start, rerun the same command with --resume --execute.")
                 return 0
             try:
                 with awake_while_running():
@@ -358,7 +358,7 @@ def main(argv=None):
             except KeyboardInterrupt:
                 manifest["status"] = "interrupted"
                 save(root, manifest, project)
-                print("队列已中断；--resume --execute 接续。结果不明的请求不会自动重发。")
+                print("Queue interrupted; continue with --resume --execute. Requests with unknown outcome are not resent automatically.")
                 return 130
     except (PrepError, OSError, ValueError, TypeError) as exc:
         print(str(exc), file=sys.stderr)

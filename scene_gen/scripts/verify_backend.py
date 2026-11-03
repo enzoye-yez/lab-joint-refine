@@ -1,4 +1,4 @@
-"""真实执行后端工程自检：仅执行仓库合成样例，零模型调用。"""
+"""Real execution-backend engineering self-test: runs only the repository synthetic samples, zero model calls."""
 
 import argparse
 import json
@@ -49,7 +49,7 @@ def source(xml, interfaces, check_isolation=False):
 
 def run(output, kind="docker"):
     output = Path(output)
-    require(not output.exists(),"自检输出目录已存在，请使用新目录")
+    require(not output.exists(),"self-test output directory already exists; use a new directory")
     output.mkdir(parents=True)
     backend = (LocalBackend if kind == "local" else DockerSandbox)(GenerationConfig.load(PROJECT/"config/generation.json"),PROJECT)
     report = {"provenance":PROVENANCE,"model_calls":0,"status":"running","checks":[]}
@@ -65,8 +65,8 @@ def run(output, kind="docker"):
             checked, renders = backend.build_and_check(script,destination,["A01"],check_profile({"validation_mode":mode}))
             atomic_json(destination/"checks.json",checked)
             report["checks"].append({"id":name,"status":checked["status"],"renders":checked.get("renders",[])})
-            require(checked["status"] == "pass",f"资产自检失败：{name}，查看 {destination/'checks.json'}")
-            require(renders and len(checked["renders"]) >= 3,"缺少实际渲染")
+            require(checked["status"] == "pass",f"asset self-test failed: {name}; see {destination/'checks.json'}")
+            require(renders and len(checked["renders"]) >= 3,"missing actual renders")
             components[name] = destination/"artifact"
         destination = output/"assembly"
         destination.mkdir()
@@ -75,8 +75,8 @@ def run(output, kind="docker"):
             SceneConfig(validation_mode="static"),numerical_contract({}))
         atomic_json(destination/"checks.json",checked)
         report["checks"].append({"id":"public_fr3_static_scene","status":checked["status"],"renders":checked.get("renders",[])})
-        require(checked["status"] == "pass","真实机器人静态装配检查未通过")
-        report.update(status="pass",validation_mode="static",qualification="开发者合成工程自检，非模型生成实验",
+        require(checked["status"] == "pass","real-robot static assembly check did not pass")
+        report.update(status="pass",validation_mode="static",qualification="developer synthetic engineering self-test, not a model-generated experiment",
                       artifact=str(destination/"scene/artifact"))
         report["gallery"] = str(export_preview(destination/"scene/artifact",output/"preview",report))
     except Exception as exc:

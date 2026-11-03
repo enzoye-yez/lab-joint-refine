@@ -18,7 +18,7 @@ class Checkpoints:
         self.write_warning = False
         if directory is None: return
         from asset_generation.contracts import require
-        require(not Path(directory).resolve().is_relative_to(Path(artifact).resolve()), "检查点不得写入输入资产目录")
+        require(not Path(directory).resolve().is_relative_to(Path(artifact).resolve()), "checkpoints must not be written into the input asset directory")
         identity = {"artifact":snapshot(artifact), "limits":asdict(limits), "contract":contract,
                     "recovery":recovery, "implementation":implementation.package_manifest(Path(__file__).resolve().parents[1]),
                     "dependencies":implementation.dependency_versions()}
@@ -67,7 +67,7 @@ class Checkpoints:
     def verify_input(self):
         if hasattr(self,"artifact_snapshot") and snapshot(self.artifact)!=self.artifact_snapshot:
             from asset_prep.errors import StaleEvidence
-            raise StaleEvidence("检查期间输入场景改变，不能发布混合版本证据")
+            raise StaleEvidence("input scene changed during checks; mixed-version evidence cannot be published")
 
     def load_model(self, compute):
         """Reuse only a successfully validated compile of this entire exact input."""

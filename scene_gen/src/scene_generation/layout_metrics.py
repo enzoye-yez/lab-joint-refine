@@ -48,4 +48,4 @@ def measure(plan, boxes):
             "preferred_table_count":[2,3],"table_count":len(rows),"table_area_m2":sum(r["area_m2"] for r in rows),
             "room_area_m2":layout["room"]["size"][0]*layout["room"]["size"][1],"tables":rows,
             "extra_tables_need_review":len(rows)>3,
-            "qualification":"几何投影使用保守包围盒并合并重叠；不是精确利用率；未占用投影下界不等于可删除的操作空间。操作/维护留空尚未量化，不能将其当作浪费；桌数目标不是拒绝场景的门槛。"}
+            "qualification":"Geometric projection uses conservative bounding boxes with overlaps merged; this is not an exact utilization; the unoccupied-projection lower bound does not equal removable operating space. Operating/maintenance clearance is not yet quantified and must not be treated as waste; the table-count target is not a threshold for rejecting a scene."}

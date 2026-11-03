@@ -1,4 +1,4 @@
-"""离线创建批次续跑副本。保留原始运行；不调用模型，未知请求单独阻断。"""
+"""Create a batch continuation copy offline. Keeps the original runs; does not call the model; unknown requests are blocked individually."""
 
 import argparse
 import copy
@@ -18,13 +18,13 @@ from run_scene_batch import BUDGET, read, hashes, code_files, save, now, verify
 def prepare_batch(project, source_name, target_name, before_sources, kind="evidence_recovery", *, resume_preparation=False):
     for name in (source_name,target_name):
         if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,39}",name):
-            raise ValueError("批次名称无效")
+            raise ValueError("invalid batch name")
     source = project/"runs/batches"/source_name
     target = project/"runs/batches"/target_name
     if target.exists() and not resume_preparation:
-        raise ValueError("目标批次已存在，禁止覆盖")
+        raise ValueError("target batch already exists; overwriting is forbidden")
     if resume_preparation and ((target/'batch.json').exists() or kind!='evidence_pipeline'):
-        raise ValueError('仅支持尚未发布批次的证据流程复制中断')
+        raise ValueError('only an interrupted evidence-pipeline copy of a batch not yet published is supported')
     with run_lock(source), run_lock(target):
         original = read(source/"batch.json")
         for name,expected in original["frozen"].items():
@@ -32,13 +32,13 @@ def prepare_batch(project, source_name, target_name, before_sources, kind="evide
             if path.is_relative_to(project/"src"):
                 continue
             if not path.is_file() or hashes([path])[str(path.resolve())] != expected:
-                raise ValueError("原批次输入或配置已变化："+name)
+                raise ValueError("original batch input or config has changed: "+name)
         manifest = copy.deepcopy(original)
         manifest.update(batch=target_name,created_at=now(),status="prepared",source_batch=source_name)
         if resume_preparation:
             expected={p.name:hashes([p])[str(p.resolve())] for p in (source/'config').glob('*.json')}
             actual={p.name:hashes([p])[str(p.resolve())] for p in (target/'config').glob('*.json')}
-            if actual!=expected:raise ValueError('中断副本的配置不一致')
+            if actual!=expected:raise ValueError('config of the interrupted copy is inconsistent')
         else:
             shutil.copytree(source/"config",target/"config")
         if kind == "transport_recovery":
@@ -65,9 +65,9 @@ def prepare_batch(project, source_name, target_name, before_sources, kind="evide
                                       resume_copy=resume_preparation and (project/'runs'/run).exists())
                 else:
                     if old["status"]!="queued":
-                        raise ValueError("已启动的源运行缺失："+old["run"])
+                        raise ValueError("started source run is missing: "+old["run"])
                     if (project/"runs"/run).exists():
-                        raise ValueError("目标运行已存在："+run)
+                        raise ValueError("target run already exists: "+run)
                     receipt = {"unknown_request_preserved":False}
                 entry = {k:old[k] for k in ("protocol","pdf","package")}
                 entry.update(run=run,source_run=old["run"],status="blocked_unknown_request" if receipt["unknown_request_preserved"] else "queued")

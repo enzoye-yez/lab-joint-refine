@@ -1,4 +1,4 @@
-"""独立碰撞分离证书和球体接触解析量测；不更改引擎选项或验收公差。"""
+"""Independent collision-separation certificates and analytic sphere-contact measurement; engine options and acceptance tolerances are unchanged."""
 
 from pathlib import Path
 import numpy as np
@@ -44,7 +44,7 @@ class CertificateQuery(DistanceQuery):
                 result,error = self.validate(g1,g2,length-m.geom_size[g1,0]-m.geom_size[g2,0],np.r_[a,b],limit)
                 if result is not None:
                     return {**result,'method':'analytic_spheres','consistency_checked':True}
-        # 投影间隙只是有符号距离的下界；不得伪造成接触法向或承托证据。
+        # A projected gap is only a lower bound on signed distance; it must not be passed off as a contact normal or support evidence.
         axes = [*np.eye(3),*d.geom_xmat[g1].reshape(3,3).T,*d.geom_xmat[g2].reshape(3,3).T,
                 d.geom_xpos[g2]-d.geom_xpos[g1]]
         for raw in axes:
@@ -57,12 +57,12 @@ class CertificateQuery(DistanceQuery):
             if np.isfinite(lower) and lower > (limit if self.for_support else 0):
                 return {'distance_m':None,'lower_bound_m':float(lower),'points':None,'normal':None,
                         'method':'separating_projection','axis':axis.tolist(),'consistency_checked':True}
-        # 不重复失败的引擎组合；对本能力不能回答的范围明确返回未知。
-        raise MeasurementError('独立解析或分离证书不覆盖此几何对')
+        # Do not repeat the failed engine combination; explicitly return unknown for scope this capability cannot answer.
+        raise MeasurementError('Independent analytic measurement or separation certificate does not cover this geom pair')
 
 
 class RecoveryQuery(DistanceQuery):
-    """保留已可量测范围，用独立证书补足原方法失败的几何对。"""
+    """Keep the already measurable scope and fill in geom pairs where the original method failed with independent certificates."""
     def __init__(self, model, data, support=False):
         super().__init__(model,data,recovery=True)
         self.certificates = CertificateQuery(model,data,support)

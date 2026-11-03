@@ -290,19 +290,19 @@ class MigrationBindingTests(unittest.TestCase):
         case=self.archive_case()
         case.state['calls']=[{'status':'pending'}]
         atomic_json(case.root/'state.json',case.state)
-        with self.assertRaisesRegex(ValidationError,'结果不明请求'):
+        with self.assertRaisesRegex(ValidationError,'requests with unknown outcome'):
             migration.script.prepare(case.project,'old','unknown',kind='archive_revalidation')
         self.assertFalse((case.project/'runs/unknown').exists())
         case.state['calls']=[]
         atomic_json(case.root/'state.json',case.state)
         (case.root/'stages/00001_asset/artifact/model.xml').write_text('<mujoco model="changed"/>',encoding='utf-8')
-        with self.assertRaisesRegex(ValidationError,'归档证据摘要'):
+        with self.assertRaisesRegex(ValidationError,'archived evidence digest'):
             migration.script.prepare(case.project,'old','changed',kind='archive_revalidation')
         self.assertFalse((case.project/'runs/changed').exists())
 
     def test_code_upgrade_does_not_silently_fall_back_to_archive_revalidation(self):
         case=self.archive_case()
-        with self.assertRaisesRegex(ValidationError,'源码升级需要'):
+        with self.assertRaisesRegex(ValidationError,'a source upgrade requires'):
             migration.script.prepare(case.project,'old','new',kind='implementation_binding')
         self.assertFalse((case.project/'runs/new').exists())
 

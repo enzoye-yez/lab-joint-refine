@@ -1,4 +1,4 @@
-"""离线审核归档报告及补查收据；不调用模型、不执行建模脚本、不改原运行。"""
+"""Offline audit of archived reports and supplementary-check receipts; does not call the model, run modeling scripts or modify the original run."""
 
 import argparse
 import json
@@ -19,18 +19,18 @@ from scene_generation.faults import initialize, add_failure
 def audit(root, output):
     root,output=Path(root).resolve(),Path(output).resolve()
     require(not output.exists() and not output.is_relative_to(root) and not root.is_relative_to(output),
-            '审计输出须为原运行之外的新目录')
+            'audit output must be a new directory outside the original run')
     before=snapshot(root)
     from asset_prep.state_archive import read_state
     state=read_state(root/'state.json')
     for call in state.get('calls',[]):
         if call['status']=='done':
-            require(file_hash(safe_path(root,call['file']))==call['sha256'], '已完成调用的归档摘要不匹配')
+            require(file_hash(safe_path(root,call['file']))==call['sha256'], 'archived digest of a completed call does not match')
     scene=state['scene']; mode=state['identity']['limits']['validation_mode']
     records=[]; replays=[]
     for stage in scene['stages']:
         path=safe_path(root,stage['directory'])
-        require(snapshot(path)==stage['files'], '原归档摘要不匹配，拒绝审计：'+stage['directory'])
+        require(snapshot(path)==stage['files'], 'original archive digest does not match; refusing to audit: '+stage['directory'])
         check=path/'checks.json'
         if not check.is_file():
             continue
@@ -68,9 +68,9 @@ def audit(root, output):
             except Exception as exc:
                 applied.append({'capability':action['capability'],'contract_valid':False,'error':str(exc)})
         replays.append({'identity':identity,'actions':applied,'report':report,'decision':decide(report)})
-    require(snapshot(root)==before,'审计期间原运行发生变化，拒绝发布结果')
+    require(snapshot(root)==before,'the original run changed during the audit; refusing to publish results')
     valid=bool(records) and all(r['contract_valid'] for r in records) and all(a['contract_valid'] for r in replays for a in r['actions'])
-    result={'status':'pass' if valid else 'fail','qualification':'仅认证所读取记录的契约；不认证场景质量或实验成功',
+    result={'status':'pass' if valid else 'fail','qualification':'certifies only the contracts of the records read; does not certify scene quality or experiment success',
             'source_run':str(root),'source_sha256':digest(before),'source_unchanged':True,
             'model_calls':0,'generated_code_executed':False,'reports':records,'replays':replays}
     output.mkdir(parents=True)

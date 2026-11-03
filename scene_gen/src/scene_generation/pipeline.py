@@ -1,4 +1,4 @@
-"""共享账本的场景调度：资产、装置、装配、检查、定向修复。"""
+"""Scene orchestration over the shared ledger: assets, devices, assembly, checks, targeted repair."""
 
 from dataclasses import replace
 from pathlib import Path
@@ -67,30 +67,30 @@ class SceneRun:
             active = getattr(sys, '_harness_runtime', None)
             if (not active or Path(active['base']) != (Path(project)/'src').resolve()
                     or expected_implementation != binding['implementation']):
-                raise implementation.ImplementationDrift('正式场景必须从固定源码启动，并绑定指定的已验证版本')
+                raise implementation.ImplementationDrift('A production scene must start from frozen source bound to the specified verified version')
         identity = {"catalogue":catalogue["identity"],"environment":env,"contract":contract,
                     "provider":provider.provider,"model":provider.model,"base_url":provider.base_url,
                     "output_token_parameter":provider.output_token_parameter,"generation":generation.identity(),
                     "limits":limits.identity(),"robot_files":snapshot(robot_root),"backend":sandbox.preflight(),
                     "implementation":binding["implementation"],"binding":binding,"provenance":provenance}
-        # 工作进程与补查必须运行同一份源码；启动即核对，避免运行中途混入新代码。
+        # Workers and supplementary checks must run the same source; verify at startup so no new code slips in mid-run.
         if hasattr(sandbox, 'bind_implementation'):
             sandbox.bind_implementation(binding["implementation"])
-        implementation.verify(identity["implementation"], project=project, where="主进程启动")
+        implementation.verify(identity["implementation"], project=project, where="main process startup")
         self.implementation_guard = implementation.Guard(project, identity['implementation'])
         self.store = shared_store or Store(root,identity,replace(provider,max_model_calls=limits.max_model_calls,
                            max_reserved_tokens=limits.max_reserved_tokens),resume=resume,retry_uncertain=retry_uncertain)
         if shared_store is not None:
-            require(Path(shared_store.root).resolve()==self.root.resolve(), "共享账本与场景根目录必须一致")
+            require(Path(shared_store.root).resolve()==self.root.resolve(), "The shared ledger and the scene root directory must match")
             previous_binding=self.store.state.setdefault("joint_scene_binding",identity)
-            require(previous_binding==identity,"联合场景输入或固定配置发生变化")
+            require(previous_binding==identity,"The joint scene inputs or the frozen configuration changed")
         self.before_candidate=before_candidate or (lambda job,stage: None)
         if shared_store is None:
             from asset_prep.phase_budget import enter
             enter(self.store,'scene')
         self.before_repair=before_repair or (lambda action: None)
         if not retry_uncertain and any(c["status"] == "pending" for c in self.store.state["calls"]):
-            raise UncertainRequest("场景请求结果不明；核对账单后才可显式重试")
+            raise UncertainRequest("Scene request outcome unknown; retry explicitly only after reconciling the billing record")
         self.state = self.store.state.setdefault("scene",{"status":"running","stages":[],"jobs":{},"rounds":[],"feedback_receipts":[]})
         if "plan" in self.state:
             validate_plan(self.state["plan"], self.catalogue["asset_ids"], self.limits, self.env)
@@ -98,7 +98,7 @@ class SceneRun:
             validate_model_posture(self.state["plan"],self.robot_joints)
         for stage in self.state["stages"]:
             if snapshot(safe_path(self.root,stage["directory"])) != stage["files"]:
-                raise StaleEvidence("场景已归档版本发生变化，禁止复用")
+                raise StaleEvidence("The archived scene version changed; reuse is forbidden")
         if self.state.get("pending") and (not self.state["pending"].get("awaiting_exchange") or self.state["pending"].get("review_checkpoint")):
             recover_review_checkpoint(self)
         self.provider, self.keys, self.transport = provider, keys, transport
@@ -121,11 +121,11 @@ class SceneRun:
         self.check_pause()
         pending=self.state.get("pending")
         if pending and pending.get("awaiting_exchange"):
-            require(pending["kind"]==kind,"等待响应的阶段不能跨类型恢复")
+            require(pending["kind"]==kind,"A stage awaiting a response cannot resume as a different kind")
             return safe_path(self.root,pending["directory"])
         relative = f"stages/{len(self.state['stages'])+1:05d}_{kind}"
         destination = safe_path(self.root,relative)
-        require(not destination.exists(), "工作区目录冲突，保留现场并停止")
+        require(not destination.exists(), "Workspace directory conflict; preserving the current state and stopping")
         self.state["pending"] = {"directory":relative,"kind":kind}
         self.progress(kind, "stage_started")
         self.store.save()
@@ -138,7 +138,7 @@ class SceneRun:
 
     def check_cancel(self):
         if (self.root / "pause.request").exists():
-            raise PrepError("已请求暂停；保留现场与未知请求账本，本地网络进程将终止，远端请求结果可能仍不明")
+            raise PrepError("Pause requested; preserving the current state and the unknown-request ledger. Local network processes will be terminated; remote request outcomes may remain unknown")
 
     def commit(self, kind, record):
         self.implementation_guard.check()
@@ -181,7 +181,7 @@ class SceneRun:
             try:
                 instruction=for_environment(PLAN,self.env)
                 if self.catalogue.get('prepared_task'):
-                    instruction+='\n这是已定义的任务资料。保持所选流程、初态、终态和实例数量。额外返回 role_bindings，每项为 {role_id:上游角色id,instances:[实际场景实例id]}，覆盖所有角色且数量一致。各实例的生成任务须包含角色对应资产。不同用途共享几何类型，不共享应独立的物体。'
+                    instruction+='\nThis is a defined task dossier. Keep the selected procedure, initial state, final state and instance counts. Also return role_bindings, each item {role_id:upstream role id,instances:[actual scene instance ids]}, covering every role with matching counts. Each instance\'s generation job must include the asset corresponding to its role. Different uses may share a geometry type, but objects that should be independent must not be shared.'
                 value, call = self.model.ask(instruction,{"source":self.catalogue["source"],"asset_ids":self.catalogue["asset_ids"],
                     "protocol":self.catalogue.get("protocol"),
                     "environment":self.env,"robot_joint_contract":self.robot_joints,"limits":{"max_jobs":self.limits.max_jobs,"max_instances":self.limits.max_instances},
@@ -193,12 +193,12 @@ class SceneRun:
                 validate_model_posture(plan,self.robot_joints)
                 validate_layout(plan,self.env)
                 validate_cuts(plan.get("table_modifications", []), plan, self.env)
-                require(set(self.contract["jobs"]) <= {j["id"] for j in plan["jobs"]}, "数值验收引用的任务不在计划中")
+                require(set(self.contract["jobs"]) <= {j["id"] for j in plan["jobs"]}, "Numeric acceptance references a job not in the plan")
                 break
             except ValidationError as exc:
                 feedback = str(exc)
         else:
-            raise ValidationError("场景计划格式修复次数耗尽："+feedback)
+            raise ValidationError("Scene plan format repair attempts exhausted: "+feedback)
         destination = self.begin("plan")
         atomic_json(destination/"plan.json",plan)
         atomic_json(destination/"input.json",{"source":self.catalogue["source"],"protocol":self.catalogue.get("protocol"),
@@ -224,10 +224,10 @@ class SceneRun:
                 "end_effectors":self.state["plan"].get("end_effectors"),
                 "robot_posture":self.state["plan"].get("robot_posture",{}),
                 "instances":self.state['plan']['instances'],
-                "rule":"非robot实例采用世界坐标米和绕世界Z轴的yaw弧度。装配公式为world=position+Rz(yaw)@local。"
-                       "依赖接口和几何为各资产局部坐标；必须按其实际实例变换到世界坐标，"
-                       "再变换到本装置局部坐标。robot工具局部坐标相对于固定法兰。"
-                       "此布局是唯一权威来源；不得自行假定或替换依赖位置。"}
+                "rule":"Non-robot instances use world coordinates in meters and yaw in radians about the world Z axis. Assembly formula: world=position+Rz(yaw)@local. "
+                       "Dependency interfaces and geometry are in each asset's local frame; transform them to world by their actual instance transform, "
+                       "then into this device's local frame. Robot tool local coordinates are relative to the fixed flange. "
+                       "This layout is the only authoritative source; do not assume or substitute dependency positions."}
 
     def instance_contract(self, job):
         instances = [i for i in self.state["plan"]["instances"] if i["job"] == job["id"]]
@@ -235,19 +235,19 @@ class SceneRun:
                 "delivery_role":job["role"], "manifest_asset_ids":job["asset_ids"],
                 "reference_only_jobs":job["depends_on"],
                 "robot_mounts":[mount_for(self.state["plan"],self.env,i["id"]) for i in instances if i["placement"]=="robot"],
-                "scope_rule":"asset角色交付指定资产；tool/fixture角色只交付该装置，asset_ids为服务范围且必须原样写入清单。dependencies仅供读取接口和配合参考，不能据此增加交付对象。",
+                "scope_rule":"An asset role delivers the specified asset; a tool/fixture role delivers only that device, and asset_ids is its service scope and must be written verbatim into the inventory. dependencies are only for reading interfaces and mating reference; they never add deliverables.",
                 # One unit per model only when every instance is the same configuration; a
                 # configuration may legitimately compose several units (a rack with its tubes).
                 "expected_model_units":1 if job["role"] == "asset" and len(job["asset_ids"]) == 1 and len(instances) > 1
                                        and len({i.get("configuration") for i in instances}) == 1 else None,
-                "rule":"每个场景实例复制一次本模型；不要在单模型中按场景总数量重复生成完整资产"}
+                "rule":"Each scene instance copies this model once; do not repeat the full asset inside one model to match the scene total"}
 
     def dependency_images(self, job, required=True):
         """The first render of each dependency: what a tool is designed and judged against."""
         images = []
         for dependency_id in job["depends_on"]:
             previews = self.state["jobs"][dependency_id].get("preview_paths",[])
-            require(not required or previews, "操作装置设计依赖缺少已验证渲染")
+            require(not required or previews, "Operation device design dependencies lack verified renders")
             if previews:
                 images.append(image_record(safe_path(self.root,previews[0]),self.root,self.generation))
         return images
@@ -346,12 +346,12 @@ class SceneRun:
             feedback = current.get("feedback")
         bundle = task_bundle(self.catalogue,job)
         references = list(bundle["images"])
-        reference_policy = "仪器生成使用所选资产全部原始参考图"
+        reference_policy = "Instrument generation uses all original reference images of the selected asset"
         if job["role"] != "asset":
             bundle["original_image_inventory"] = [{k:v for k,v in im.items() if k != "data_url"} for im in bundle["images"]]
             bundle["images"] = self.dependency_images(job, required=not draft)
-            reference_policy = ("操作装置设计使用已生成依赖的实际渲染及接口；原图用于前序资产生成，质量将在场景保存后审查；缺图不代表质量通过"
-                                if draft else "操作装置设计使用每项已生成依赖的首个实际渲染视角及实测接口；原图由前序资产阶段完整审查，完整多视角证据保留在各版本")
+            reference_policy = ("Operation device design uses actual renders and interfaces of generated dependencies; original images served the earlier asset generation, and quality is reviewed after the scene is saved; a missing image does not mean quality passed"
+                                if draft else "Operation device design uses the first actual render view and measured interfaces of each generated dependency; original images were fully reviewed in the earlier asset stage, and full multi-view evidence is kept in each version")
         profile = check_profile({**self.contract["jobs"].get(job["id"],{}), "validation_mode":self.limits.validation_mode})
         previews = [image_record(safe_path(self.root,path),self.root,self.generation)
                     for path in (current or {}).get("preview_paths",[])]
@@ -380,11 +380,11 @@ class SceneRun:
         if context["task_recovery"]:
             context["rejected_attempts"]=context["rejected_attempts"][-1:]
         instruction = AUTHOR+REQUIREMENTS_POLICY
-        instruction += "\n遵守instance_contract：只生成一个可复制单元，场景实例数由框架负责。repair_directive是本轮修复决策，必须结合具体失败证据落实；依赖变化时验证实际新接口，不能只修改声明。scene_layout是实际装配布局，必须按其中坐标变换设计夹具与目标的配合，不能在局部模型中直接使用世界坐标。"
-        instruction += ("\nrejected_attempts列出本任务此前被拒绝的设计及原因，occurrences表示同一拒绝重复次数。"
-                        "修复当前错误时不能重新引入已被拒绝的另一表示；若两种表示分别触发不同约束，"
-                        "说明该部件需要的表达方式尚未声明正确，应按检查器给出的合法类别与约束类型重新声明，"
-                        "而不是在两种已知被拒方案之间切换。")
+        instruction += "\nFollow instance_contract: generate exactly one copyable unit; the framework handles the scene instance count. repair_directive is this round's repair decision and must be carried out against the specific failure evidence; when dependencies change, verify the actual new interfaces instead of only editing declarations. scene_layout is the actual assembly layout: design fixture-target mating through its coordinate transforms, and never use world coordinates directly in the local model."
+        instruction += ("\nrejected_attempts lists this job's previously rejected designs and their reasons; occurrences is how many times the same rejection repeated. "
+                        "When fixing the current error, do not reintroduce another representation that was already rejected; if two representations each trigger a different constraint, "
+                        "the representation this part needs has not been declared correctly yet: redeclare it using the valid category and constraint type the checker gives, "
+                        "instead of switching between two known rejected options.")
         instruction += ("\nThe model's default pose (every joint at 0) is the instance's initial state in the scene. Scene assembly "
                         "only places each instance by its position and yaw; it never folds, loads, opens or moves parts, and asset "
                         "keyframes are dropped. Build each part in the state the protocol starts in."
@@ -397,9 +397,9 @@ class SceneRun:
                         "that face to the robot aisle; keep controls the robot must use on that face and within the front "
                         "0.30 m of the footprint where the instrument allows.")
         if self.limits.validation_mode == "static":
-            instruction += "\n当前仅验收静态场景外观和几何。仍按资料建立运动关节、按钮、连接及接口；本轮跳过操作验证并不允许把可动仪器简化为不可动外壳。"
+            instruction += "\nOnly static scene appearance and geometry are accepted now. Still build moving joints, buttons, connections and interfaces per the dossier; skipping operation verification this round does not permit simplifying a movable instrument into an immovable shell."
         if job["role"] != "asset":
-            instruction += "\n本次只生成job.role指定的操作装置，不重复生成所服务仪器。asset_ids表示服务范围。依据实际dependencies接口完成配合设计。"
+            instruction += "\nGenerate only the operation device specified by job.role this time; do not regenerate the served instrument. asset_ids is the service scope. Complete the mating design from the actual dependencies interfaces."
             from .layout import author_layout_policy
             instruction += "\n" + author_layout_policy(self.env)
         if job["role"] == "tool":
@@ -445,7 +445,7 @@ class SceneRun:
             self.state["status"]=record["status"]
             self.store.save()
             return False
-        # 审查证据不足或升级后需重新审查：保留已编译的资产，不盲目修改几何。
+        # Review evidence is insufficient or re-review is needed after an upgrade: keep the compiled assets and do not modify geometry blindly.
         if not draft and review_again and (recheck_required or current.get("feedback",{}).get("numerical",{}).get("status") == "pass") and previews:
             destination = self.begin("asset_review")
             report = current["feedback"]["numerical"]
@@ -456,7 +456,7 @@ class SceneRun:
                 self.implementation_guard.check()
                 record['feedback'] = {'numerical':report}
                 if report['status'] != 'pass':
-                    # 保留几何，交回真实新证据；程序/量测问题不进入几何修复。
+                    # Keep geometry and return genuinely new evidence; program/measurement problems do not enter geometry repair.
                     record['status'] = 'failed' if report['status']=='fail' else 'needs_environment'
                     if report['status'] != 'fail':
                         record['needs_implementation_recheck'] = True
@@ -593,13 +593,13 @@ class SceneRun:
             resumed = latest
         if resumed:
             require(resumed["plan"] == self.state["plan"] and resumed["job_versions"] == versions,
-                    "已构建场景的计划或资产版本变化，不能只恢复审查")
+                    "The plan or asset versions of the built scene changed; review alone cannot be resumed")
             report = checked_report(resumed["report"],domain='scene',mode=self.limits.validation_mode)
             images = [image_record(safe_path(self.root,p),self.root,self.generation) for p in resumed["preview_paths"]]
             artifact = safe_path(self.root,resumed["artifact"])
         else:
             artifacts = {k:safe_path(self.root,v["artifact"]) for k,v in self.state["jobs"].items()}
-            print(f'开始第 {len(self.state["rounds"])+1} 轮场景装配、检查与渲染。',flush=True)
+            print(f'Starting scene assembly, checks and rendering, round {len(self.state["rounds"])+1}.',flush=True)
             report, renders = self.sandbox.assemble_and_check(self.state["plan"],self.env,artifacts,self.robot_root,
                                                            destination,self.limits,self.contract)
             report = checked_report(report,domain='scene',mode=self.limits.validation_mode,require_renders=True)
@@ -678,7 +678,7 @@ class SceneRun:
         old=stages[baseline["scene"]]
         for directory in {baseline["scene"],*baseline["jobs"].values()}:
             if snapshot(safe_path(self.root,directory))!=stages[directory]["files"]:
-                raise StaleEvidence("修复基线归档变化，禁止恢复旧证据")
+                raise StaleEvidence("The repair baseline archive changed; restoring old evidence is forbidden")
         jobs={}
         for key,directory in baseline["jobs"].items():
             stage=stages[directory]
@@ -705,7 +705,7 @@ class SceneRun:
         # repair still consumes the cumulative allocation, including on resume.
         if len(self.state.get("repair_history", [])) >= self.limits.max_iterations:
             self.state.update(status="scene_repair_budget_exhausted", stop_reason={
-                "reason":"场景累计修复动作预算耗尽，保留已发布场景和失败候选",
+                "reason":"Cumulative scene repair action budget exhausted; keeping the published scene and the failed candidate",
                 "attempts":len(self.state["repair_history"]), "limit":self.limits.max_iterations})
             self.store.save()
             return False
@@ -729,21 +729,21 @@ class SceneRun:
             for row in editable))
         if not affected and not layout_only:
             self.state["status"] = "needs_review"
-            self.state["repair_error"] = "失败报告未定位到可编辑实例；保留证据，不盲目扩大工作区"
+            self.state["repair_error"] = "The failure report did not locate an editable instance; keeping the evidence and not widening the workspace blindly"
             return False
         blocked_instances={i for row in report.get("checks",[]) if row.get("status")=="error" for i in row.get("instances",[])}
         blocked_jobs={items[i]["job"] for i in blocked_instances if i in items}
         affected={i for i in affected if items[i]["job"] not in blocked_jobs}
         jobs = sorted({items[i]["job"] for i in affected})
         if not affected and not layout_only:
-            self.state.update(status="needs_review",repair_error="已确认问题与故障对象共享资产，不能在缺乏可靠证据时修改")
+            self.state.update(status="needs_review",repair_error="The confirmed problem shares an asset with the faulty object; it cannot be modified without reliable evidence")
             return False
         tasks=repair_tasks(report,review,self.state["plan"],self.repair_input_key())
         from .repair_schedule import schedule, action_tasks
         tasks=schedule(self,tasks)
         if not tasks:
             self.state.update(status="repair_tasks_deferred",repair_pending=False,
-                stop_reason={"reason":"no_runnable_repairs","detail":"保留失败与未知项；当前问题均已暂挂"})
+                stop_reason={"reason":"no_runnable_repairs","detail":"Keeping failures and unknowns; all current problems are on hold"})
             self.store.save()
             return False
         eligible={i for t in tasks for i in t['instances']}
@@ -802,7 +802,7 @@ class SceneRun:
                     "repair_tasks":scoped_tasks,"validation_feedback":planning["attempts"],
                     **history_view,
                     "cycle":cycle,"attempt":attempt,"scope_index":scope_index,
-                    "strategy":"联合处理" if scope_index==0 else "缩小到当前资产；优先解决一个有证据的问题，其他问题保留",
+                    "strategy":"joint handling" if scope_index==0 else "narrowed to the current asset; resolve one evidenced problem first and keep the others",
                     "recovery_history":self.state.get("repair_history",[])[-8:]}
                 value,call=None,None
                 try:
@@ -811,8 +811,8 @@ class SceneRun:
                         blocked=value["blocked"]
                         require(isinstance(blocked,dict) and set(blocked)=={"kind","detail"}
                             and blocked["kind"] in ("missing_evidence","unsupported_repair","contract_conflict")
-                            and isinstance(blocked["detail"],str) and blocked["detail"].strip(),"修复阻塞须明确kind及detail")
-                        raise ValidationError("该方案暂不可用；核对局部摆放、已有接口或资产局部重设计，优先处理本范围内可推进的部分："+str(blocked))
+                            and isinstance(blocked["detail"],str) and blocked["detail"].strip(),"A repair blocker must state kind and detail")
+                        raise ValidationError("This option is unavailable for now; check local placement, existing interfaces or a local asset redesign, and first handle what can progress within this scope: "+str(blocked))
                     updated=repair_action(value,self.state["plan"],scoped_jobs,allowed,self.limits,self.env)
                     if "layout" in updated and (value.get("layout") or value.get("placements")):
                         # Layout edits choose benches and order; coordinates stay arranged.
@@ -820,16 +820,16 @@ class SceneRun:
                         updated=arrange(updated,shapes_for(self,updated),self.env)
                     self.validate_prepared_plan(updated)
                     chosen_tasks=action_tasks(scoped_tasks,value,self.state['plan'],updated)
-                    require(bool(chosen_tasks),'修改必须涉及当前授权的目标问题')
+                    require(bool(chosen_tasks),'The change must address a currently authorized target problem')
                     require(all(not t['scheduling']['change_mechanism'] or repair_mechanism(value)
                         not in t['scheduling']['failed_mechanisms'] for t in chosen_tasks),
-                        '连续两次未改善；须改变修复机制或先取得能区分原因的新证据')
+                        'No improvement twice in a row; change the repair mechanism or first obtain new evidence that distinguishes the causes')
                     validate_model_posture(updated,self.robot_joints)
                     input_key=self.repair_input_key();problem_key=problem_identity(report,review);action_key=repair_signature(value)
                     repeated=repeated_repair(self.state.get("repair_history",[]),input_key,problem_key,action_key,
                         mechanism=repair_mechanism(value))
                     require(not repeated,
-                        "相同输入下已执行过该修复且未解决问题；使用历史比较选择不同动作")
+                        "This repair was already executed with the same inputs and did not resolve the problem; use the history comparison to choose a different action")
                     planning["attempts"].append({"response":value,"call":call,"scope":scope_index,"scope_key":scope_key,"status":"accepted"})
                     tasks=chosen_tasks;solved=True
                     break
@@ -845,7 +845,7 @@ class SceneRun:
             if solved:break
         if not solved:
             self.state.update(status="needs_review",stop_reason={"reason":"repair_tasks_deferred",
-                "detail":"联合方案及可编辑资产的局部方案均暂不可执行；保留最好场景和逐项反馈",
+                "detail":"Neither the joint plan nor local plans for editable assets can be executed now; keeping the best scene and per-item feedback",
                 "attempts":len(planning["attempts"])})
             self.store.save()
             return False
@@ -881,7 +881,7 @@ class SceneRun:
         self.state["repair_tasks"]={key:[t for t in tasks if any(items[i]["job"]==key for i in t["instances"] if i in items)] for key in value["jobs"]}
         for addition in value.get("tool_additions",[]):
             self.state["repair_tasks"][addition["job"]["id"]]=tasks
-        # 依赖传播触发复核；只授权直接 jobs 的几何编辑。
+        # Dependency propagation triggers re-verification; only geometry edits of the direct jobs are authorized.
         for key in set(value['jobs']):
             if key in self.state["jobs"]:
                 self.state["jobs"][key]["dirty"] = True
@@ -892,7 +892,7 @@ class SceneRun:
         revalidate &= set(self.state['jobs'])
         for key in revalidate-dirty:
             self.state['jobs'][key].update(dirty=True,status='review_pending',layout_revalidation={
-                'reason':'依赖或本装置的实际实例姿态改变；核对现有几何能否继续配合，必要时请求局部重设计',
+                'reason':'The actual instance pose of a dependency or of this device changed; check whether the existing geometry still mates, and request a local redesign if needed',
                 'previous_layout':self.state['jobs'][key].get('layout_revision'),
                 'current_layout':layout_revision(updated)})
         self.commit("repair",{"call":call,"dirty_jobs":sorted(dirty),"layout_revalidation_jobs":sorted(revalidate-dirty),"pending_generation_jobs":sorted(pending_generation),"plan":updated})
@@ -911,14 +911,14 @@ class SceneRun:
         artifact = safe_path(self.root,latest.get("artifact",latest["directory"]+"/scene/artifact")) if latest else None
         scene_hash = digest(snapshot(artifact)) if artifact and artifact.is_dir() else None
         if latest and latest.get("artifact_sha256") and scene_hash!=latest["artifact_sha256"]:
-            raise StaleEvidence("已发布场景摘要变化，禁止重新绑定旧证据")
+            raise StaleEvidence("The published scene digest changed; rebinding old evidence is forbidden")
         gaps = list((latest or {}).get("report",{}).get("coverage",[]))
         gaps.extend((self.catalogue.get("protocol") or {}).get("warnings",[]))
         for job in self.state["jobs"].values():
             gaps.extend(job.get("coverage",[]))
             gaps.extend(job.get("feedback",{}).get("visual",{}).get("unverified",[]))
         for row in check_gaps((latest or {}).get('report',{})):
-            gaps.append('主检查未完成：'+row['id'])
+            gaps.append('Main check incomplete: '+row['id'])
         if latest and latest.get("review"):
             gaps.extend(latest["review"]["unverified"])
         current_evidence = (latest and latest["plan"] == self.state["plan"]
@@ -933,10 +933,10 @@ class SceneRun:
                 row.update(status="pending",stage=resolution["target_stage"],deferred_from=item["stage"])
             deferred.append(row)
             if row["status"] != "resolved":
-                gaps.append(f"待{row['stage']}阶段验证：{item['detail']}")
+                gaps.append(f"Pending verification at {row['stage']} stage: {item['detail']}")
         static = self.limits.validation_mode == "static"
         if static:
-            gaps.append("静态预览未执行动力学、按钮/锁扣操作、关节开合空间及机器人可达性验证")
+            gaps.append("The static preview did not verify dynamics, button/latch operation, joint opening clearance or robot reachability")
         status = "static_candidate_ready" if static and self.state["status"] == "candidate_ready" else self.state["status"]
         # Remaining measurement/probe gaps keep a static result at preview level.
         preview_only = static and (any(row.get("deferred_from") for row in deferred)
@@ -950,7 +950,7 @@ class SceneRun:
                   "requests":request_summary(self.store.state["calls"]),
                   "scene_artifact":str(artifact.relative_to(self.root)) if artifact and artifact.is_dir() else None,
                   "scene_sha256":scene_hash,"unverified":list(dict.fromkeys(gaps)),
-                  "qualification":"静态场景预览候选；未认证操作能力" if static else "场景工程候选；不代表完整轨迹或生化实验完成",
+                  "qualification":"Static scene preview candidate; operation capability not certified" if static else "Scene engineering candidate; does not imply a complete trajectory or a completed biochemical experiment",
                   "deferred_checks":deferred,
                   "blocking_reasons":[reason for job in self.state["jobs"].values()
                                       for reason in job.get("feedback",{}).get("visual",{}).get("blocking",[])],
@@ -963,7 +963,7 @@ class SceneRun:
             "execution_error_checks":sum(r.get("status")=="error" for r in rows),
             "review_pending":not bool(current_evidence and latest.get("review") and latest["review"].get("verdict")!="uncertain")}
         if preview_only:
-            result["qualification"] = "当前静态布局预览；尚未完成所列规程初始状态、其他装配配合姿态及操作验证"
+            result["qualification"] = "Current static layout preview; the listed protocol initial states, other assembly mating poses and operation verification are not yet complete"
         result["verification_scope"] = "initial_static_layout" if static else "scene_engineering"
         if self.state.get("request_failure"):
             result["request_failure"] = self.state["request_failure"]
@@ -995,9 +995,9 @@ class SceneRun:
         result['stop_reason']=self.state.get('stop_reason')
         if not result['stop_reason'] and status not in {'candidate_ready','static_candidate_ready','static_preview_ready'}:
             result['stop_reason']={'status':status,'reason':self.state.get('repair_error') or
-                ('本阶段尝试预算耗尽；已保留产物和尝试记录' if 'exhausted' in status else
-                 '尚未满足验收；按检查、审查或暂停记录处理后恢复'),
-                'required_action':'查看check_failure、evidence_outcomes和各任务反馈；不要把未完成视为通过'}
+                ('This stage\'s attempt budget is exhausted; artifacts and attempt records are kept' if 'exhausted' in status else
+                 'Acceptance not yet met; resume after handling the check, review or pause records'),
+                'required_action':'Inspect check_failure, evidence_outcomes and per-job feedback; do not treat incomplete as passed'}
         if self.state.get('check_failure'):
             result['check_failure']=self.state['check_failure']
         checkpoint = self.state.get("pending",{}).get("review_checkpoint")
@@ -1025,12 +1025,12 @@ class SceneRun:
         return result
 
     def run(self, feedback=None):
-        require(feedback is None or self.limits.validation_mode != "static", "静态场景不接受操作规划反馈")
+        require(feedback is None or self.limits.validation_mode != "static", "A static scene does not accept operation planning feedback")
         try:
             if not (self.root/"scene_document.md").exists():
                 from .document import write
                 write(self, {"status":self.state["status"],
-                             "qualification":"正在准备场景；尚无质量验收结论。"}, None)
+                             "qualification":"Scene in preparation; no quality acceptance verdict yet."}, None)
             self.state.pop("request_failure", None)
             self.state.pop("local_failure", None)
             self.state.pop('check_failure',None)
@@ -1060,7 +1060,7 @@ class SceneRun:
                 active = self.state.get('check_recovery',{}).get(self.state.get('active_check_recovery'),{})
                 if active.get('status')=='budget_exhausted':
                     self.state['status']='check_recovery_budget_exhausted'
-                    self.state['stop_reason']={'reason':'检查恢复预算耗尽，保留场景和已执行动作',
+                    self.state['stop_reason']={'reason':'Check recovery budget exhausted; keeping the scene and the executed actions',
                                               'exhaustion':active['exhaustion']}
                     break
                 action = decide(report,review)
@@ -1070,8 +1070,8 @@ class SceneRun:
                     self.state['check_failure']={'kind':report.get('error_kind','environment') if action=='needs_environment' else 'measurement_error',
                         'checks':check_gaps(report) or [r for r in report.get('checks',[]) if r.get('status')=='error'],
                         'failures':[f for f in report.get('recovery_failures',[]) if f['status']=='open']}
-                    self.state['stop_reason']={'reason':'主检查仍有未解决证据缺口，当前可用补查已执行或不可用；未将未知判为通过',
-                                              'required_action':'补充检查能力或处理报告中的工具故障',
+                    self.state['stop_reason']={'reason':'The main check still has unresolved evidence gaps, and the available supplementary checks have run or are unavailable; unknowns were not judged as passed',
+                                              'required_action':'Add check capability or handle the tool faults in the report',
                                               'recovery_keys':list(self.state.get('check_recovery',{})),
                                               'capability_search':[h.get('exhaustion') for h in self.state.get('check_recovery',{}).values()]}
                     break
@@ -1083,8 +1083,8 @@ class SceneRun:
                     break
                 if action == 'needs_review':
                     self.state['status'] = 'needs_review'
-                    self.state['stop_reason'] = {'reason':'缺少可消费的审查结论；没有已确认的几何修复依据',
-                                                'required_action':'检查审查证据与审查预算'}
+                    self.state['stop_reason'] = {'reason':'No consumable review verdict; no confirmed basis for a geometry repair',
+                                                'required_action':'Check the review evidence and the review budget'}
                     break
                 self.state["repair_pending"] = True
                 self.store.save()
@@ -1114,9 +1114,9 @@ class SceneRun:
                     "phase": last.get("phase"), "diagnostics": last.get("diagnostics", {}),
                     "provider_error": last.get("provider_error", {}),
                     "outcome_unknown": last.get("status") == "pending"}
-            for name, operation in (("保存状态",self.store.save),("生成暂停报告",self.result)):
+            for name, operation in (("saving state",self.store.save),("generating the pause report",self.result)):
                 try:
                     operation()
                 except Exception as secondary:
-                    original.add_note(name+"也发生异常："+type(secondary).__name__)
+                    original.add_note(name+" also raised: "+type(secondary).__name__)
             raise

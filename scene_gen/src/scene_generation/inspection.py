@@ -1,4 +1,4 @@
-"""已编译场景的专项只读检查；量测成功不等于满足未提供的规格。"""
+"""Targeted read-only checks of the compiled scene; a successful measurement does not mean unstated specifications are met."""
 
 from pathlib import Path
 import numpy as np
@@ -17,12 +17,12 @@ def pairs(model, data, request):
                for a,b in request['pairs']]
     return {'kind':'pairs','results':results,'distance_recoveries':query.recoveries,
             'measurement_errors':[r for r in results if r['outcome']=='unknown'],
-            'meaning':'精确指定几何对的有符号距离、世界坐标最近点和从第一几何朝向第二几何的法向；网格按碰撞凸包处理。'}
+            'meaning':'Signed distance of exactly specified geom pairs, nearest points in world coordinates, and the normal from the first geom toward the second; meshes are treated as their collision convex hulls.'}
 
 
 def support(model, data, meta, request):
     item = next((x for x in meta['plan']['instances'] if x['id']==request['instance']),None)
-    require(item is not None and item['placement']!='robot','承托目标不是可检查的场景实例')
+    require(item is not None and item['placement']!='robot','Support target is not a checkable scene instance')
     geometry = {g:bounds(model,data,g) for g in range(model.ngeom)
                 if model.geom_type[g]!=mujoco.mjtGeom.mjGEOM_PLANE and (model.geom_contype[g] or model.geom_conaffinity[g])}
     query=DistanceQuery(model,data)
@@ -33,18 +33,18 @@ def support(model, data, meta, request):
          "coverage_gaps":result["measurement_errors"],**result}
     return {'checks':[row] if result.get('component_scope')=='whole_instance' else [],'kind':'support','instance':item['id'],'support_instance':item.get('support_instance'),
             **result,'distance_recoveries':query.recoveries,
-            'meaning':'初始姿态的实际朝上承托；未指定几何子集时逐独立组件追踪实际运动树、启用焊接与接触链。指定几何子集只回答该范围。正间隙超过10微米仅列为邻近，不计作接触；不证明连接制造适配、承重及动力学稳定。'}
+            'meaning':'Actual upward-facing support in the initial pose; without a geom subset, each independent component is traced through the actual kinematic tree, enabled welds and contact chain. A specified geom subset answers only for that scope. A positive gap above 10 micrometers is listed as nearby only, not counted as contact; does not prove manufacturable connection fit, load bearing or dynamic stability.'}
 
 
 def perimeter(root, model, data, meta, request):
     target=request['instance']; margin=request['distance_m']
-    require(target in {i['id'] for i in meta['plan']['instances']},'周边净空目标不是场景实例')
+    require(target in {i['id'] for i in meta['plan']['instances']},'Perimeter clearance target is not a scene instance')
     ids=[g for g in range(model.ngeom) if owner(model,g)==target and model.geom_type[g]!=mujoco.mjtGeom.mjGEOM_PLANE]
-    require(ids,'目标没有有限几何')
+    require(ids,'Target has no finite geometry')
     boxes=[bounds(model,data,g) for g in ids]
     lo=np.min([x[0] for x in boxes],axis=0); hi=np.max([x[1] for x in boxes],axis=0)
-    require(hi[2]-lo[2]>1e-6,'目标高度无效')
-    # 四个互不重叠的矩形体组成包络外周带，内部和底部接触不属于此周边区。
+    require(hi[2]-lo[2]>1e-6,'Invalid target height')
+    # Four non-overlapping boxes form the band around the envelope; contacts inside or below it are not part of this perimeter region.
     regions=[([lo[0]-margin,lo[1]-margin,lo[2]],[lo[0],hi[1]+margin,hi[2]]),
              ([hi[0],lo[1]-margin,lo[2]],[hi[0]+margin,hi[1]+margin,hi[2]]),
              ([lo[0],lo[1]-margin,lo[2]],[hi[0],lo[1],hi[2]]),
@@ -53,12 +53,12 @@ def perimeter(root, model, data, meta, request):
     names=[]
     for i,(a,b) in enumerate(regions):
         name=f'__inspection_perimeter_{i}'
-        require(spec.geom(name) is None,'检查探针名称冲突')
+        require(spec.geom(name) is None,'Inspection probe name collision')
         names.append(name)
         spec.worldbody.add_geom(name=name,type=mujoco.mjtGeom.mjGEOM_BOX,pos=(np.array(a)+b)/2,
                                 size=(np.array(b)-a)/2,contype=0,conaffinity=0,rgba=[0,0,0,0])
     probe=spec.compile(); state=mujoco.MjData(probe)
-    require(probe.nq==model.nq,'只读探针意外改变关节数')
+    require(probe.nq==model.nq,'Read-only probe unexpectedly changed the joint count')
     state.qpos[:]=data.qpos
     from asset_generation.static_state import geometry_state
     geometry_state(probe,state)
@@ -88,12 +88,12 @@ def perimeter(root, model, data, meta, request):
             'regions':regions,'intrusions':intrusions,'examined_pairs':count,'region_clear':not intrusions and not errors,
             'measurement_errors':errors,'measurement_error_count':error_count,'complete':not errors,
             'distance_recoveries':query.recoveries,
-            'meaning':'世界轴对齐外包络之外、目标最低至最高几何高度之间的矩形周边区；排除包络内部和其下方，含视觉及碰撞几何。不是整体最小距离或散热性能认证。'}
+            'meaning':'Rectangular perimeter region outside the world-axis-aligned outer envelope, between the lowest and highest geom heights; excludes the envelope interior and the space below it, includes visual and collision geoms. Not a whole-body minimum distance or a thermal performance certification.'}
 
 
 def mount(model, data, meta, request):
     target=request['instance']; items=meta['plan']['instances']
-    require(any(i['id']==target and i['placement']=='robot' for i in items),'安装检查须指向机器人上的工具实例')
+    require(any(i['id']==target and i['placement']=='robot' for i in items),'Mount check must target a tool instance on the robot')
     from .robot_contract import mount_for
     site_name='robot__'+mount_for(meta['plan'],meta['environment'],target)['site']
     sid=model.site(site_name).id; rotation=data.site_xmat[sid].reshape(3,3); origin=data.site_xpos[sid]
@@ -143,8 +143,8 @@ def mount(model, data, meta, request):
             'query_distance_m':request['distance_m'],'nearby_pairs':nearby[:64],'nearby_pair_count':len(nearby),
             'truncated':len(nearby)>64,'examined_pairs':count,'distance_recoveries':query.recoveries,
             'measurement_errors':errors,'measurement_error_count':error_count,'complete':not errors,
-            'unverified':['变换一致不证明安装面制造尺寸匹配；需指定实体几何对或只读尺寸要求。','没有建模的电缆不能推断为具备净空。'],
-            'meaning':'实际固定法兰至工具根部的刚性变换，及当前工具对机器人几何的距离；不排除或豁免负距离接触。'}
+            'unverified':['A matching transform does not prove the mounting faces match in manufactured size; specify solid geom pairs or read-only dimensional requirements.','Unmodeled cables cannot be inferred to have clearance.'],
+            'meaning':'Rigid transform from the actual fixed flange to the tool root, and distances from the current tool to robot geoms; negative-distance contacts are neither excluded nor exempted.'}
 
 
 def mount_contact(model, data, meta, target, support_tolerance, collision_tolerance, query):
@@ -179,4 +179,4 @@ def mount_contact(model, data, meta, target, support_tolerance, collision_tolera
             "instances":[target],"arm":binding["arm"],"mode":binding["mode"],
             "attachment_site":"robot__"+binding["site"],"contacts":contacts[:16],"coverage_gaps":gaps[:32],
             "complete":not gaps,"support_tolerance_m":support_tolerance,"collision_tolerance_m":collision_tolerance,
-            "detail":"定制总成与所选腕部/原厂夹爪实体邻接；不把连接到同一运动树当作实体接合，不认证制造配合或紧固强度"}
+            "detail":"Custom assembly is in solid contact with the selected wrist/stock gripper; being attached to the same kinematic tree is not treated as a solid joint; does not certify manufactured fit or fastening strength"}

@@ -19,7 +19,7 @@ def triage(report):
                         "repair_confirmed" if row.get("status")=="fail" else "obtain_evidence"})
     return {"counts":dict(Counter(r["next_step"] for r in rows)),"checks":rows[:64],"total_checks":len(rows),"truncated":len(rows)>64,
             "detail_reference":"feedback.checks[id]",
-            "rule":"错误类别来自检查记录；未知不等于资产缺陷，缺陷与证据缺口可同时存在"}
+            "rule":"Error categories come from check records; unknown is not an asset defect, and defects and evidence gaps can coexist"}
 
 
 def localization(row):

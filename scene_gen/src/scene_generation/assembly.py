@@ -1,4 +1,4 @@
-"""框架负责装配和名字空间；模型不能提交整个场景或替换机器人。"""
+"""The framework owns assembly and namespaces; the model cannot submit the whole scene or replace the robot."""
 
 import copy
 import math
@@ -18,7 +18,7 @@ def component(root, prefix, model_file="model.xml", *, diagnostic_names=None):
     import mujoco
     root = Path(root)
     with stage("component_load:"+prefix):
-        load_model(root, model_file=model_file)  # 独立安全解析；生成的脚本从不在此执行。
+        load_model(root, model_file=model_file)  # Independent safe parse; generated scripts are never executed here.
     tree = ET.parse(root/model_file)
     # Vendor models legitimately contain unnamed geoms. Give the derived scene
     # resolvable diagnostic references, without modifying geometry or vendor files.
@@ -39,7 +39,7 @@ def component(root, prefix, model_file="model.xml", *, diagnostic_names=None):
             if not attribute.startswith("file"):
                 continue
             source = safe_path(root, node.get(attribute))
-            # MJCF未声明name时从文件名推断；改路径前保留原名称。
+            # When the MJCF declares no name, infer it from the file name; keep the original name before rewriting paths.
             if attribute == "file" and node.tag in {"mesh", "texture", "hfield", "skin"} and not node.get("name"):
                 node.set("name", source.stem)
             relative = "resources/" + prefix + file_hash(source)[:20] + source.suffix.lower()
@@ -111,7 +111,7 @@ def assemble(plan, env, artifacts, robot_root, output):
     robot_dynamics={"cone":int(robot.option.cone),"impratio":float(robot.option.impratio),
                     "source_model_sha256":file_hash(Path(robot_root)/robot_variant)}
     for arm in arms(env):
-        require(robot.site(arm["wrist_site"]) is not None, "机器人腕部接口不存在")
+        require(robot.site(arm["wrist_site"]) is not None, "robot wrist interface does not exist")
     if mobile(env) and env["robot"]["mobile"].get("integrated"):
         # The whole robot already contains its manufacturer base and torso.
         # Validate its adapter coordinates before applying world-frame layout poses.
@@ -186,7 +186,7 @@ def assemble(plan, env, artifacts, robot_root, output):
         for axis, value in zip(("x","y","yaw"), plan["layout"]["robot_home"]):
             data.qpos[model.joint("robot__base_"+axis).qposadr[0]] = value
         manifest["approximations"].extend(env["robot"]["mobile"]["approximations"])
-        manifest["assumptions"].append("移动平台来源："+env["robot"]["mobile"]["source"])
+        manifest["assumptions"].append("mobile platform source: "+env["robot"]["mobile"]["source"])
     initialize(model,data,env,posture=plan.get("robot_posture"))
     from .tool_contract import align_free_roots
     align_free_roots(model, data, mounts)
@@ -204,7 +204,7 @@ def assemble(plan, env, artifacts, robot_root, output):
             spec.stat.center=(lo+hi)/2
             spec.stat.extent=max(1,float(np.linalg.norm(hi-lo))*.8)
     spec.add_key(name="scene_home", qpos=data.qpos.tolist(), ctrl=data.ctrl.tolist())
-    # MjSpec.attach也会为资源文件名加前缀；使用最终虚拟文件系统导出，不能沿用子模型路径。
+    # MjSpec.attach also prefixes asset file names; export from the final virtual file system, do not reuse child-model paths.
     for relative, content in spec.assets.items():
         target = safe_path(output,relative)
         target.parent.mkdir(parents=True,exist_ok=True)

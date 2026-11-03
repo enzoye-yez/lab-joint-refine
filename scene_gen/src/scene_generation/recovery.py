@@ -1,4 +1,4 @@
-"""检查事实与恢复决策分离；未知不可作为通过，也不可要求作者猜测几何。"""
+"""Check facts are separated from recovery decisions; unknown can never count as a pass, nor can the author be asked to guess geometry."""
 
 from asset_prep.storage import digest
 from asset_generation.check_report import report_status, incomplete
@@ -49,7 +49,7 @@ def gaps(report):
 
 
 def evidence_limited(report):
-    """剩余缺口只是量测或探测能力不足：没有执行错误、没有未关闭的检查器故障。"""
+    """The remaining gaps are only measurement or probing capability limits: no execution errors and no open checker faults."""
     rows = gaps(report)
     return bool(rows) and not any(f['status']=='open' for f in report.get('recovery_failures',[])) and all(
         r.get('status') == 'partial' or r.get('status') == 'error' and r.get('error_kind') == 'measurement_error'
@@ -57,12 +57,12 @@ def evidence_limited(report):
 
 
 def decide(report, review=None, *, allow_unverified=False):
-    """补查在场景构建内执行后，按剩余证据选择动作。
+    """After supplementary checks run inside the scene build, choose an action from the remaining evidence.
 
-    allow_unverified 只用于静态预览：剩余缺口全部是量测/探测能力不足、且审查接受时，
-    交付带未验证清单的候选，而不是停在 needs_check_support。缺口仍写入结果，不算通过。
+    allow_unverified is only for static preview: when all remaining gaps are measurement/probing capability limits and review accepts,
+    deliver the candidate with an unverified list instead of stopping at needs_check_support. Gaps are still written to the result and do not count as a pass.
     """
-    # 检查器程序异常不交给几何作者修复，即使同份报告还含有缺陷。
+    # Checker program exceptions are not handed to the geometry author to fix, even if the same report also contains defects.
     if any(f['status']=='open' for f in report.get('recovery_failures',[])):
         return 'repair' if repairable_rows(report) else 'needs_environment'
     if report.get('status')=='error' and report.get('error_kind')!='measurement_error':
@@ -86,7 +86,7 @@ def decide(report, review=None, *, allow_unverified=False):
 
 
 def evidence_key(plan, assets):
-    # 版本目录名变化但源文件内容相同时，不应获得无穷次相同补查。
+    # When the version directory name changes but source content is identical, do not grant endlessly repeated identical supplementary checks.
     return digest({'plan':plan,'assets':assets,'method':'main_check_recovery_v1'})
 
 

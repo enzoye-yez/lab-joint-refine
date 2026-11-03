@@ -1,4 +1,4 @@
-"""完整场景入口。默认离线预检；正式模型执行须用户显式选择。"""
+"""Full-scene entry point. Offline preflight by default; formal model execution requires an explicit user choice."""
 
 import argparse
 import json
@@ -21,24 +21,24 @@ from .pipeline import SceneRun
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="完整场景生成与受限修复；评测跳过资产提取与搜索")
-    parser.add_argument("--prepare-robot",action="store_true",help="按环境核验整机资源；旧版环境下载固定FR3，不调用模型")
+    parser = argparse.ArgumentParser(description="Full-scene generation and bounded repair; evaluation skips asset extraction and search")
+    parser.add_argument("--prepare-robot",action="store_true",help="verify whole-robot resources per environment; legacy environments download the fixed FR3; does not call the model")
     parser.add_argument("--package",type=Path)
-    parser.add_argument("--protocol-pdf",type=Path,help="原文PDF：按页完整解析作为场景上下文，不调用资产提取")
+    parser.add_argument("--protocol-pdf",type=Path,help="source PDF: fully parsed page by page as scene context; asset extraction is not called")
     parser.add_argument("--run")
     parser.add_argument("--environment",type=Path)
-    parser.add_argument("--checks",type=Path,help="用户固定的数值/配合/操作姿态验收")
-    parser.add_argument("--config",type=Path,help="场景预算与检查限制")
+    parser.add_argument("--checks",type=Path,help="user-fixed numeric/fit/operation-pose acceptance checks")
+    parser.add_argument("--config",type=Path,help="scene budget and check limits")
     parser.add_argument("--generation-config",type=Path)
     parser.add_argument("--provider-config",type=Path)
     parser.add_argument("--execute",action="store_true")
-    parser.add_argument("--expected-implementation", help="正式执行必须指定离线验证清单中的实现摘要")
+    parser.add_argument("--expected-implementation", help="formal execution must specify the implementation digest from the offline verification manifest")
     parser.add_argument("--backend", choices=("docker", "local"), default="docker",
-                        help="执行后端；local 为显式本机进程模式，不隔离宿主文件和网络")
-    parser.add_argument("--static-only",action="store_true",help="仅验收静态场景；跳过动态交互、重力步进和操作姿态求解")
+                        help="execution backend; local is an explicit local-process mode that does not isolate host files or network")
+    parser.add_argument("--static-only",action="store_true",help="accept the static scene only; skip dynamic interaction, gravity stepping and operation-pose solving")
     parser.add_argument("--resume",action="store_true")
     parser.add_argument("--retry-uncertain",action="store_true")
-    parser.add_argument("--feedback",type=Path,help="绑定场景摘要的规划器失败反馈")
+    parser.add_argument("--feedback",type=Path,help="planner failure feedback bound to the scene digest")
     for key in ("max-model-calls","max-reserved-tokens","max-iterations","max-plan-attempts","max-repair-plan-attempts","max-evidence-rounds","max-evidence-plan-attempts"):
         parser.add_argument("--"+key,type=int)
     args = parser.parse_args(argv)
@@ -47,21 +47,21 @@ def main(argv=None):
         if args.execute:
             active = getattr(sys, '_harness_runtime', None)
             if not active or not args.expected_implementation:
-                raise PrepError('正式执行须使用 run.ps1，并提供 --expected-implementation 已验证源码摘要')
-            implementation.verify(args.expected_implementation, project=project, where='正式执行启动')
+                raise PrepError('formal execution must use run.ps1 and provide --expected-implementation with the verified source digest')
+            implementation.verify(args.expected_implementation, project=project, where='formal execution start')
         if args.prepare_robot:
             if args.execute or args.package or args.protocol_pdf or args.run or args.resume or args.feedback:
-                parser.error("机器人准备须单独运行")
+                parser.error("robot preparation must run on its own")
             from .robot import prepare_environment
             env = environment(read_json(args.environment or project/"config/scene_environment.json"))
             print(json.dumps({"robot_directory":str(prepare_environment(project,env))},ensure_ascii=False))
             return 0
         if not args.package or not args.run:
-            parser.error("需要--package和--run")
+            parser.error("--package and --run are required")
         if (args.resume or args.retry_uncertain or args.feedback) and not args.execute:
-            parser.error("恢复与反馈需要正式执行")
+            parser.error("resume and feedback require formal execution")
         if args.feedback and not args.resume:
-            parser.error("规划反馈须恢复已有场景")
+            parser.error("planner feedback must resume an existing scene")
         provider = Config.load(args.provider_config or project/"config/default.json")
         generation = GenerationConfig.load(args.generation_config or project/"config/generation.json")
         limits = SceneConfig(**read_json(args.config or project/"config/scene.json"))
@@ -69,7 +69,7 @@ def main(argv=None):
         if args.static_only:
             limits = replace(limits,validation_mode="static")
         if args.feedback and limits.validation_mode == "static":
-            parser.error("静态预览不接受操作规划反馈；完整验证请使用新的运行目录")
+            parser.error("static preview does not accept operation-planning feedback; use a new run directory for full verification")
         env = environment(read_json(args.environment or project/"config/scene_environment.json"))
         contract = numerical_contract(read_json(args.checks) if args.checks else {})
         catalogue = catalog(args.package,generation,args.protocol_pdf,provider.max_document_chars)
@@ -81,7 +81,7 @@ def main(argv=None):
         with run_lock(root):
             if not args.execute:
                 if any(p.name != ".lock" for p in root.iterdir()):
-                    raise PrepError("预检目录已有产物，请换新名称")
+                    raise PrepError("preflight directory already has outputs; choose a new name")
                 try:
                     backend = sandbox.preflight()
                 except SandboxUnavailable as exc:
@@ -99,7 +99,7 @@ def main(argv=None):
                                        "pages":len(catalogue["protocol"]["sources"]),
                                        "characters":catalogue["protocol"]["parsing"]["total_characters"],
                                        "warnings":catalogue["protocol"]["warnings"]} if catalogue["protocol"] else None),
-                          "note":"只读预检不认证生成质量；未读取凭据或调用模型"}
+                          "note":"read-only preflight does not certify generation quality; no credentials were read and no model was called"}
                 atomic_json(root/"preflight.json",report)
                 print(json.dumps({k:report[k] for k in ("status","asset_ids","protocol","validation_mode","robot_ready","sandbox","model_calls")},ensure_ascii=False))
                 return 0
@@ -118,5 +118,5 @@ def main(argv=None):
         print(str(exc),file=sys.stderr)
         return 2
     except KeyboardInterrupt:
-        print("用户中断；调用账本和已归档版本保留",file=sys.stderr)
+        print("interrupted by user; call ledger and archived versions are kept",file=sys.stderr)
         return 130

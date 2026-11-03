@@ -236,7 +236,7 @@ class ReviewContractTests(unittest.TestCase):
                  "deferred": [{"stage": "scene", "requirement": "插入管架"},
                               {"stage": "operation", "requirement": "取管", "detail": "验证抓取轨迹"}]}
         self.assertEqual(scoped_review(value, "asset")["deferred"],
-                         [{"stage": "scene", "detail": "插入管架"}, {"stage": "operation", "detail": "取管：验证抓取轨迹"}])
+                         [{"stage": "scene", "detail": "插入管架"}, {"stage": "operation", "detail": "取管: 验证抓取轨迹"}])
         with self.assertRaisesRegex(ValidationError, "stage"):
             scoped_review({**value, "deferred": [{"stage": "scene", "note": "x"}]}, "asset")
 
@@ -244,8 +244,9 @@ class ReviewContractTests(unittest.TestCase):
         from scene_generation.review import scoped_review
         value = {"verdict": "repair", "unverified": [], "motion_coverage": []}
         with self.assertRaisesRegex(ValidationError, "finding"):
-            scoped_review({**value, "findings": ["门看起来不对"]}, "asset")
-        good = "left_door_g：开到上限后滑出导轨；依据：mech_door_high_45.png；建议：把滑动上限从0.14改为0.08"
+            scoped_review({**value, "findings": ["the door looks wrong"]}, "asset")
+        good = ("left_door_g: slides out of its rail at the upper limit; evidence: mech_door_high_45.png; "
+                "suggested fix: lower the slide limit from 0.14 to 0.08")
         self.assertEqual(scoped_review({**value, "findings": [good]}, "asset")["findings"], [good])
 
     def test_failed_asset_gets_its_own_repairs_and_stops_without_improvement(self):
@@ -261,7 +262,7 @@ class ReviewContractTests(unittest.TestCase):
                 self.assertEqual(scene_first.schedule_asset_repairs(run), ["a"] if n < 2 else [])
                 self.assertEqual(run.state["jobs"]["a"].get("regenerate"), "quality" if n < 2 else None)
                 run.state["jobs"]["a"] = record(n+1)
-        self.assertIn("没有减少", run.state["asset_repairs_unresolved"]["a"]["reason"])
+        self.assertIn("did not reduce", run.state["asset_repairs_unresolved"]["a"]["reason"])
 
     def test_review_key_changes_only_with_what_the_review_judged(self):
         from scene_generation.scene_first import review_key

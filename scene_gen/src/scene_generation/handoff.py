@@ -45,4 +45,4 @@ def quality_handoff(report, scene_sha256, schedule=()):
             'deferred':key in deferred,'detail':row.get('detail'),
             'evidence':{k:row[k] for k in ('coverage_gaps','missing_jobs','complete') if k in row}})
     return {'scene_sha256':scene_sha256,'issues':rows,
-        'rule':'规划可继续；执行须核对所用对象的前置条件。未知、暂挂与静态可接近性不等于操作通过。'}
+        'rule':'Planning may continue; execution must verify the preconditions of the objects it uses. Unknown, paused and static approachability do not mean the operation passes.'}

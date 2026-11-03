@@ -72,7 +72,7 @@ class StaticSceneTests(unittest.TestCase):
         meta=json.loads(path.read_text(encoding="utf-8"))
         meta["plan"]["instances"]=[i for i in meta["plan"]["instances"] if i["placement"] != "robot"]
         atomic_json(path,meta)
-        with self.assertRaisesRegex(ValidationError,"恰有一个"):
+        with self.assertRaisesRegex(ValidationError,"exactly one mounted end-effector"):
             scene_checks(artifact,SceneConfig(validation_mode="static"),numerical_contract({}))
 
     def test_gallery_uses_home_pose_without_step_or_artifact_mutation(self):

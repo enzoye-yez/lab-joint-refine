@@ -6,10 +6,10 @@ from xml.etree.ElementTree import SubElement, tostring
 from asset_generation.contracts import require
 from asset_generation.static_state import geometry_state
 
-TOOL_POLICY = """工具局部原点是机器人安装法兰，+Z为法兰轴；必须提供tcp操作site。主体根部固定安装，不含自由关节。
-可更换部件须另建worldbody直属body并带freejoint，通过清单connections声明的初始启用weld连接到主体（允许逐级连接）。
-不能把可拆件放在主体的永久子树内，也不能交付未连接到主体的自由部件。框架只把主体安装到法兰；独立部件保留世界根部自由关节，并转换到法兰实际姿态。
-清单的释放/接合事件、定位site和公差遵守通用连接契约；静态检查不认证操作能力。完整装置包括可拆件的质量计入负载。主动机构包含真实关节和actuator。"""
+TOOL_POLICY = """The tool's local origin is the robot mounting flange and +Z is the flange axis; a tcp operation site is required. The main-body root is fixed-mounted and has no free joint.
+Exchangeable parts must be separate bodies directly under worldbody with a freejoint, connected to the main body by initially active welds declared in the manifest connections (chained connections are allowed).
+Do not put detachable parts in the main body's permanent subtree, and do not deliver free parts that are not connected to the main body. The framework mounts only the main body on the flange; independent parts keep their world-root free joints and are transformed to the actual flange pose.
+The manifest's release/engage events, locating sites and tolerances follow the common connection contract; static checks do not certify operational capability. The mass of the complete device, including detachable parts, counts toward the payload. Active mechanisms contain real joints and actuators."""
 
 
 def tool_roots(model, manifest):
@@ -18,11 +18,11 @@ def tool_roots(model, manifest):
     free = {b for b in roots if model.body_jntnum[b] and
             model.jnt_type[model.body_jntadr[b]] == mujoco.mjtJoint.mjJNT_FREE}
     fixed = set(roots) - free
-    require(fixed, "末端须有固定安装主体；不能所有根部都带自由关节")
-    require(all(model.body(b).name for b in roots), "末端根部必须命名")
-    require(mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_SITE, "tcp") >= 0, "末端必须提供 tcp 操作坐标")
+    require(fixed, "end-effector must have a fixed-mounted main body; not every root may have a free joint")
+    require(all(model.body(b).name for b in roots), "end-effector roots must be named")
+    require(mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_SITE, "tcp") >= 0, "end-effector must provide a tcp operation frame")
     actors = [g for g in range(model.ngeom) if model.geom_contype[g] or model.geom_conaffinity[g]]
-    require(actors and all(model.geom(g).name for g in actors), "末端碰撞几何必须存在且命名")
+    require(actors and all(model.geom(g).name for g in actors), "end-effector collision geoms must exist and be named")
     edges = []
     for connection in manifest["connections"]:
         eq = model.equality(connection["equality"])
@@ -32,7 +32,7 @@ def tool_roots(model, manifest):
         expanded = reached | {b for edge in edges if reached.intersection(edge) for b in edge if b}
         if expanded == reached: break
         reached = expanded
-    require(free <= reached, "可拆末端部件须经初始启用且声明的 weld 连接到安装主体；未连接：" +
+    require(free <= reached, "detachable end-effector parts must connect to the mounted main body through declared, initially active welds; not connected: " +
             ", ".join(model.body(b).name for b in sorted(free - reached)))
     return roots, free
 

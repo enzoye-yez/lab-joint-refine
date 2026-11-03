@@ -57,7 +57,7 @@ class ScenePipelineTests(unittest.TestCase):
         self.assertEqual(tool_context["instance_contract"]["delivery_role"],"tool")
         self.assertEqual(tool_context["instance_contract"]["manifest_asset_ids"],["A01"])
         self.assertEqual(tool_context["instance_contract"]["reference_only_jobs"],["instrument"])
-        self.assertIn("首个实际渲染",tool_context["reference_policy"])
+        self.assertIn("first actual render",tool_context["reference_policy"])
         self.assertEqual(len(tool_context["input"]["images"]),1)
         self.assertIn("renders",tool_context["input"]["images"][0]["path"])
 
@@ -334,7 +334,7 @@ class ScenePipelineTests(unittest.TestCase):
         # The fixture renders every model to the same bytes, so the two images collapse into one.
         self.assertGreaterEqual(sum(x["type"] == "image_url" for x in request),1)
         for request in transport.requests[1:]:
-            self.assertIn("不需要人工批准模型自己的设计值变更",request["messages"][0]["content"])
+            self.assertIn("changes to the model's own design values need no human approval",request["messages"][0]["content"])
             context = json.loads(request["messages"][1]["content"][0]["text"])
             self.assertIn("fixed_contract",context)
 
@@ -345,7 +345,7 @@ class ScenePipelineTests(unittest.TestCase):
                 result = super().build_and_check(*args)
                 (root/"run/pause.request").write_text("pause",encoding="utf-8")
                 return result
-        with self.assertRaisesRegex(PrepError,"已请求暂停"):
+        with self.assertRaisesRegex(PrepError,"Pause requested"):
             self.run_loop(self.base_replies[:2],sandbox=Pausing())
         state = json.loads((root/"run/state.json").read_text(encoding="utf-8"))
         self.assertEqual(len(state["calls"]),2)

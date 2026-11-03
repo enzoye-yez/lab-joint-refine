@@ -1,4 +1,4 @@
-"""按实际覆盖范围比较证据增量，不把报告措辞或执行完成当作进展。"""
+"""Compare evidence deltas by actual coverage; report wording or completed execution is not progress."""
 from asset_generation.check_report import complete, incomplete
 
 
@@ -86,7 +86,7 @@ def repair_history_context(history, problem_key, input_key=None, limit=6, target
         if (latest.get("status") == "evaluated" and latest.get("selection") == "baseline_preserved"
                 and input_key is not None and latest.get("input_key") == input_key):
             view["baseline_restored"] = {"restored":True,
-                "reason":"最近候选被回退，当前输入与其原基线一致；按具体失败证据选择下一步"}
+                "reason":"the latest candidate was rolled back and the current input matches its original baseline; choose the next step from the specific failure evidence"}
     for key in ("rejected_approaches", "accepted_approaches", "pending_approaches"):
         view[key] = view[key][-limit:]
     return view
@@ -104,21 +104,22 @@ def repair_tasks(report, review, plan, input_key):
     tasks=[]
     for row in collision_pairs(repairable_rows(report)):
         check=row["id"]
+        source=row.get("source_check",check)
         level="asset_structure" if any(k in check for k in ("material","integrity","interaction","specification")) else "inspect_then_choose"
         tasks.append({"id":"check:"+check,"input_key":input_key,"check_id":check,
             "operation_blocking":check.startswith('operation:'),
             "instances":row.get("instances",[]),"certainty":"confirmed_defect","evidence_incomplete":incomplete(row),
-            "repair_level":level,"localization":localization(row),"evidence_source":"feedback.checks[id="+check+"]",
+            "repair_level":level,"localization":localization(row),"evidence_source":"feedback.checks[id="+source+"]",
             "targets":{k:row[k][:32] for k in ("unsupported_components","disconnected_components","surface_mismatches","collisions") if row.get(k)},
             "target_coverage":{k:{"included":min(32,len(row[k])),"recorded":len(row[k]),
-                "truncated":len(row[k])>32,"source":"feedback.checks[id="+check+"]."+k}
+                "truncated":len(row[k])>32,"source":"feedback.checks[id="+source+"]."+k}
                 for k in ("unsupported_components","disconnected_components","surface_mismatches","collisions") if row.get(k)},
-            "verification":{"checks":[check],"required":"重新检查原问题、受影响依赖和完整场景；缺行、跳过或未知不算解决"}})
+            "verification":{"checks":[check],"required":"re-check the original issue, affected dependencies and the full scene; missing rows, skipped or unknown do not count as resolved"}})
     if review and review.get("verdict")=="repair":
         tasks.append({"id":"scene_visual","input_key":input_key,"instances":review.get("affected_instances",[]),
             "layout_targets":review.get("affected_layout",[]),
             "certainty":"review_reported_defect","findings":review["findings"],"repair_level":"inspect_then_choose",
-            "verification":{"required":"重新渲染并审查；机械检查结果不可被视觉结论覆盖"}})
+            "verification":{"required":"re-render and review; mechanical check results cannot be overridden by visual conclusions"}})
     items=plan.get("instances",[])
     for task in tasks:
         jobs={i["job"] for i in items if i["id"] in task["instances"]}
@@ -138,7 +139,7 @@ def collision_pairs(rows):
         for hit in row["collisions"]:
             groups.setdefault(tuple(sorted(hit.get("instances",[]))),[]).append(hit)
         for pair,hits in sorted(groups.items()):
-            out.append({**row,"id":"scene_collisions:"+"|".join(pair),"instances":list(pair),
+            out.append({**row,"id":"scene_collisions:"+"|".join(pair),"source_check":row["id"],"instances":list(pair),
                         "collisions":hits,"collision_count":len(hits)})
     return out
 
@@ -263,7 +264,7 @@ def repair_comparison(previous, updated, old_review=None, new_review=None, *, ol
                     and old_items[instance]["job"] == new_items[instance]["job"]
                     and complete(support)):
                 superseded.append({"check":key,"replacement":"support:"+instance,
-                    "reason":"实际摆放从工作台改为落地；旧桌边约束不适用，地面承托仍按原公差检查"})
+                    "reason":"actual placement changed from workbench to floor-standing; the old table-edge constraint no longer applies, floor support is still checked at the original tolerance"})
                 continue
         if new is None or old.get("status")!="skipped" and new.get("status")=="skipped":
             lost.append(key);missing.append(key);continue
@@ -356,4 +357,4 @@ def repair_comparison(previous, updated, old_review=None, new_review=None, *, ol
             "new_defects":introduced,"coverage_lost":sorted(lost),"remaining_checks":sorted(persistent),
             "superseded_checks":superseded,
             "adopt":outcome in {"improved","improved_partial","improved_layout"},
-            "rule":"同一检查编号、当前版本完整证据才能解决旧问题；能减少已命名缺陷也算进展；覆盖丢失单独记录，不否决其他检查的确认改善；取舍候选保留但不自动替换基线"}
+            "rule":"an old issue is resolved only by complete current-version evidence under the same check id; reducing named defects also counts as progress; lost coverage is recorded separately and does not veto confirmed improvements in other checks; trade-off candidates are kept but do not automatically replace the baseline"}

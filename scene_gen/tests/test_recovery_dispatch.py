@@ -368,6 +368,6 @@ class PipelineDispatchTests(unittest.TestCase):
         self.assertEqual(history[1]['outcome'],'changed')
         attempts=state['scene']['repair_planning']['attempts']
         self.assertEqual(len(attempts),2)
-        self.assertIn('已执行过该修复',attempts[0]['error'])
+        self.assertIn('This repair was already executed',attempts[0]['error'])
         self.assertEqual(attempts[1]['status'],'accepted')
         self.assertEqual(attempts[1]['response'],different)

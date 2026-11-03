@@ -105,11 +105,11 @@ class ToolContractTests(unittest.TestCase):
     def test_orphan_free_root_rejected_by_both_entry_points(self):
         m=copy.deepcopy(MANIFEST);m["connections"]=[];self.write(manifest=m)
         for action in (lambda:inspect_candidate(self.tool,["A01"],{"assembly_role":"tool"}),self.build):
-            with self.assertRaisesRegex(ValidationError,"未连接") : action()
+            with self.assertRaisesRegex(ValidationError,"not connected") : action()
 
     def test_all_free_tool_and_same_tree_release_are_rejected(self):
         self.write(XML.replace('<body name="base">','<body name="base"><freejoint name="base_free"/>'))
-        with self.assertRaisesRegex(ValidationError,"固定安装主体"):
+        with self.assertRaisesRegex(ValidationError,"fixed-mounted main body"):
             inspect_candidate(self.tool,["A01"],{"assembly_role":"tool"})
         self.write(XML.replace('<body name="tip"', '<body name="tip"').replace('<freejoint name="tip_free"/>',''))
         with self.assertRaisesRegex(ValidationError,"neither end can move freely"):

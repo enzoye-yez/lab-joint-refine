@@ -1,4 +1,4 @@
-"""逐个独立组件追踪承托链；世界固定或实例标签本身不是实体承托证据。"""
+"""Trace the support chain per independent component; being world-fixed or an instance label is not by itself physical support evidence."""
 
 import numpy as np
 import mujoco
@@ -8,7 +8,7 @@ from asset_generation.distance import observe
 
 def component_support(model, data, item, geometry, external_contacts, query, tolerance,
                       collision_tolerance, max_pairs, uncertain_objects, upward_resultant):
-    """沿实际运动树/启用的焊接及朝上接触传播支撑，不认证连接制造或力矩平衡。"""
+    """Propagate support along the actual kinematic tree, enabled welds and upward contacts; does not certify connection manufacturing or torque balance."""
     prefix = item['id'] + '__'
     bodies = {b for b in range(1, model.nbody) if model.body(b).name.startswith(prefix)}
     parents = {b: b for b in bodies}
@@ -45,7 +45,7 @@ def component_support(model, data, item, geometry, external_contacts, query, tol
             group = find(b)
             groups[group]['geoms'].append(g)
             geom_groups[g] = group
-    # 纯坐标节点没有需要承托的实体；独立视觉实体仍须保留，不能凭没有碰撞体通过。
+    # Pure frame nodes have no body needing support; independent visual bodies must still be kept and cannot pass merely by lacking collision geoms.
     groups = {key: value for key, value in groups.items() if value['geoms']}
     contacts = {key: [] for key in groups}
     errors, error_count = [], 0
@@ -53,7 +53,7 @@ def component_support(model, data, item, geometry, external_contacts, query, tol
     if unassigned:
         error_count += len(unassigned)
         errors.extend({'error_kind':'unsupported_check','geom1':model.geom(g).name,'instances':[item['id']],
-                       'detail':'实例几何缺少具名物理部件，无法追踪组件连接'} for g in unassigned)
+                       'detail':'Instance geometry lacks named physical parts; component connections cannot be traced'} for g in unassigned)
     for row in external_contacts:
         g = model.geom(row['object_geom']).id
         if g in geom_groups:
@@ -142,9 +142,9 @@ def component_support(model, data, item, geometry, external_contacts, query, tol
     if missing_geometry:
         error_count += len(missing_geometry)
         errors.extend({'error_kind': 'unsupported_check', 'body': groups[key]['bodies'][0],
-                       'instances': [item['id']], 'detail': '独立组件没有可量测的碰撞实体，不能证明其承托'}
+                       'instances': [item['id']], 'detail': 'Independent component has no measurable collision body; its support cannot be proven'}
                       for key in missing_geometry)
-    # 未知只沿可能的承托链传播；另一处未知不能抹掉独立的已确认无承托组件。
+    # Unknown propagates only along possible support chains; an unknown elsewhere cannot erase an independent component confirmed to be unsupported.
     possible = reachable(grounded | {geom_groups[g] for g in uncertain_objects if g in geom_groups}
                          | set(missing_geometry) | (set(groups) if unassigned else set()),unknown_links)
     complete = not uncertain_objects and not error_count and not skipped

@@ -37,7 +37,7 @@ class GalleryTests(unittest.TestCase):
     def test_empty_run_has_explicit_placeholder(self):
         atomic_json(self.root / "state.json", {"scene":{"jobs":{}, "stages":[]}})
         page = export(self.project, "synthetic", refresh=True, allow_empty=True)
-        self.assertIn("尚无已归档资产图片", page.read_text(encoding="utf-8"))
+        self.assertIn("No archived asset images yet", page.read_text(encoding="utf-8"))
 
     def test_windows_job_reference_matches_normalized_archive_directory(self):
         self.state['scene']['jobs']['asset_A01']['stage']='stages\\00001_asset'
@@ -51,6 +51,6 @@ class GalleryTests(unittest.TestCase):
         page = export(self.project, "synthetic")
         before = file_hash(page)
         self.png.write_bytes(b"changed")
-        with self.assertRaisesRegex(ValueError, "摘要不一致"):
+        with self.assertRaisesRegex(ValueError, "digest mismatch"):
             export(self.project, "synthetic", refresh=True)
         self.assertEqual(file_hash(page), before)

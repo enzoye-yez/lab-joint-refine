@@ -1,4 +1,4 @@
-"""只读回放归档场景检查，不执行模型脚本、不请求服务、不更改旧结论。"""
+"""Read-only replay of archived scene checks; does not run model scripts, call the provider or change old conclusions."""
 
 import argparse
 import json
@@ -26,14 +26,14 @@ def main():
     parser.add_argument('--stage',type=Path,required=True)
     parser.add_argument('--output',type=Path,required=True)
     parser.add_argument('--recovery',action='store_true')
-    parser.add_argument('--checkpoints',type=Path,help='独立检查点目录；相同输入自动复用完成阶段')
+    parser.add_argument('--checkpoints',type=Path,help='separate checkpoint directory; completed stages are reused automatically for identical inputs')
     parser.add_argument('--expected-implementation')
     args=parser.parse_args()
     stage=args.stage.resolve();output=args.output.resolve()
-    require(not output.exists(),'输出目录已存在，拒绝覆盖')
-    require(not output.is_relative_to(stage.parent.parent),'回放输出必须与原运行分离')
+    require(not output.exists(),'output directory already exists; refusing to overwrite')
+    require(not output.is_relative_to(stage.parent.parent),'replay output must be separate from the original run')
     if args.checkpoints:
-        require(not args.checkpoints.resolve().is_relative_to(stage.parent.parent),'检查点必须与原运行分离')
+        require(not args.checkpoints.resolve().is_relative_to(stage.parent.parent),'checkpoints must be separate from the original run')
     job=json.loads((stage/'scene_job.json').read_text(encoding='utf-8'))
     binding = implementation.runtime_record(PROJECT, inputs={'scene_job':digest(job)}, configuration=job['limits'])
     identity = args.expected_implementation or binding['implementation']
@@ -41,10 +41,10 @@ def main():
     artifact=stage/'scene/artifact'
     before=snapshot(stage)
     started=time.monotonic()
-    print('开始只读检查归档场景；不调用模型。',flush=True)
+    print('Starting read-only check of the archived scene; the model is not called.',flush=True)
     report=scene_checks(artifact,SceneConfig(**job['limits']),job['contract'],recovery=args.recovery,checkpoint_dir=args.checkpoints)
     guard.check()
-    require(snapshot(stage)==before,'只读回放修改了归档文件')
+    require(snapshot(stage)==before,'the read-only replay modified archived files')
     output.mkdir(parents=True)
     atomic_json(output/'report.json',report)
     manifest = binding['manifest']

@@ -139,7 +139,6 @@ def arrange(plan, shapes, env):
     depths = [max((m["depth"] for m in row), default=MIN_DEPTH_M) for row in rows]
     lengths = [sum(m["length"] for m in row)+GAP_M*max(0, len(row)-1) for row in rows]
     room = [max(lengths)+2*ROW_END_M, 2*WALL_M+depths[0]+AISLE_M+depths[1]]
-    old_room = plan["layout"]["room"]["size"]
     layout["room"] = {"size": [round(v, 3) for v in room],
                       "reason": "Two bench rows against the long walls facing one %.1f m robot aisle; "
                                 "length from the instruments in a single row along each bench" % AISLE_M}
@@ -190,8 +189,6 @@ def arrange(plan, shapes, env):
     layout["docks"] = docks
     move_cuts(plan, updated)
     follow_supports(plan, updated, {i["id"] for i in roots})
-    updated["arrangement"] = {"method": "deterministic_rows", "aisle_m": AISLE_M, "setback_m": SETBACK_M,
-                              "gap_m": GAP_M, "previous_room_m": old_room}
     return updated
 
 

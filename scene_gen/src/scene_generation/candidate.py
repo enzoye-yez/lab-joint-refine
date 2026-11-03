@@ -45,7 +45,7 @@ def assembly_manifest(value, model, asset_ids, *, diagnostic=True):
             for key in ("operation","replaces"):
                 if key in original:interface[key]=deepcopy(original[key])
         issue={"id":"interaction_contract","status":"fail","detail":str(exc),"complete":True}
-        diagnostic["approximations"].append("诊断装配未采用无效交互声明；原始接口清单保留，交互契约未通过："+str(exc))
+        diagnostic["approximations"].append("Diagnostic assembly did not adopt the invalid interaction declaration; original interface list kept, interaction contract failed: "+str(exc))
         return diagnostic,[issue]
 
 def inspect_candidate(root, asset_ids, profile, render_dir=None):

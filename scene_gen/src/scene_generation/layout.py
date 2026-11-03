@@ -13,17 +13,17 @@ from asset_prep.storage import digest
 
 def vector(value, n):
     require(isinstance(value, list) and len(value) == n and all(finite(v) for v in value),
-            "布局坐标须为有限数值数组")
+            "Layout coordinates must be arrays of finite numbers")
     return value
 
 
 def name(value):
     require(isinstance(value, str) and re.fullmatch(r"[A-Za-z][A-Za-z0-9_]{0,47}", value),
-            "布局编号无效")
+            "Invalid layout id")
 
 
 def reason(value):
-    require(isinstance(value, str) and 0 < len(value.strip()) <= 4000, "布局变化须有明确理由")
+    require(isinstance(value, str) and 0 < len(value.strip()) <= 4000, "A layout change needs an explicit reason")
 
 
 def mobile(env):
@@ -35,17 +35,17 @@ def table_policy(env):
     if not mobile(env):
         return POLICY
     return {**POLICY, "robot_protected_half_size_m":0,
-            "rule":"各工作台独立计算加工面积；center为关联工作台局部坐标。移动机器人不占用桌面中央保护区；"
-                   "仍保留桌边、桌腿和凹槽底厚要求。整体工作台尺寸及数量由layout设计，不缩放仪器。"}
+            "rule":"Machining area is computed per worktable; center is in the associated worktable's local frame. The mobile robot does not occupy a protected central tabletop zone; "
+                   "table-edge, table-leg and recess floor-thickness requirements still apply. Overall worktable size and count are designed by layout; instruments are not scaled."}
 
 
 def author_layout_policy(env):
-    coordinates = ("关联table_id的工作台局部坐标" if mobile(env) else "世界坐标")
-    setting = ("按scene_layout中实际多工作台及移动机器人布局设计，桌面中央没有固定机械臂保护区。"
-               if mobile(env) else "桌面整体和机械臂安装区固定。")
-    return (setting + "可按table_edit_policy局部开槽开孔。优先兼容已有安装条件；确需新增加工时在assumptions中明确"
-            + coordinates + "、大小、深度和支撑方式，供场景协调器声明table_modifications。"
-            "不得假设已有未声明凹槽，不能关闭碰撞。资产作者不能自行改变场景布局或缩放依赖仪器。")
+    coordinates = ("local coordinates of the worktable named by table_id" if mobile(env) else "world coordinates")
+    setting = ("Design against the actual multi-worktable and mobile-robot layout in scene_layout; there is no protected fixed-arm zone at the tabletop center. "
+               if mobile(env) else "The tabletop as a whole and the robot-arm mounting zone are fixed. ")
+    return (setting + "Local slots and holes may be cut per table_edit_policy. Prefer compatibility with existing mounting conditions; if new machining is truly needed, state in assumptions the "
+            + coordinates + ", size, depth and support method, so the scene coordinator can declare table_modifications. "
+            "Do not assume undeclared recesses exist; do not disable collisions. Asset authors may not change the scene layout or scale dependency instruments on their own.")
 
 
 def review_targets(plan):
@@ -60,24 +60,24 @@ def review_targets(plan):
 def validate_mobile(value):
     required = {"base_size", "mount_height", "mass_kg", "source", "approximations"}
     require(isinstance(value, dict) and required <= set(value) <= required | {"integrated","ground_offset_m"},
-            "移动平台须明确尺寸、安装高度、质量、来源与近似")
-    require(type(value.get("integrated", False)) is bool, "整机标记须为布尔值")
+            "Mobile platform must state size, mounting height, mass, source and approximations")
+    require(type(value.get("integrated", False)) is bool, "Integrated-robot flag must be a boolean")
     require(finite(value.get("ground_offset_m",0)) and abs(value.get("ground_offset_m",0))<=1,
-            "整机落地偏移须来自资源测量且在一米以内")
-    require(all(v > 0 for v in vector(value["base_size"], 3)), "底盘尺寸须为正数")
+            "Integrated-robot ground offset must come from resource measurement and be within one meter")
+    require(all(v > 0 for v in vector(value["base_size"], 3)), "Base size must be positive")
     require(finite(value["mount_height"]) and value["mount_height"] > value["base_size"][2],
-            "机械臂安装高度须高于底盘")
-    require(finite(value["mass_kg"]) and value["mass_kg"] > 0, "平台质量无效")
+            "Robot-arm mounting height must be above the base")
+    require(finite(value["mass_kg"]) and value["mass_kg"] > 0, "Invalid platform mass")
     reason(value["source"])
     require(isinstance(value["approximations"], list) and
-            all(isinstance(v, str) for v in value["approximations"]), "平台近似说明无效")
+            all(isinstance(v, str) for v in value["approximations"]), "Invalid platform approximation notes")
 
 
 def tables(plan, env):
     if "layout" in plan:
         return plan["layout"]["tables"]
     return [{"id": "main", **env["table"], "position": [0, 0], "yaw": 0,
-             "reason": "旧版固定工作台"}]
+             "reason": "Legacy fixed worktable"}]
 
 
 def table_for(item, plan, env):
@@ -113,72 +113,72 @@ def validate_layout(plan, env=None):
     """Validate structure, not quality. Out-of-room/colliding proposals go to repair."""
     value = plan.get("layout")
     if value is None:
-        require(not env or not mobile(env), "移动场景须提出 layout（房间、多桌、机器人初始位置及停靠候选）")
-        require(all("table_id" not in i for i in plan["instances"]), "旧版场景不能引用多桌编号")
+        require(not env or not mobile(env), "A mobile scene must propose layout (room, multiple tables, robot home and dock candidates)")
+        require(all("table_id" not in i for i in plan["instances"]), "A legacy scene cannot reference multi-table ids")
         return
     require(isinstance(value, dict) and set(value) == {"room", "tables", "robot_home", "docks"},
-            "layout字段须为 room,tables,robot_home,docks")
+            "layout fields must be room,tables,robot_home,docks")
     room = value["room"]
-    require(isinstance(room, dict) and set(room) == {"size", "reason"}, "房间字段无效")
-    require(all(0 < v <= 100 for v in vector(room["size"], 2)), "房间尺寸须在0到100米内")
+    require(isinstance(room, dict) and set(room) == {"size", "reason"}, "Invalid room fields")
+    require(all(0 < v <= 100 for v in vector(room["size"], 2)), "Room size must be within 0 to 100 m")
     reason(room["reason"])
-    require(isinstance(value["tables"], list) and 1 <= len(value["tables"]) <= 32, "工作台数量须为1到32")
+    require(isinstance(value["tables"], list) and 1 <= len(value["tables"]) <= 32, "Worktable count must be 1 to 32")
     ids = set()
     for t in value["tables"]:
         require(isinstance(t, dict) and set(t) == {"id", "size", "height", "position", "yaw", "reason"},
-                "工作台字段无效")
+                "Invalid worktable fields")
         name(t["id"])
-        require(t["id"] not in ids, "工作台编号重复")
+        require(t["id"] not in ids, "Duplicate worktable id")
         ids.add(t["id"])
         require(all(0 < v <= 100 for v in vector(t["size"], 3)) and
-                t["size"][0] > .24 and t["size"][1] > .24, "工作台尺寸不足以容纳桌腿")
-        require(finite(t["height"]) and t["size"][2] < t["height"] <= 10, "桌面高度无效")
+                t["size"][0] > .24 and t["size"][1] > .24, "Worktable too small to fit table legs")
+        require(finite(t["height"]) and t["size"][2] < t["height"] <= 10, "Invalid tabletop height")
         vector(t["position"], 2)
-        require(finite(t["yaw"]), "桌子朝向无效")
+        require(finite(t["yaw"]), "Invalid table yaw")
         reason(t["reason"])
     vector(value["robot_home"], 3)
     instances = {i["id"]: i for i in plan["instances"]}
     for i in instances.values():
         if i["placement"] == "table":
-            require(isinstance(i.get("table_id"), str) and i["table_id"] in ids, "桌面实例须引用实际工作台")
+            require(isinstance(i.get("table_id"), str) and i["table_id"] in ids, "A tabletop instance must reference an existing worktable")
         else:
-            require("table_id" not in i, "非桌面实例不能指定工作台")
+            require("table_id" not in i, "A non-tabletop instance cannot specify a worktable")
         parent = instances.get(i.get("support_instance"))
         if parent:
             require(i["placement"] == parent["placement"] and i.get("table_id") == parent.get("table_id"),
-                    "支撑链必须使用同一地面或工作台")
-    require(isinstance(value["docks"], list) and len(value["docks"]) <= 256, "停靠候选数量无效")
+                    "A support chain must use the same floor or worktable")
+    require(isinstance(value["docks"], list) and len(value["docks"]) <= 256, "Invalid number of dock candidates")
     seen = set()
     for d in value["docks"]:
-        require(isinstance(d, dict) and set(d) == {"id", "instance", "pose", "reason"}, "停靠候选字段无效")
+        require(isinstance(d, dict) and set(d) == {"id", "instance", "pose", "reason"}, "Invalid dock candidate fields")
         name(d["id"])
         require(d["id"] not in seen and isinstance(d["instance"], str) and d["instance"] in instances
-                and instances[d["instance"]]["placement"] != "robot", "停靠候选重复或关联对象无效")
+                and instances[d["instance"]]["placement"] != "robot", "Duplicate dock candidate or invalid associated object")
         seen.add(d["id"])
         vector(d["pose"], 3)
         reason(d["reason"])
     if env:
-        require(mobile(env), "多桌布局须选择移动机器人环境配置")
+        require(mobile(env), "A multi-table layout requires a mobile-robot environment configuration")
 
 
 def edit_layout(value, plan, updated, allowed, env):
     """Atomic table edits, world-coordinate instance overrides, fixed room boundary."""
     if "layout" not in value:
         return
-    require("layout" in plan and mobile(env or {}), "当前运行未授权移动多桌布局")
+    require("layout" in plan and mobile(env or {}), "The current run does not authorize a mobile multi-table layout")
     new = copy.deepcopy(value["layout"])
     # Structural validation after following attachments and explicit placement overrides.
-    require(isinstance(new, dict), "布局须为对象")
+    require(isinstance(new, dict), "Layout must be an object")
     if new.get("room") != plan["layout"]["room"]:
         reason(value.get("room_revision_reason"))
         require(all(i["id"] in allowed for i in plan["instances"] if i["placement"]!="robot"),
-                "房间边界修改须纳入全部环境实例复核范围")
-    require(isinstance(new.get("tables"), list), "工作台列表无效")
+                "A room-boundary change must include all environment instances in the recheck scope")
+    require(isinstance(new.get("tables"), list), "Invalid worktable list")
     old_tables = {t["id"]: t for t in plan["layout"]["tables"]}
     new_tables = {}
     for t in new["tables"]:
-        require(isinstance(t, dict) and isinstance(t.get("id"), str), "工作台编号缺失")
-        require(t["id"] not in new_tables, "工作台编号重复")
+        require(isinstance(t, dict) and isinstance(t.get("id"), str), "Missing worktable id")
+        require(t["id"] not in new_tables, "Duplicate worktable id")
         new_tables[t["id"]] = t
     changed = {key for key in old_tables.keys() | new_tables.keys()
                if old_tables.get(key) != new_tables.get(key)}
@@ -187,19 +187,19 @@ def edit_layout(value, plan, updated, allowed, env):
         tid = old.get("table_id")
         if tid not in changed:
             continue
-        require(old["id"] in allowed, "桌子修改影响未授权实例；请联合申请相关布局范围")
+        require(old["id"] in allowed, "Table change affects unauthorized instances; request the related layout scope jointly")
         item = next(i for i in updated["instances"] if i["id"] == old["id"])
         if tid not in new_tables:
             require(old["id"] in explicit and (item.get("table_id") in new_tables
                     or item.get("placement") == "floor" and "table_id" not in item),
-                    "删除桌子前须重新安排其所有实例")
+                    "All instances on a table must be rearranged before the table is removed")
             continue
         if old["id"] in explicit:
             continue
         before, after = old_tables[tid], new_tables[tid]
         # Required fields get validated before arithmetic.
         vector(after.get("position"), 2)
-        require(finite(after.get("yaw")) and finite(after.get("height")), "桌子变换无效")
+        require(finite(after.get("yaw")) and finite(after.get("height")), "Invalid table transform")
         xy = world_xy(local_xy(old["position"], before), after)
         item["position"] = xy + [old["position"][2] + after["height"]-before["height"]]
         item["yaw"] = old["yaw"] + after["yaw"]-before["yaw"]

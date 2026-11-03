@@ -133,7 +133,7 @@ class BatchTests(unittest.TestCase):
         self.assertEqual(batch.execute(manifest, self.root, self.project, runner), 0)
         self.assertEqual(len(seen), 1)
         batch.atomic_json(self.root / "config/scene.json", {"changed": True})
-        with self.assertRaisesRegex(ValueError, "已变化"):
+        with self.assertRaisesRegex(ValueError, "has changed"):
             batch.verify(manifest, self.project)
 
     def test_missing_or_invalid_explicit_profile_never_falls_back(self):
@@ -261,7 +261,7 @@ class BatchTests(unittest.TestCase):
 
     def test_changed_input_stops_before_calls(self):
         (self.inputs / "NP-003/images/ref.png").write_bytes(b"changed")
-        with self.assertRaisesRegex(ValueError, "已变化"):
+        with self.assertRaisesRegex(ValueError, "has changed"):
             batch.execute(self.manifest, self.root, self.project,
                           lambda *args: self.fail("called model with changed input"))
 

@@ -1,4 +1,4 @@
-"""后续规划器的轻量接入：加载默认姿态和接触事件；不负责动作规划。"""
+"""Lightweight entry point for downstream planners: loads the default pose and contact events; does not plan motions."""
 
 from pathlib import Path
 import mujoco
@@ -13,7 +13,7 @@ from asset_prep.storage import digest
 def load_scene(artifact, expected_sha256=None):
     artifact = Path(artifact)
     actual = digest(snapshot(artifact))
-    require(expected_sha256 is None or actual == expected_sha256, "规划场景产物与交付摘要不一致")
+    require(expected_sha256 is None or actual == expected_sha256, "planning scene artifact does not match the delivered digest")
     model = load_scene_model(artifact, dynamics=True)
     data = mujoco.MjData(model)
     meta = read_json(artifact/"scene.json",8000000)
@@ -48,7 +48,7 @@ def actor_groups(model, meta):
             # can live on the forearm; including its entire subtree mislabels arm collisions.
             for joint in arm["stock"]["joints"]:
                 j = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, "robot__"+joint)
-                require(j >= 0, "原厂夹爪关节缺失："+joint)
+                require(j >= 0, "stock gripper joint missing: "+joint)
                 bodies.add(int(model.jnt_bodyid[j]))
         for g in range(model.ngeom):
             if not (model.geom_contype[g] or model.geom_conaffinity[g]): continue
@@ -61,6 +61,6 @@ def actor_groups(model, meta):
             if stock or custom:
                 names.append(g)
         require(names or (binding["mode"] == "stock" and arm["stock"] is None),
-                "已安装末端没有可绑定的接触几何："+arm["id"])
+                "installed end-effector has no bindable contact geometry: "+arm["id"])
         result[arm["id"]] = names
     return result

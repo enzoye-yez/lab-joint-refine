@@ -1,4 +1,4 @@
-"""可信执行故障的范围、证据解除与有限重试；不接受生成模型修改这些约定。"""
+"""Scope, evidence-based clearing and bounded retries of trusted execution faults; the generation model may not change these rules."""
 
 import errno
 import subprocess
@@ -14,7 +14,7 @@ TEMPORARY_WINERRORS = {32, 33, 121}
 
 
 def exception_failure(exc, fallback='*'):
-    """仅根据异常类型/系统错误码分类，不匹配自由文本中的“超时”等词。"""
+    """Classify only by exception type/system error code; never match words such as "timeout" in free text."""
     chain, current = [], exc
     while current is not None and id(current) not in {id(e) for e in chain}:
         chain.append(current)
@@ -29,13 +29,13 @@ def exception_failure(exc, fallback='*'):
     if getattr(origin,'component',None):
         components = [origin.component]
     elif kind == 'program':
-        # 找到实际出错模块；共享模块出错时，其他同样依赖它的算法不能洗掉故障。
+        # Find the module that actually failed; when a shared module fails, other algorithms depending on it cannot wash the fault away.
         tb = origin.__traceback__
         frames = []
         while tb:
             frames.append(tb)
             tb = tb.tb_next
-        # require 是公共抛错助手，故障归属应是实际调用它的边界。
+        # require is the shared raising helper; the fault belongs to the boundary that actually called it.
         tb = next((frame for frame in reversed(frames)
                    if not (frame.tb_frame.f_globals.get('__name__')=='asset_generation.contracts'
                            and frame.tb_frame.f_code.co_name=='require')),None)
@@ -74,11 +74,11 @@ def add_failure(report, failure, *, input_key, action_key, attempt, capability,
 
 
 def initialize(report, input_key):
-    """无范围的历史/主检查异常按整场景保守记录，局部成功不能解除它。"""
+    """An unscoped historical/main-check error is conservatively recorded for the whole scene; local successes cannot clear it."""
     if report.get('status')!='error' or report.get('error_kind')=='measurement_error' or report.get('fault_status_managed'):
         return deepcopy(report)
     failure = report.get('execution_failure',{'kind':'program','retryable':False,'components':['*'],
-                                             'detail':report.get('detail','未提供故障来源')})
+                                             'detail':report.get('detail','no fault source provided')})
     return add_failure(report,failure,input_key=input_key,action_key='main_check',attempt=1,
                        capability='main_check',request={'checks':[r['id'] for r in report.get('checks',[])]},scope='scene')
 
@@ -106,13 +106,13 @@ def independent(fault, capability):
 
 
 def resolve(report, result, request, capability, action_key, input_key):
-    """只消费已通过合并校验、同版本且覆盖完整的成功检查；历史故障不删除。"""
+    """Consume only successful checks that passed merge validation, are of the same version and have full coverage; historical faults are never deleted."""
     if result.get('input_key')!=input_key or result.get('failure'):
         return report
     scope = result.get('scope')
     covered_checks = {r['id'] for r in result.get('checks',[]) if complete(r)}
     excluded = {r['id'] for r in result.get('checks',[]) if r.get('status')=='skipped'}
-    # 部分碰撞失败证明缺陷存在，却不能证明整个检查范围已覆盖。
+    # A partial collision failure proves a defect exists but does not prove the whole check scope was covered.
     for fault in report.get('recovery_failures',[]):
         if fault['status']!='open' or fault['input_key']!=input_key or not independent(fault,capability):
             continue
@@ -147,7 +147,7 @@ def resolve(report, result, request, capability, action_key, input_key):
 
 
 def eligibility(previous, faults, environment, retry_limit, has_receipt):
-    """返回可执行依据及是否确实耗尽了重试预算；更换环境不清零总执行预算。"""
+    """Return the executable basis and whether the retry budget was truly exhausted; switching environments does not reset the total execution budget."""
     if previous is None:
         return True,'untried',False
     if previous['status']=='completed':

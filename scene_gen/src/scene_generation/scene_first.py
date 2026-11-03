@@ -36,7 +36,7 @@ def dependencies_blocking(run, job):
 def record_awaiting(run, key, dependencies):
     for dependency in dependencies:
         waiting=run.state.setdefault("waiting_on",{}).setdefault(dependency,{})
-        waiting[key]={"reason":"依赖任务尚未产生可加载候选"}
+        waiting[key]={"reason":"Dependency job has not yet produced a loadable candidate"}
     run.store.save()
 
 
@@ -45,7 +45,7 @@ def record_job_exhausted(run, key, history):
     blocked=run.state.setdefault("blocked_jobs",{})
     if blocked.get(key,{}).get("kind")=="allocation_exhausted":return
     blocked[key]={"kind":"allocation_exhausted","attempts":len(history),
-        "reason":"该任务已用尽累计候选尝试；保留归档候选，恢复或依赖变化不重置消耗",
+        "reason":"This job has used up its cumulative candidate attempts; archived candidates are kept, and resume or dependency changes do not reset the count",
         "last":{k:v for k,v in (history[-1] if history else {}).items() if k in {"cycle","status","loadable"}}}
     run.store.save()
 
@@ -54,7 +54,7 @@ def record_job_blocked(run, key, reason):
     blocked=run.state.setdefault("blocked_jobs",{})
     if blocked.get(key,{}).get("kind")==reason:return
     blocked[key]={"kind":reason,
-        "reason":"检查器故障或任务暂挂，重复生成不会改变结果；保留现场等待环境或实现修复"}
+        "reason":"Checker fault or paused job; regenerating will not change the result. State is kept while waiting for an environment or implementation fix"}
     run.store.save()
 
 
@@ -179,8 +179,8 @@ def collect(run):
             if pending is None and len(current)>=3 and not any(a.get('loadable') for a in current):
                 record_job_blocked(run,key,'authoring_stalled')
                 run.state['blocked_jobs'][key].update(binding=binding,
-                    reason='连续三次初稿构建未成功；保留具体错误，独立任务继续',
-                    recovery_condition='相关依赖、修复指令或检查实现变化')
+                    reason='Initial draft build failed three times in a row; specific errors kept, independent jobs continue',
+                    recovery_condition='Related dependency, repair directive or check implementation changes')
                 continue
             last=current[-1] if current else {}
             if last.get("checker_fault") or last.get("task_deferred"):
@@ -192,12 +192,12 @@ def collect(run):
                     recoveries[recovery_key]={"job":key,"binding":binding,"status":"scheduled"}
                     run.state["blocked_jobs"].pop(key,None)
                     run.state.setdefault("task_recovery",{})[key]={"reason":kind,"binding":binding,
-                        "instruction":"保留当前脚本、当前任务和必要接口；无需重读全部历史。提交当前最佳候选或明确缺少的信息，不得伪造缺失图片或检查。"}
+                        "instruction":"Keep the current script, the current job and the necessary interfaces; no need to reread the full history. Submit the current best candidate or state exactly what information is missing; do not fabricate missing images or checks."}
                 else:
                     record_job_blocked(run,key,kind)
                     run.state["blocked_jobs"][key].update(binding=binding,
-                        recovery_condition="依赖、修复指令或对应检查实现变化",
-                        reason="检查器故障" if kind=="checker_fault" else "作者或详情交互暂挂；本输入的精简恢复机会已使用")
+                        recovery_condition="Dependency, repair directive or corresponding check implementation changes",
+                        reason="Checker fault" if kind=="checker_fault" else "Author or detail interaction paused; the compact-recovery chance for this input has been used")
                     continue
             elif blocked:
                 continue
@@ -311,7 +311,7 @@ def publish(run, missing):
         run.state["assembly_failure_summary"]={"attempts_at_this_size":len(similar)+1,
             "timed_out_at_this_size":sum(1 for h in similar if h.get("error_kind")=="backend_execution"),
             "last_timing":timing,
-            "detail":"记录同一装配输入的失败次数与实际时限；结合阶段日志定位原因。超时不能单独证明资产几何有误，修改组件或构型后重新统计"}
+            "detail":"Records failure count and actual time limit for the same assembly input; use stage logs to locate the cause. A timeout alone does not prove the asset geometry is wrong; counts restart after components or configuration change"}
         run.store.save()
         failed=run.commit("assembly_failure",{"report":report,"plan":plan})
         from .progress import repair_comparison
@@ -403,7 +403,7 @@ def audit_assets(run):
             earlier=current.get("feedback",{}).get("visual") or {}
             seen=earlier.get("verdict")=="repair" and earlier.get("source")!="numeric"
             review={"verdict":"repair","source":"numeric","unverified":[],"motion_coverage":[],
-                    "findings":failing_findings(report)+(["视觉审查（同一版本此前）："+f for f in earlier.get("findings",[])] if seen else [])}
+                    "findings":failing_findings(report)+(["Visual review (earlier, same version): "+f for f in earlier.get("findings",[])] if seen else [])}
             atomic_json(destination/"review.json",review)
             record.update(feedback={"numerical":report,"visual":review},status="failed",deferred_checks=[])
         elif images:
@@ -452,10 +452,10 @@ def schedule_asset_repairs(run):
         if history:history[-1]["result_score"]=score
         scores=[h["score"] for h in history]+[score]
         if len(history)>=QUALITY_REPAIRS:
-            unresolved[key]={"reason":f"已用完 {QUALITY_REPAIRS} 次资产质量修复","scores":scores,"artifact":current["artifact"]}
+            unresolved[key]={"reason":f"Used all {QUALITY_REPAIRS} asset quality repairs","scores":scores,"artifact":current["artifact"]}
             continue
         if len(scores)>=3 and scores[-1]>=scores[-2]>=scores[-3]:
-            unresolved[key]={"reason":"连续两次修复没有减少缺陷","scores":scores,"artifact":current["artifact"]}
+            unresolved[key]={"reason":"Two consecutive repairs did not reduce defects","scores":scores,"artifact":current["artifact"]}
             continue
         history.append({"artifact":current["artifact"],"score":score})
         current["regenerate"]="quality"
@@ -481,7 +481,7 @@ def failing_findings(report, limit=24):
             "trigger","moved_when_active_mm","moved_when_released_mm","moved_when_all_released_mm","moved_after_opening_mm",
             "requires_opening","trapped_by","high_error_fraction","low_error_fraction","locked_motion_fraction") if row.get(k) not in (None,[],{})}
         if measured:evidence.append(measured)
-        out.append(f"{row['id']}：检查失败；依据：{str(row.get('detail',''))[:240]}；证据：{evidence}"[:1600])
+        out.append(f"{row['id']}: check failed; basis: {str(row.get('detail',''))[:240]}; evidence: {evidence}"[:1600])
         if len(out)>=limit:break
     return out
 
@@ -557,7 +557,7 @@ def assess_scene(run,published):
     missing = published.get("missing_jobs", [])
     report["checks"].append({"id":"assembly_missing_jobs","status":"partial" if missing else "pass",
         "complete":not missing, "missing_jobs":missing,
-        "detail":"装配完整性；只说明计划对象是否到齐，不代表几何质量通过"})
+        "detail":"Assembly completeness; only states whether planned objects are all present, not that geometric quality passes"})
     report["status"]="error" if report.get("status")=="error" else report_status(report["checks"])
     run.state["current_assessment"]["report"]=deepcopy(report)
     run.state['status']='reviewing_scene'
@@ -572,7 +572,7 @@ def assess_scene(run,published):
         save_review_checkpoint(run,"scene",record)
         review,call=review_with_evidence(run,SCENE_REVIEW+REQUIREMENTS_POLICY+SCENE_SCOPE,
             {"plan":run.state["plan"],"checks":report,"fixed_contract":run.contract,"environment":run.env,
-             "layout_scope":"移动布局只提供粗略通道和距离建议；不要要求此阶段证明完整操作轨迹。必要活动机构、明显阻挡和真实仪器规格仍须审查。",
+             "layout_scope":"The mobile layout only gives rough aisle and distance suggestions; do not require proof of complete operating trajectories at this stage. Necessary moving mechanisms, obvious obstructions and real instrument specifications must still be reviewed.",
              "protocol":run.catalogue.get("protocol"),"deferred_checks":run.deferred_checks(),
              "review_scope":{"stage":"scene","validation_mode":"static"},
              "layout_review_targets":review_targets(run.state["plan"])},
@@ -636,7 +636,7 @@ def run_static(run):
             run.state["status"]="incomplete_scene" if missing else action
             run.state["stop_reason"]={"reason":"no_runnable_tasks",
                 "decision":action,"missing_jobs":missing,
-                "detail":"已处理可用候选、检查及可靠修复；剩余任务的缺口和局部失败保留在记录中"}
+                "detail":"Available candidates, checks and reliable repairs processed; gaps and local failures of remaining jobs are kept in the record"}
             break
         run.state["repair_pending"]=True
         run.store.save()
@@ -649,24 +649,24 @@ def write_status_page(run,result):
     """Unaccepted scenes remain visible; the page never changes artifact files."""
     import html,json
     assembly=result["assembly"]
-    title="完整诊断场景" if assembly["complete"] else "部分诊断场景（存在缺件）"
-    if not assembly["available"]:title="尚无可加载场景"
-    verdict="通过当前静态验收" if assembly["quality_accepted"] else "未通过最终验收"
-    body=f'<h1>{title}</h1><p>{verdict}；状态：{html.escape(result["status"])}</p>'
+    title="Complete diagnostic scene" if assembly["complete"] else "Partial diagnostic scene (parts missing)"
+    if not assembly["available"]:title="No loadable scene yet"
+    verdict="Passed current static acceptance" if assembly["quality_accepted"] else "Did not pass final acceptance"
+    body=f'<h1>{title}</h1><p>{verdict}; status: {html.escape(result["status"])}</p>'
     if result.get("scene_artifact"):
         artifact=safe_path(run.root,result["scene_artifact"])
-        body+=f'<p><a href="{(artifact/"model.xml").as_uri()}">MuJoCo 模型</a>（资源文件需随目录保留）</p>'
+        body+=f'<p><a href="{(artifact/"model.xml").as_uri()}">MuJoCo model</a> (resource files must stay with the directory)</p>'
         body+='<pre>'+html.escape(f".\\run.ps1 preview --run {run.root.name}")+'</pre>'
-    body+='<h2>缺失任务</h2><pre>'+html.escape(json.dumps(assembly["missing_jobs"],ensure_ascii=False))+'</pre>'
+    body+='<h2>Missing jobs</h2><pre>'+html.escape(json.dumps(assembly["missing_jobs"],ensure_ascii=False))+'</pre>'
     if assembly.get('ready_unassembled_jobs'):
-        body+='<h2>已保存、等待装配的资产</h2><pre>'+html.escape(json.dumps(assembly['ready_unassembled_jobs'],ensure_ascii=False,indent=2))+'</pre>'
+        body+='<h2>Saved assets awaiting assembly</h2><pre>'+html.escape(json.dumps(assembly['ready_unassembled_jobs'],ensure_ascii=False,indent=2))+'</pre>'
     for path in run.state.get("published_scene",{}).get("preview_paths",[])[:3]:
         body+=f'<img style="max-width:480px" src="{safe_path(run.root,path).as_uri()}">'
-    body+='<h2>当前证据与修复进展</h2><pre>'+html.escape(json.dumps(result.get('quality_progress',{}),ensure_ascii=False,indent=2))+'</pre>'
+    body+='<h2>Current evidence and repair progress</h2><pre>'+html.escape(json.dumps(result.get('quality_progress',{}),ensure_ascii=False,indent=2))+'</pre>'
     if result.get('repair_progress'):
         last=result['repair_progress'][-1]
-        body+='<p>最近修复：'+html.escape(str(last.get('outcome','待复查'))+' · '+str(last.get('selection','待选择')))+'</p>'
-    body+='<p><a href="scene_document.md">场景交付说明</a> · <a href="result.json">完整诊断与修复记录</a>；以下仅列检查摘要。</p><h2>检查事实与证据缺口</h2>'
+        body+='<p>Latest repair: '+html.escape(str(last.get('outcome','pending recheck'))+' · '+str(last.get('selection','pending selection')))+'</p>'
+    body+='<p><a href="scene_document.md">Scene delivery notes</a> · <a href="result.json">Full diagnostics and repair record</a>; only a check summary follows.</p><h2>Check facts and evidence gaps</h2>'
     for row in assembly["issues"]:
         if row.get("status")=="pass":continue
         body+='<details open><summary>'+html.escape(row["id"]+' · '+row.get("status","unknown"))+'</summary><pre>'

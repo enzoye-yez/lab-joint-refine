@@ -152,9 +152,9 @@ class RevisionTests(unittest.TestCase):
     def test_author_mobile_policy_matches_table_transform_and_legacy_stays_fixed(self):
         self.assertEqual(table_policy(self.env)["robot_protected_half_size_m"],0)
         prompt=author_layout_policy(self.env)
-        self.assertIn("工作台局部坐标",prompt)
-        self.assertNotIn("安装区固定",prompt)
-        self.assertIn("安装区固定",author_layout_policy({"robot":{}}))
+        self.assertIn("local coordinates of the worktable",prompt)
+        self.assertNotIn("mounting zone are fixed",prompt)
+        self.assertIn("mounting zone are fixed",author_layout_policy({"robot":{}}))
 
     def model(self, transport, calls=100, generation=None):
         store=Store(self.root/"run",{"implementation":"developer_fixture"},

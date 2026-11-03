@@ -28,9 +28,13 @@ class RecordedRecoveryTests(unittest.TestCase):
         plan=json.loads((data/'plan.json').read_text(encoding='utf-8'))
         original=copy.deepcopy(report)
         tasks={t['check_id']:t for t in repair_tasks(report,None,plan,'recorded-input')}
-        collisions=tasks['scene_collisions']
-        self.assertEqual(collisions['targets']['collisions'],report['checks'][0]['collisions'])
-        self.assertTrue(collisions['evidence_incomplete'])
+        # One task per colliding instance pair; together they carry every recorded hit.
+        pairs=[t for key,t in tasks.items() if key.startswith('scene_collisions:')]
+        hits=[h for t in pairs for h in t['targets']['collisions']]
+        key=lambda h:(h['geom1'],h['geom2'])
+        self.assertEqual(sorted(hits,key=key),sorted(report['checks'][0]['collisions'],key=key))
+        self.assertTrue(all(t['evidence_incomplete'] for t in pairs))
+        self.assertTrue(all(t['evidence_source']=='feedback.checks[id=scene_collisions]' for t in pairs))
         self.assertNotIn('support:grinding_sample',tasks)
         material=tasks['material_integrity:filter_train']
         self.assertEqual(material['target_coverage']['collisions'],{'included':32,'recorded':58,
@@ -94,9 +98,8 @@ class WorkflowTests(unittest.TestCase):
         from scene_generation.scene_first import collect,publish
         plan=self.mobile_plan()
         backend=TwoAssetBackend()
-        # Layout refinement now precedes the first non-asset (tool) job.
-        run,_=self.make([plan,fixture.ASSET,fixture.ASSET,fixture.ASSET,
-                         {'keep_layout':'developer fixture'},fixture.TOOL],backend)
+        # The room is arranged (no model call) before the first non-asset (tool) job.
+        run,_=self.make([plan,fixture.ASSET,fixture.ASSET,fixture.ASSET,fixture.TOOL],backend)
         run.initialize()
         self.assertEqual(collect(run),[])
         # The first asset is visible; all later assets are committed without full-scene loads.
@@ -111,8 +114,7 @@ class WorkflowTests(unittest.TestCase):
     def test_pause_keeps_staged_assets_and_resume_assembles_without_regenerating(self):
         plan=self.mobile_plan()
         backend=TwoAssetBackend()
-        run,_=self.make([plan,fixture.ASSET,fixture.ASSET,fixture.ASSET,
-                         {'keep_layout':'developer fixture'}],backend)
+        run,_=self.make([plan,fixture.ASSET,fixture.ASSET,fixture.ASSET],backend)
         generate=run.generate_job
         def pause_before_tool(job,*args,**kwargs):
             if job['role']=='tool':raise KeyboardInterrupt

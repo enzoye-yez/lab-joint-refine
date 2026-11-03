@@ -1,4 +1,4 @@
-"""阶段审查升级的离线复制工具：复核旧证据，保留账本，重新审查已有几何。"""
+"""Offline copy tool for stage-review upgrades: re-verifies old evidence, keeps the ledger, and re-reviews existing geometry."""
 
 import argparse
 import json
@@ -52,7 +52,7 @@ def copy_context_archive(source, target):
                     packed.write(path,path.relative_to(entry).as_posix())
                     count+=1;size+=path.stat().st_size
         with zipfile.ZipFile(temp) as packed:
-            require(packed.testzip() is None,'历史上下文压缩校验失败')
+            require(packed.testzip() is None,'historical context archive integrity check failed')
         temp.replace(archive)
         return {'directory':entry.name,'files':count,'original_bytes':size,
                 'archive_bytes':archive.stat().st_size,'sha256':file_hash(archive),'crc_verified':True}
@@ -63,32 +63,32 @@ def copy_context_archive(source, target):
             record=future.result()
             if record is not None:
                 receipts.append(record)
-                print(f"上下文归档 {len(receipts)}：{record['files']} 个原文件已无损保存",flush=True)
+                print(f"context archive {len(receipts)}: {record['files']} original files saved losslessly",flush=True)
     return receipts
 
 
 def prepare(project, source_name, target_name, before_file=None, kind="stage_review", *, resume_copy=False):
     source, target = run_directory(project, source_name), run_directory(project, target_name)
-    require((source / "state.json").is_file(), "源运行不存在")
-    require(resume_copy or not target.exists(), "目标运行已存在；禁止覆盖")
+    require((source / "state.json").is_file(), "source run does not exist")
+    require(resume_copy or not target.exists(), "target run already exists; overwriting is forbidden")
     with run_lock(source), (run_lock(target) if resume_copy else nullcontext()):
         if resume_copy:
             require((target/'state.json').is_file() and file_hash(target/'state.json')==file_hash(source/'state.json'),
-                    '仅能恢复账本尚未改变的复制中断；禁止覆盖已经升级或执行的运行')
+                    'only an interrupted copy whose ledger has not changed can be resumed; overwriting a run that was already upgraded or executed is forbidden')
         from asset_prep.state_archive import read_state, write_state
         state = read_state(source / "state.json")
         from asset_prep import implementation as manifest_source
         archive_only = kind == 'archive_revalidation'
         if archive_only:
-            require(before_file is None, '归档重验不冒充旧源码升级；不得提供未采用的旧源码清单')
+            require(before_file is None, 'archive revalidation does not pose as an old-source upgrade; do not supply an old source manifest that is not used')
             before = None
         else:
-            require(before_file is not None, '源码升级需要 --before-sources；缺失时不能自动跳过核验')
+            require(before_file is not None, 'a source upgrade requires --before-sources; verification cannot be skipped automatically when it is missing')
             before = json.loads(Path(before_file).read_text(encoding="utf-8"))
             legacy = digest(before)
             normalized = manifest_source.implementation_digest(before)
             require(state["identity"]["implementation"] in {legacy, normalized},
-                    "升级前源码清单与旧运行身份不匹配")
+                    "pre-upgrade source manifest does not match the old run identity")
             before = manifest_source.normalize_manifest(before)
         after = manifest_source.source_manifest(project)
         prefixed = lambda m: {("src/" + key): value for key, value in m.items()}
@@ -159,25 +159,25 @@ def prepare(project, source_name, target_name, before_file=None, kind="stage_rev
                        "src/asset_generation/sandbox.py", "src/asset_generation/worker.py",
                        "src/scene_generation/evidence.py", "src/scene_generation/pipeline.py",
                        "src/scene_generation/cli.py", "src/scene_generation/preview.py"}}
-        require(kind in options, "升级类型无效")
+        require(kind in options, "invalid upgrade kind")
         allowed = options[kind]
         require(archive_only or changed and {p.replace("\\", "/") for p in changed} <= allowed,
-                "存在阶段审查以外的源码变化，不支持本次升级")
+                "source changes outside stage review exist; this upgrade is not supported")
         scene = state["scene"]
-        require(not scene.get("pending") or kind in {"evidence_recovery", "transport_recovery", "evidence_pipeline", "agent_context", "review_contract", "phase_budget", "budget_limits", "repair_loop"}, "存在未归档工作区")
+        require(not scene.get("pending") or kind in {"evidence_recovery", "transport_recovery", "evidence_pipeline", "agent_context", "review_contract", "phase_budget", "budget_limits", "repair_loop"}, "an unarchived workspace exists")
         if kind in {'main_check_recovery', 'implementation_binding', 'archive_revalidation', 'evidence_pipeline'}:
             require(state['identity']['limits']['validation_mode']=='static'
                     and scene['status'] in {'needs_check_support','needs_environment','needs_review','paused',
                                             'scene_repair_budget_exhausted'},
-                    '主检查升级仅支持尚未通过验收的静态运行')
+                    'a main-check upgrade only supports static runs that have not passed acceptance')
             old_recovery = scene.pop('check_recovery',None)
             if old_recovery:
                 scene.setdefault('check_recovery_history',[]).append(old_recovery)
-            # 动作、调用和旧证据保留；旧运行没有范围收据，不能复用为当前通过依据。
+            # Actions, calls and old evidence are kept; the old run has no scope receipt, so it cannot be reused as grounds for a current pass.
             scene.pop('scene_review_resume',None)
         elif kind in {"evidence_recovery", "transport_recovery", "local_repair", "evidence_checks"}:
             require(state["identity"]["limits"]["validation_mode"] == "static"
-                    and scene["status"] in {"needs_review","paused"}, "只允许续接静态证据不足或网络暂停运行")
+                    and scene["status"] in {"needs_review","paused"}, "only static runs with insufficient evidence or paused by network errors may be continued")
         elif kind == "budget_limits":
             # The run limits become BUDGET (scripts/run_scene_batch.py); phase ceilings follow them.
             from asset_prep.phase_budget import ceilings
@@ -207,13 +207,13 @@ def prepare(project, source_name, target_name, before_file=None, kind="stage_rev
             # Only the scene share changed; the ceiling is recomputed from the saved entry totals
             # and the run limits (the final ceiling), never from what has been spent since.
             from asset_prep.phase_budget import ceilings
-            require(scene["status"] == "phase_budget_exhausted", "仅续接场景额度用尽的运行")
+            require(scene["status"] == "phase_budget_exhausted", "only runs that exhausted the scene budget are continued")
             allocation = state["phase_budget"]
             allocation["ceilings"] = ceilings(allocation["entry"], allocation["ceilings"]["final"])
         elif kind == "asset_checks":
             # Checker faults stopped the run; the new implementation digest re-audits every asset.
             require(state["identity"]["limits"]["validation_mode"] == "static"
-                    and scene["status"] in {"needs_environment", "paused"}, "仅续接检查器故障停止的静态运行")
+                    and scene["status"] in {"needs_environment", "paused"}, "only static runs stopped by a checker fault are continued")
             old_recovery = scene.pop("check_recovery", None)
             if old_recovery:
                 scene.setdefault("check_recovery_history", []).append(old_recovery)
@@ -221,9 +221,9 @@ def prepare(project, source_name, target_name, before_file=None, kind="stage_rev
             scene.pop("scene_review_resume", None)
         elif kind in {"agent_context", "review_contract"}:
             # Only how author requests reach the agent changed; every asset decision carries over.
-            require(scene["status"] in {"generating_candidates", "reviewing_assets", "paused"}, "仅续接资产生成或审查阶段中断的运行")
+            require(scene["status"] in {"generating_candidates", "reviewing_assets", "paused"}, "only runs interrupted during asset generation or asset review are continued")
         elif kind == "stage_review":
-            require(not scene.get("rounds") and not scene.get("latest"), "阶段审查升级只支持尚未装配的运行")
+            require(not scene.get("rounds") and not scene.get("latest"), "a stage-review upgrade only supports runs that have not been assembled")
         else:
             failures = scene.get("latest", {}).get("report", {}).get("checks", [])
             expected_error = "模型规模超限" if kind == "scene_capacity" else "近邻碰撞检查对数超限"
@@ -231,35 +231,35 @@ def prepare(project, source_name, target_name, before_file=None, kind="stage_rev
                 require(state["identity"]["limits"]["validation_mode"] == "static"
                         and scene["latest"]["report"]["status"] == "pass"
                         and scene["latest"]["review"]["verdict"] == "uncertain",
-                        "静态预览升级仅适用于工程检查通过、视觉证据不足的静态运行")
+                        "a static-preview upgrade only applies to static runs whose engineering checks passed but whose visual evidence is insufficient")
             else:
                 require(any(row.get("id") == "scene_build" and expected_error in row.get("detail", "") for row in failures),
-                        "场景升级只适用于已确认的对应工程限制")
+                        "a scene upgrade only applies to a confirmed matching engineering limit")
             require(all(j["status"] in {"candidate_ready", "assembly_ready"} and not j.get("dirty")
-                        for j in scene["jobs"].values()), "场景容量升级不改变任何资产审查结果")
+                        for j in scene["jobs"].values()), "a scene-capacity upgrade does not change any asset review result")
         unknown = any(c["status"] == "pending" for c in state["calls"])
-        require(not unknown or kind in {"evidence_recovery", "transport_recovery", "evidence_pipeline", "agent_context", "review_contract", "phase_budget", "budget_limits", "repair_loop"}, "存在结果不明请求，须先核对账单")
+        require(not unknown or kind in {"evidence_recovery", "transport_recovery", "evidence_pipeline", "agent_context", "review_contract", "phase_budget", "budget_limits", "repair_loop"}, "requests with unknown outcome exist; reconcile the billing ledger first")
         for call in state["calls"]:
             if call["status"] == "done":
-                require(file_hash(safe_path(source, call["file"])) == call["sha256"], "调用记录摘要不一致")
+                require(file_hash(safe_path(source, call["file"])) == call["sha256"], "call record digest mismatch")
         stages = {}
         for stage in scene["stages"]:
-            require(snapshot(safe_path(source, stage["directory"])) == stage["files"], "归档证据摘要不一致")
+            require(snapshot(safe_path(source, stage["directory"])) == stage["files"], "archived evidence digest mismatch")
             stages[stage["directory"].replace("\\", "/")] = stage
         if archive_only:
             require(scene.get('plan') and set(scene['jobs']) == {j['id'] for j in scene['plan']['jobs']}
                     and all(j['status'] in {'candidate_ready','assembly_ready'} and not j.get('dirty')
                             for j in scene['jobs'].values()),
-                    '归档重验只接受全部资产已归档、尚未通过完整场景验收的静态运行')
+                    'archive revalidation only accepts static runs whose assets are all archived and that have not passed full scene acceptance')
         recheck = []
         for key, job in scene["jobs"].items():
             if kind in {"agent_context", "review_contract", "asset_checks", "phase_budget", "budget_limits", "repair_loop"}:
                 break  # no job is marked; asset_checks re-audits through the implementation digest
             if kind=="evidence_pipeline":
                 owner=job.get("artifact_stage",job["stage"]).replace("\\", "/")
-                require(owner in stages and job.get("artifact"),"待重验资产缺少归档版本")
+                require(owner in stages and job.get("artifact"),"asset awaiting revalidation has no archived version")
                 artifact=safe_path(source,job["artifact"])
-                require(artifact.is_relative_to(safe_path(source,owner)) and (artifact/"model.xml").is_file(),"待重验产物无效")
+                require(artifact.is_relative_to(safe_path(source,owner)) and (artifact/"model.xml").is_file(),"artifact awaiting revalidation is invalid")
                 for field in ("quality_key","numeric_audit_key","assembly_readiness"):job.pop(field,None)
                 job.update(status="review_pending",dirty=True,needs_implementation_recheck=True)
                 recheck.append(key)
@@ -269,14 +269,14 @@ def prepare(project, source_name, target_name, before_file=None, kind="stage_rev
             if job["status"] == "failed" and job.get("feedback", {}).get("numerical", {}).get("status") != "pass":
                 continue
             owner = job.get("artifact_stage", job["stage"]).replace("\\", "/")
-            require(owner in stages, "资产版本无归档")
-            require(job.get("feedback", {}).get("numerical", {}).get("status") == "pass", "待重审资产没有通过工程检查")
-            require(job.get("source") and job.get("artifact") and job.get("preview_paths"), "待重审资产缺少模型或图像")
+            require(owner in stages, "asset version is not archived")
+            require(job.get("feedback", {}).get("numerical", {}).get("status") == "pass", "asset awaiting re-review did not pass engineering checks")
+            require(job.get("source") and job.get("artifact") and job.get("preview_paths"), "asset awaiting re-review is missing its model or images")
             for relative in [job["source"], *job["preview_paths"]]:
                 path = safe_path(source, relative)
                 stage_root = safe_path(source, owner)
                 belongs = path.is_relative_to(stage_root) and path.relative_to(stage_root).as_posix() in stages[owner]["files"]
-                # 只读复查可为原几何产生新图；须由已校验的阶段记录明确绑定原资产。
+                # A read-only recheck may render new images of the original geometry; a verified stage record must explicitly bind them to the original asset.
                 if not belongs and relative in job['preview_paths']:
                     for archived in stages.values():
                         evidence_root = safe_path(source, archived['directory'])
@@ -290,10 +290,10 @@ def prepare(project, source_name, target_name, before_file=None, kind="stage_rev
                                    and evidence.get('artifact') == job['artifact'])
                         if belongs:
                             break
-                require(belongs, "待重审模型或图像不属于已验证归档")
+                require(belongs, "model or images awaiting re-review do not belong to a verified archive")
             artifact = safe_path(source, job["artifact"])
             require(artifact.is_relative_to(safe_path(source, owner)) and (artifact / "model.xml").is_file(),
-                    "待重审资产产物无效")
+                    "artifact of asset awaiting re-review is invalid")
             layout_recheck=(kind=='main_check_recovery' and
                             next(j['role'] for j in scene['plan']['jobs'] if j['id']==key)!='asset')
             if kind == "stage_review" or kind in {'implementation_binding','archive_revalidation'} or (kind == "evidence_recovery" and job["status"] == "needs_review") or layout_recheck:
@@ -301,15 +301,15 @@ def prepare(project, source_name, target_name, before_file=None, kind="stage_rev
                 if kind in {'implementation_binding','archive_revalidation'}:
                     job['needs_implementation_recheck'] = True
                 if kind=='main_check_recovery':
-                    job['layout_revalidation']={'reason':'旧版本没有传递权威布局，使用实际位置重新核对原装置；不手工修改几何',
+                    job['layout_revalidation']={'reason':'the old version did not pass an authoritative layout; re-verify the original fixture at its actual position; geometry is not edited by hand',
                                                 'current_layout':digest(scene['plan']['instances'])}
                 recheck.append(key)
         if kind == "scene_repair":
-            # 只继承已归档模型决策，不从自由文本重新猜测应修资产。
+            # Inherit only archived model decisions; do not re-guess from free text which asset should be repaired.
             actions = [json.loads(safe_path(source, s["directory"]+"/action.json").read_text(encoding="utf-8"))
                        for s in scene["stages"] if s["kind"] == "repair"]
             directive = next((a for a in reversed(actions) if a["jobs"]), None)
-            require(directive is not None, "没有已归档的资产修复决策可继承")
+            require(directive is not None, "no archived asset repair decision to inherit")
             dirty = set(directive["jobs"])
             for key in scene["order"]:
                 job = next(j for j in scene["plan"]["jobs"] if j["id"] == key)
@@ -321,10 +321,10 @@ def prepare(project, source_name, target_name, before_file=None, kind="stage_rev
                 scene["jobs"][key]["status"] = "review_pending"
                 recheck.append(key)
             scene["repair_directive"] = directive
-        require(recheck or kind != "stage_review", "没有可复用的待重审资产")
-        # 拒绝复制链接；原状态文件与所有归档均不被修改。
+        require(recheck or kind != "stage_review", "no reusable asset awaiting re-review")
+        # Refuse to copy links; the original state file and all archives are left unmodified.
         for path in source.rglob("*"):
-            require(not path.is_symlink() and not (hasattr(path, "is_junction") and path.is_junction()), "运行目录包含链接")
+            require(not path.is_symlink() and not (hasattr(path, "is_junction") and path.is_junction()), "run directory contains links")
         receipt = {"kind":kind+"_upgrade", "at":time.time(), "source_run":source_name,
                    "source_state_sha256":file_hash(source / "state.json"),
                    "from":state["identity"]["implementation"], "to":digest(after),
@@ -334,46 +334,46 @@ def prepare(project, source_name, target_name, before_file=None, kind="stage_rev
                    "review_pending":recheck, "model_calls_added":0,
                    "unknown_request_preserved":unknown,
                    "pending_workspace_files":snapshot(safe_path(source,scene["pending"]["directory"])) if scene.get("pending") else {},
-                   "reason":("旧源码清单未保存，旧实现无法完整核验；仅续接经摘要验证的原资产、账本及预算，"
-                             "全部重新量测、复审并装配检查，不继承旧通过证据；这是工程干预后的续接，不是原冻结实验成功"
+                   "reason":("the old source manifest was not saved, so the old implementation cannot be fully verified; only the digest-verified original assets, ledger and budget are continued; "
+                             "everything is re-measured, re-reviewed and assembly-checked, and old pass evidence is not inherited; this is a continuation after engineering intervention, not a success of the original frozen experiment"
                              if archive_only else
-                             "保留资产、调用账本和历史动作；绑定新实现，重新量测已有资产并复审、重建检查场景；旧通过结论不继承"
+                             "keep assets, call ledger and action history; bind the new implementation, re-measure and re-review existing assets, and rebuild the check scene; old pass conclusions are not inherited"
                              if kind == 'implementation_binding' else
-                             "保留原始资产、场景和调用记录；升级本地保存、实际支撑检查及受限桌面修复，重新构建检查后由模型决策，不手工修改实验模型"
+                             "keep the original assets, scene and call records; upgrade local saving, actual-support checks and constrained tabletop repair; after rebuilding checks the model decides; the experiment model is not edited by hand"
                              if kind == "local_repair" else
-                             "原运行保持不变；在副本启用主检查恢复、实际布局传递及重新检查，旧场景结论不继承为通过"
+                             "the original run stays unchanged; the copy enables main-check recovery, actual-layout passing and re-checking; old scene conclusions are not inherited as a pass"
                              if kind == "main_check_recovery" else
-                             "保留原模型与账本；启用距离证据一致性核验、专项检查和有界补证重试，重建复核场景，旧结论不继承为通过"
+                             "keep the original model and ledger; enable distance-evidence consistency verification, targeted checks and bounded evidence-supplement retries; rebuild the re-check scene; old conclusions are not inherited as a pass"
                              if kind == "evidence_checks" else
-                             "保留资产、审查、待完成阶段与调用账本；仅升级传输恢复及资产展示，不改变验收结论"
+                             "keep assets, reviews, pending stages and call ledger; only upgrade transport recovery and asset display; acceptance conclusions are unchanged"
                              if kind == "transport_recovery" else
-                             "保留资产、检查、待完成阶段与调用账本；编码代理模式下请求整体交付上下文（超长部分写入文件）并并行预取，不改变验收结论"
+                             "keep assets, checks, pending stages and call ledger; in coding-agent mode, requests deliver the whole context (oversized parts written to files) and prefetch in parallel; acceptance conclusions are unchanged"
                              if kind == "agent_context" else
-                             "保留资产、检查与调用账本；审查延后项格式在提示中写明并接受同义键，格式失败的审查按原流程重审，不改变已有结论"
+                             "keep assets, checks and call ledger; the review deferred-item format is spelled out in the prompt and synonymous keys are accepted; reviews that failed format are re-reviewed by the original flow; existing conclusions are unchanged"
                              if kind == "review_contract" else
-                             "保留资产、审查记录与调用账本；修正构型按钮探测、按钮复位判定、连接释放探测耗时与多构型检查时限，"
-                             "全部资产按新实现重新量测并复审，旧检查结论不继承"
+                             "keep assets, review records and call ledger; fix configuration button probing, button reset judgment, connection-release probe duration and multi-configuration check time limits; "
+                             "all assets are re-measured and re-reviewed with the new implementation; old check conclusions are not inherited"
                              if kind == "asset_checks" else
-                             "保留资产、检查、审查与调用账本；总预算不变，场景阶段额度按新份额与操作阶段共用总额的90%"
+                             "keep assets, checks, reviews and call ledger; the total budget is unchanged; the scene-stage quota follows the new share and shares 90% of the total with the operation stage"
                              if kind == "phase_budget" else
-                             "保留资产、检查、审查与调用账本；模型调用次数与令牌总量上限改为原配置的两倍；未变化的资产审查结论沿用"
+                             "keep assets, checks, reviews and call ledger; the model call count and total token limits are doubled from the original configuration; review conclusions for unchanged assets are carried over"
                              if kind == "budget_limits" else
-                             "保留资产、审查记录与调用账本；修正探测误判、补充滑动保持与锁联动检查，失败资产在资产阶段直接修复；"
-                             "全部资产按新实现重新量测并复审"
+                             "keep assets, review records and call ledger; fix probe misjudgments, add slide-hold and lock-interlock checks, and repair failing assets directly in the asset stage; "
+                             "all assets are re-measured and re-reviewed with the new implementation"
                              if kind == "repair_loop" else
-                             "保留已有几何及账本，启用只读补证据后复审；未知请求保持pending且禁止自动重发"
+                             "keep existing geometry and ledger; re-review after enabling read-only evidence supplementation; unknown requests stay pending and automatic resend is forbidden"
                              if kind == "evidence_recovery" else
-                             "保留已有几何和工程检查，重新执行按阶段审查；旧结论不自动升级为通过"
+                             "keep existing geometry and engineering checks; re-run per-stage review; old conclusions are not automatically upgraded to a pass"
                              if kind == "stage_review" else
-                             "保留所有未验证事项；重新执行工程检查和近景审查，只交付当前静态布局预览"
+                             "keep all unverified items; re-run engineering checks and close-up review; deliver only the current static layout preview"
                              if kind == "static_preview" else
-                             "保留旧报告并重新检查；修正场景工程容量或粗筛，并完整继承已归档修复决策")}
+                             "keep the old report and re-check; fix scene engineering capacity or broadphase, and fully inherit archived repair decisions")}
         if resume_copy:
             for stage in scene['stages']:
-                require(snapshot(safe_path(target,stage['directory']))==stage['files'],'中断副本的阶段不完整或被修改')
+                require(snapshot(safe_path(target,stage['directory']))==stage['files'],'a stage of the interrupted copy is incomplete or modified')
             for call in state['calls']:
                 if call.get('file'):
-                    require(file_hash(safe_path(target,call['file']))==call['sha256'],'中断副本的响应不完整或被修改')
+                    require(file_hash(safe_path(target,call['file']))==call['sha256'],'a response of the interrupted copy is incomplete or modified')
         else:
             shutil.copytree(source, target, ignore=lambda directory,names:
                 [name for name in names if name=='.lock' or (Path(directory)==source and name=='request_context')])
@@ -382,7 +382,7 @@ def prepare(project, source_name, target_name, before_file=None, kind="stage_rev
             from asset_generation.contracts import GenerationConfig
             state["identity"]["generation"]=GenerationConfig(**state["identity"].get("generation",{})).identity()
             scene.pop("current_assessment",None)
-            receipt["reason"]="保留原资产、场景、账本和执行历史；副本绑定新证据数据流与上下文预算，重新量测复审，不继承旧通过结论；未知请求仍阻断发送"
+            receipt["reason"]="keep the original assets, scene, ledger and execution history; the copy binds the new evidence data flow and context budget, re-measures and re-reviews, and does not inherit old pass conclusions; unknown requests still block sending"
         state["identity"]["implementation"] = manifest_source.implementation_digest(after)
         state['identity']['binding'] = implementation.from_identity(project, state['identity'])
         implementation.archive_sources(project, target, state['identity']['implementation'])
@@ -398,7 +398,7 @@ def prepare(project, source_name, target_name, before_file=None, kind="stage_rev
                       continuation_note=receipt["reason"])
         if kind == "evidence_pipeline" and "assembly" in result:
             result["assembly"]["quality_accepted"]=False
-            result.setdefault("unverified",[]).append("工程版本已变化，旧检查结论仅保留为历史；须重新量测复审")
+            result.setdefault("unverified",[]).append("engineering version changed; old check conclusions are kept only as history; re-measure and re-review required")
         if kind == "stage_review":
             result.update(deferred_checks=[], blocking_reasons=[])
         atomic_json(target / "result.json", result)

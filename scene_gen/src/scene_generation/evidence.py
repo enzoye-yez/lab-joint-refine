@@ -1,4 +1,4 @@
-"""审查不确定时先补充实际证据，再复审；不改几何、不替审查器判定通过。"""
+"""When a review is uncertain, gather actual evidence first, then re-review; never change geometry and never decide a pass on the reviewer's behalf."""
 
 import hashlib
 import re
@@ -11,41 +11,41 @@ from asset_prep.errors import ValidationError,StaleEvidence,ContextLimitError
 from asset_prep.storage import atomic_json, digest
 
 
-PLAN = '''你是静态几何检查规划器。根据审查阻断原因及实际编译的inventory选择只读检查。
-只输出 {"requests":[...]}，每轮1至4项；不修改几何或要求，不执行Python。
-工具：
-1. {"kind":"view","joints":{"实际关节名":数值},"hide_bodies":["实际部件名"],"focus_body":"实际部件名或null","azimuth":45,"elevation":-35}
-   相机角度为度，范围azimuth=-360..360、elevation=-90..90；关节角度为弧度，位移米；只能设置实际有界hinge/slide关节；初始姿态为基准，每个视图单独设置全部所需关节。
-   hide_bodies隐藏部件及其后代用于内部剖视；只作为检查视图，不能声称实际拆卸成功。
-   优先开门/开盖，移除遮挡可用hide_bodies；若不清楚运动关系，用明确标注的剖视补证据。
-   focus_body必须实际存在，或JSON null表示整体。可用elevation=-90俯视、+90底视。view还支持focus_geoms:[实际几何名]精确取景，
-   hide_sites:true隐藏接口标记、zoom:0.25..4、diagnostic_light:true诊断照明；默认隐藏标记及增强暗表面。
-   quality.observable=false说明未观察到目标，不能算补齐证据。inventory含实际坐标和范围，按目标选取景。
-2. 仅scene阶段：{"kind":"clearance","instance":"实际实例编号","distance_m":0.05}
-   量测目标对其他仪器、机器人及夹具的当前三维几何距离，排除台面、地面，涵盖视觉及碰撞几何，不受碰撞过滤影响。
-   在查询距离以内给最小距离，否则只给距离下界。网格采用引擎凸包；不替代操作或传热性能验证。
-根据已有证据避免重复相同请求。量测阈值应来自原始要求；工具不会自动宣布验收通过。
-3. 仅scene：{"kind":"pairs","pairs":[["实际几何名1","实际几何名2"]],"distance_m":0.01}，最多32对，输出有符号距离、最近点、法向及一致性校验；用于原指定碰撞对复测，不能用总pass替代。
-4. 仅scene：{"kind":"support","instance":"实际实例编号"}，从场景声明的真实承托对象查找朝上接触；可增加object_geoms和support_geoms实际几何名列表，精确检查凸缘与承托台，避免盖边等无关邻近几何。正间隙不冒充接触。
-5. 仅scene：{"kind":"perimeter","instance":"实际实例编号","distance_m":0.05}，检查实际外包络之外、物体最低至最高高度之间的矩形周边区，区分包络内部/底部支撑与周边侵入；不是整体最小距离，不验证散热性能。
-6. 仅scene：{"kind":"mount","instance":"机械臂上工具的实例编号","distance_m":0.02}，实际法兰变换、工具根部、近邻机器人几何对；不能替代未建模的布线或未给出的制造规格。
-asset仅当inventory.configurations存在时必须加configuration并从其中选择；普通单构型清单省略configuration或用default。同批几何请求使用同一构型。\ninventory.geoms和sites提供真实名称。当前检查报告中的具体碰撞对可直接复测。承托异常先用support/pairs，周边净空用perimeter，安装用mount；不要只用图片替代这些数值证据。
-unresolved_checks列出仍未完成的检查，必须重试对应请求成功才能清除；其他图片或不同请求不会自动抵消量测错误。无法完成时明确报告blocked。
-validation_feedback包含空方案、工具异常或无效请求的历史，必须据此调整请求。没有合法blocked的空requests会触发有界重新规划。
-若确实不支持，可返回 {"requests":[],"blocked":{"kind":"unsupported_check|missing_requirement|measurement_error","detail":"具体缺失及已尝试方法"}}，不得把检查工具异常描述成资产几何缺陷。不要伪造不存在的关节或部件名。
+PLAN = '''You are a static geometry inspection planner. Choose read-only inspections from the review's blocking reasons and the actually compiled inventory.
+Output only {"requests":[...]}, 1 to 4 items per round; do not change geometry or requirements, do not execute Python.
+Tools:
+1. {"kind":"view","joints":{"actual joint name":value},"hide_bodies":["actual part name"],"focus_body":"actual part name or null","azimuth":45,"elevation":-35}
+   Camera angles are in degrees, azimuth=-360..360, elevation=-90..90; joint angles are in radians, displacements in metres; only actual bounded hinge/slide joints may be set; the initial pose is the baseline, and each view sets all the joints it needs on its own.
+   hide_bodies hides parts and their descendants for internal cutaway views; this is only an inspection view and must not be claimed as a successful actual disassembly.
+   Prefer opening doors/lids; hide_bodies may be used to remove occluders; if the motion relationship is unclear, gather evidence with an explicitly labelled cutaway.
+   focus_body must actually exist, or be JSON null for the whole. Use elevation=-90 for a top view and +90 for a bottom view. view also supports focus_geoms:[actual geom names] for precise framing,
+   hide_sites:true to hide interface markers, zoom:0.25..4, diagnostic_light:true for diagnostic lighting; by default markers are hidden and dark surfaces are enhanced.
+   quality.observable=false means the target was not observed and does not count as completed evidence. inventory contains actual coordinates and extents; choose framing by target.
+2. scene stage only: {"kind":"clearance","instance":"actual instance id","distance_m":0.05}
+   Measures the current 3D geometric distance from the target to other instruments, the robot and fixtures, excluding the tabletop and the floor, covering visual and collision geometry, unaffected by collision filtering.
+   Within the query distance it gives the minimum distance, otherwise only a lower bound. Meshes use the engine's convex hulls; this does not replace operation or heat-transfer performance verification.
+Use existing evidence to avoid repeating identical requests. Measurement thresholds must come from the original requirements; tools never declare acceptance passed by themselves.
+3. scene only: {"kind":"pairs","pairs":[["actual geom name 1","actual geom name 2"]],"distance_m":0.01}, at most 32 pairs; outputs signed distance, nearest points, normal and a consistency check; used to re-measure the originally specified collision pairs; an overall pass cannot substitute for it.
+4. scene only: {"kind":"support","instance":"actual instance id"}, finds upward-facing contact from the real support object declared by the scene; object_geoms and support_geoms lists of actual geom names may be added to check a flange against its support ledge precisely, avoiding unrelated nearby geometry such as lid edges. A positive gap never counts as contact.
+5. scene only: {"kind":"perimeter","instance":"actual instance id","distance_m":0.05}, checks the rectangular perimeter zone outside the actual outer envelope, between the object's lowest and highest heights, distinguishing support inside/under the envelope from perimeter intrusion; it is not an overall minimum distance and does not verify heat dissipation.
+6. scene only: {"kind":"mount","instance":"instance id of the tool on the robot arm","distance_m":0.02}, gives the actual flange transform, the tool root and nearby robot geometry pairs; it cannot replace unmodelled cabling or manufacturing specifications that were not given.
+For asset, only when inventory.configurations exists, configuration is required and must be chosen from it; an ordinary single-configuration inventory omits configuration or uses default. Geometric requests in the same batch use the same configuration.\ninventory.geoms and sites give the real names. Specific collision pairs in the current check report can be re-measured directly. For support anomalies use support/pairs first, perimeter for perimeter clearance, mount for mounting; do not substitute images alone for this numeric evidence.
+unresolved_checks lists inspections still incomplete; each is cleared only by successfully retrying the corresponding request; other images or different requests never cancel a measurement error. If it cannot be completed, report blocked explicitly.
+validation_feedback contains the history of empty plans, tool errors or invalid requests; adjust your requests accordingly. Empty requests without a valid blocked trigger bounded replanning.
+If truly unsupported, return {"requests":[],"blocked":{"kind":"unsupported_check|missing_requirement|measurement_error","detail":"what specifically is missing and the methods already tried"}}; never describe an inspection tool error as an asset geometry defect. Do not invent joint or part names that do not exist.
 '''
 
 
 def evidence_plan(value, scope):
-    require(isinstance(value,dict) and {'requests'}<=set(value)<={'requests','blocked'},'补证据计划字段无效')
+    require(isinstance(value,dict) and {'requests'}<=set(value)<={'requests','blocked'},'Invalid evidence plan fields')
     if 'blocked' in value:
         blocked=value['blocked']
         require(isinstance(blocked,dict) and set(blocked)=={'kind','detail'} and isinstance(blocked['kind'],str)
                 and blocked['kind'] in {'unsupported_check','missing_requirement','measurement_error'}
-                and isinstance(blocked['detail'],str) and blocked['detail'].strip(), '补证阻塞分类无效')
+                and isinstance(blocked['detail'],str) and blocked['detail'].strip(), 'Invalid evidence blocked classification')
     if value['requests']==[] and 'blocked' in value:
         return []
-    require(value['requests']!=[], '补证方案为空；请利用实际几何对、承托、周边区或安装检查重新规划，并说明不可执行的原因')
+    require(value['requests']!=[], 'Empty evidence plan; replan using actual geom pairs, support, perimeter or mount inspections, and state why they cannot be executed')
     from .context import ContextArchive
     requests=value['requests']
     require(isinstance(requests,list) and 1<=len(requests)<=4,"invalid evidence request count")
@@ -85,7 +85,7 @@ def working_state(state, unresolved, questions, limit=24):
         "attempted_actions": tried,
         "capability_gaps": state.get("capability_gaps", {}),
         "confirmed_facts": state.get("confirmed_facts", []),
-        "rule": "只用这里的事实选择下一批动作；需要原始记录时按 evidence_ref 分页读取，不要重建背景。",
+        "rule": "Choose the next batch of actions from these facts only; when the original records are needed, read them page by page via evidence_ref; do not rebuild the background.",
     }
 
 
@@ -187,7 +187,7 @@ def _review_with_evidence(run, instruction, context, images, phase, destination,
             if value["verdict"]=="uncertain":
                 answered={r["id"]:r for r in value.get("deferred_results",[])}
                 value={**value,"deferred_results":[answered.get(d["id"],{"id":d["id"],
-                    "status":"unresolved","evidence":"框架记录：该批审查暂挂；其他批次继续"}) for d in subset]}
+                    "status":"unresolved","evidence":"framework record: this batch's review is suspended; other batches continue"}) for d in subset]}
             batches.append(value)
         verdict="repair" if any(v["verdict"]=="repair" for v in batches) else "uncertain" if any(v["verdict"]=="uncertain" for v in batches) else "accept"
         combined={"verdict":verdict,"findings":list(dict.fromkeys(x for v in batches for x in v["findings"])),
@@ -282,7 +282,7 @@ def _review_with_evidence(run, instruction, context, images, phase, destination,
         outcomes[phase]={"reason":"task_deferred","detail":call["task_deferred"]}
         return review,call
     if any(reason.startswith("Visual review format invalid three times in a row") for reason in review.get("blocking",[])):
-        outcomes[phase]={"reason":"review_format_exhausted","detail":"审查约定未恢复，不能作为几何补查问题"}
+        outcomes[phase]={"reason":"review_format_exhausted","detail":"The review contract was not restored; this cannot be treated as a geometry evidence question"}
         save()
         return review,call
     if review["verdict"] != "uncertain" or not hasattr(run.sandbox,"inspect_artifact"):
@@ -290,7 +290,7 @@ def _review_with_evidence(run, instruction, context, images, phase, destination,
         return review,call
     from .recovery import repairable_rows
     if scope=="scene" and repairable_rows(context.get("checks") or {}):
-        outcomes[phase]={"reason":"confirmed_defects_first","detail":"先修复已有定位证据的缺陷；其他审查与缺口保留，修改后重新验证"}
+        outcomes[phase]={"reason":"confirmed_defects_first","detail":"Repair defects with existing localizing evidence first; other reviews and gaps are kept and re-verified after the change"}
         save()
         return review,call
     try:
@@ -300,7 +300,7 @@ def _review_with_evidence(run, instruction, context, images, phase, destination,
             inventory, _ = run.sandbox.inspect_artifact(artifact,destination/"evidence_inventory",scope,[{"kind":"inventory"}])
             state["inventory"]=inventory;save()
         inspection_results(inventory,[{'kind':'inventory'}])
-        require(inventory['status']=='pass', '实际几何清单检查未完成')
+        require(inventory['status']=='pass', 'The actual geometry inventory inspection is incomplete')
     except (ValidationError,OSError) as exc:
         inventory={'status':'incomplete','error':str(exc)}
     history,used,feedback,unresolved=[],set(),[],{}
@@ -347,7 +347,7 @@ def _review_with_evidence(run, instruction, context, images, phase, destination,
         atomic_json(destination/'evidence_outcome.json',outcome)
         return review,call
     if inventory.get("status")!="pass" or not isinstance(inventory.get("inventory"),dict):
-        return finish("inspection_unavailable",detail=inventory.get("error","实际几何清单尚不可用"))
+        return finish("inspection_unavailable",detail=inventory.get("error","The actual geometry inventory is not yet available"))
     if state.get("numeric_contract_failure"):
         review={**review,"verdict":"uncertain","findings":[],"blocking":[state["numeric_contract_failure"]]}
         return finish("inspection_unavailable",detail=state["numeric_contract_failure"])
@@ -388,7 +388,7 @@ def _review_with_evidence(run, instruction, context, images, phase, destination,
         run.check_pause()
         remember_questions(review)
         if not inventory.get("inventory"):
-            return finish('inspection_unavailable',detail=inventory.get('error','没有实际几何清单'))
+            return finish('inspection_unavailable',detail=inventory.get('error','No actual geometry inventory'))
         work = destination/f"evidence_{attempt+1}"
         work.mkdir(exist_ok=True)
         plan_state=state.setdefault("planning",{}).setdefault(str(attempt),{"attempts":0})
@@ -406,7 +406,7 @@ def _review_with_evidence(run, instruction, context, images, phase, destination,
                     "capabilities":[{"kind":"details","description":"Read complete archived evidence by evidence_ref with pagination; never changes check status"}]+[{"kind":c.id,"description":c.description} for c in REGISTRY.values()],
                     "round":attempt,"planning_attempt":planning_attempt,
                     "image_delivery":{"per_request_limit":run.generation.max_images,
-                        "archived_images":len(images),"policy":"图片分页读取；已有图片数不限制数值检查或新增观察"}},[],phase+":evidence_plan")
+                        "archived_images":len(images),"policy":"Images are read page by page; the number of existing images does not limit numeric inspections or new observations"}},[],phase+":evidence_plan")
                 atomic_json(work/("plan.json" if planning_attempt==0 else f"plan_{planning_attempt+1}.json"),{"response":value,"call":planning_call})
                 requests=evidence_plan(value,scope)
                 if not requests:
@@ -433,7 +433,7 @@ def _review_with_evidence(run, instruction, context, images, phase, destination,
                         plan_state["claimed_blocker"]=signature;save()
                         if previous==signature:
                             return finish("capability_blocked",blocked=value["blocked"],framework_alternatives=0)
-                        raise ValidationError("框架没有找到数值替代动作；请核对当前清单中的视图/详情能力，或再次说明具体不可执行原因")
+                        raise ValidationError("The framework found no numeric alternative action; check the view/details capabilities in the current inventory, or state the specific reason it cannot be executed again")
                 for request in requests:
                     if request.get("question") in aliases:
                         request["question"]=aliases[request["question"]]
@@ -457,9 +457,9 @@ def _review_with_evidence(run, instruction, context, images, phase, destination,
                 keys=[action_key(r) for r in requests]
                 cached={k:state["actions"][k]["result"] for k in keys if k in used and state["actions"][k].get("effective") and state["actions"][k].get("result")}
                 require(not any(k in used and k not in cached for k in keys),
-                        '该动作已执行但证据仍不完整，或临时重试耗尽；已有结果见previous_evidence，须说明不同方法或明确能力阻塞')
+                        'This action was already executed but the evidence is still incomplete, or its transient retries are exhausted; see previous_evidence for existing results; propose a different method or state an explicit capability blocker')
                 if len(cached)==len(keys) and state.get("last_reused_keys")==keys:
-                    return finish("evidence_no_progress",detail="连续重复已有证据，未提出可消除不确定性的新动作")
+                    return finish("evidence_no_progress",detail="Existing evidence was repeated consecutively; no new action that could remove the uncertainty was proposed")
                 plan_state["attempts"]=planning_attempt+1;save()
                 break
             except (ValidationError,ContextLimitError) as exc:
@@ -467,7 +467,7 @@ def _review_with_evidence(run, instruction, context, images, phase, destination,
                 feedback.append({'round':attempt,'attempt':planning_attempt,'response':value,'error':str(exc)})
                 plan_state['feedback']=feedback;save()
                 atomic_json(work/'planning_feedback.json',feedback)
-                print(f'补证方案重新规划：{exc}（{planning_attempt+1}/{attempts}）',flush=True)
+                print(f'Evidence plan replanning: {exc} ({planning_attempt+1}/{attempts})',flush=True)
         else:
             return finish('evidence_planning_exhausted')
         state["last_reused_keys"]=keys if len(cached)==len(keys) else None
@@ -520,18 +520,18 @@ def _review_with_evidence(run, instruction, context, images, phase, destination,
                     result.update(complete=False,error=str(exc),error_kind="program")
                     state["actions"][action_key(result["request"])].update(effective=False,retryable=False)
         history.append(evidence)
-        # 不允许后续一张成功图片掩盖之前未完成的数值检查。
+        # A later successful image must not mask an earlier incomplete numeric inspection.
         results={digest(r['request']):r for r in evidence.get('results',[]) if 'request' in r}
         for item in requests:
             item_key=coverage_key(item)
             result=results.get(digest(item),{})
             failed=result.get('error') or result.get('error_kind') or incomplete(result)
             if failed or not result:
-                unresolved[item_key]={'request':item,'error':failed or evidence.get('error','检查未完成')}
+                unresolved[item_key]={'request':item,'error':failed or evidence.get('error','inspection incomplete')}
             else:
                 unresolved.pop(item_key,None)
         if evidence.get('status')!='pass':
-            feedback.append({'round':attempt,'requests':requests,'error':'检查未完成；请针对具体量测异常选择其他可验证证据','details_ref':archive.reference(evidence)})
+            feedback.append({'round':attempt,'requests':requests,'error':'Inspection incomplete; choose other verifiable evidence that addresses the specific measurement error','details_ref':archive.reference(evidence)})
         # A question whose alternative observations keep failing does not earn unlimited
         # rounds: it becomes an explicit capability gap and stops holding the round open.
         blocked_now = {item: info for item, info in unresolved.items()
@@ -544,7 +544,7 @@ def _review_with_evidence(run, instruction, context, images, phase, destination,
         exhausted = sorted(item for item, count in stalled.items() if count >= 3)
         if exhausted:
             feedback.append({"round": attempt, "observations_unavailable": exhausted,
-                             "error": "同一问题连续三批观察未能取到可判读目标；保留未知并转入可执行的其他工作",
+                             "error": "Three consecutive observation batches for the same question failed to capture a readable target; keep it unknown and move on to other executable work",
                              "details_ref": archive.reference(evidence)})
             unresolved = {k: v for k, v in unresolved.items() if k not in exhausted}
             state.setdefault("capability_gaps", {}).update(
@@ -571,12 +571,12 @@ def _review_with_evidence(run, instruction, context, images, phase, destination,
             result = validator(value)
             require(not numerical_defects or result["verdict"] not in {"accept","defer"},"confirmed numerical defects cannot be accepted")
             require((evidence.get("status") == "pass" and not unresolved) or result["verdict"] not in {"accept","defer"},
-                    "仍有未完成的补证检查，不能自动通过或延后；须重试对应检查、保留不确定或指出已知缺陷")
+                    "Evidence inspections are still incomplete; cannot pass or defer automatically; retry the corresponding inspections, keep uncertain, or name the known defects")
             return result
         review, call = ask(instruction+'''
-补充图像是框架从同一实际几何渲染的静态检查姿态。被隐藏的部件及设置的关节写在supplemental_evidence；
-不能把剖视隐藏当作原模型缺件，不能把改变检查姿态当作修改已交付初态或执行过拆卸操作。
-补充量测只是证据，不自动覆盖原要求。证实实际缺陷用repair；无法补齐才保持uncertain。
+Supplemental images are static inspection poses rendered by the framework from the same actual geometry. Hidden parts and set joints are recorded in supplemental_evidence;
+do not treat cutaway hiding as parts missing from the original model, and do not treat a changed inspection pose as a modification of the delivered initial state or as a performed disassembly.
+Supplemental measurements are only evidence and never override the original requirements. Use repair for confirmed actual defects; keep uncertain only if the evidence cannot be completed.
 ''',request,images,phase,work,validator=checked)
         atomic_json(work/"review.json",{"review":review,"call":call})
         entry.update(review=review,call=call);save()
@@ -600,7 +600,7 @@ def _review_with_evidence(run, instruction, context, images, phase, destination,
         exhausted = sorted(item for item, count in stalled.items() if count >= 3)
         if exhausted:
             feedback.append({"round": attempt, "observations_unavailable": exhausted,
-                             "error": "同一问题连续三批观察未能取到可判读目标；保留未知并转入可执行的其他工作",
+                             "error": "Three consecutive observation batches for the same question failed to capture a readable target; keep it unknown and move on to other executable work",
                              "details_ref": archive.reference(evidence)})
             # Do not let the same failed observation class keep the round open.
             unresolved = {k: v for k, v in unresolved.items() if k not in exhausted}
@@ -611,40 +611,40 @@ def _review_with_evidence(run, instruction, context, images, phase, destination,
 
 
 PLAN += """
-每个请求可附question，引用questions中的稳定问题编号，不能新造验收要求。
-working_state是本会话的可复用状态：已经尝试过的动作及结果、仍未解决的问题、已确认的可观察事实。
-用这些事实直接选择下一批动作；需要原始记录时才按details分页读取，不要为了重建背景而重复读同一内容。
-同一问题、同一目标的失败观察可用另一角度替代；其他目标的图片不能清除原缺口。
-capability_gaps中的项目已判定为不可观测，不要再为它们提出同一类观察。
-capabilities列出新增只读工具；material支持asset或scene（scene须instance），检查实体连接和内部交叠。
-成功执行过的单项动作不能靠重组请求批次或改写原因重复。观察失败后应更换目标几何、角度、遮挡或采用对应数值能力。
+Each request may carry question, referencing a stable question id in questions; do not invent new acceptance requirements.
+working_state is this session's reusable state: actions already tried and their results, still-unresolved questions, and confirmed observable facts.
+Choose the next batch of actions directly from these facts; read details page by page only when the original records are needed, and do not re-read the same content to rebuild the background.
+A failed observation of the same question and target may be replaced by another angle; images of other targets cannot clear the original gap.
+Items in capability_gaps have been judged unobservable; do not propose the same kind of observation for them again.
+capabilities lists additional read-only tools; material supports asset or scene (scene requires instance) and checks solid connectivity and internal overlap.
+A single action that already succeeded cannot be repeated by regrouping request batches or rewording the reason. After a failed observation, change the target geometry, angle or occlusion, or use the corresponding numeric capability.
 """
 
 
 def validate_inventory(requests, inventory, scope):
     """Reject impossible requests before starting the inspection worker."""
     geometric=[r for r in requests if r["kind"] not in {"details","inventory"}]
-    require(len({r.get("configuration") for r in geometric})<=1,"同批几何请求须使用同一构型")
+    require(len({r.get("configuration") for r in geometric})<=1,"Geometric requests in the same batch must use the same configuration")
     for request in geometric:
         current=inventory
         if scope=="asset":
             options=inventory.get("configurations")
             name=request.get("configuration")
             if options is not None:
-                require(name in options,"缺少或未知构型；可用configuration="+str(sorted(options)))
+                require(name in options,"Missing or unknown configuration; available configuration="+str(sorted(options)))
                 current=options[name]
-            else:require(name in (None,"default"),"单构型资产仅允许省略configuration或default")
+            else:require(name in (None,"default"),"A single-configuration asset only allows omitting configuration or default")
         fields={"bodies":request.get("hide_bodies",[])+([request["focus_body"]] if request.get("focus_body") else []),
                 "geoms":request.get("focus_geoms",[])+request.get("object_geoms",[])+request.get("support_geoms",[])+[n for pair in request.get("pairs",[]) for n in pair],
                 "instances":[request["instance"]] if "instance" in request else []}
         for field,names in fields.items():
             if field in current:
                 unknown=sorted(set(names)-set(current[field]))
-                require(not unknown,field+"引用未知对象="+str(unknown)+"；合法名称见当前inventory."+field)
+                require(not unknown,field+" references unknown objects="+str(unknown)+"; valid names are in the current inventory."+field)
         if "joints" in current:
             joints={r["name"]:r for r in current["joints"]}
             for name,value in request.get("joints",{}).items():
-                require(name in joints,"未知关节="+name+"；合法关节见当前inventory.joints")
+                require(name in joints,"unknown joint="+name+"; valid joints are in the current inventory.joints")
                 joint=joints[name]
                 require(joint["limited"] and joint["type"] in (2,3) and joint["range"][0]<=value<=joint["range"][1],
-                        "关节必须为有界滑动/转动且值在范围内："+str(joint))
+                        "Joint must be a bounded slide/hinge with a value within range: "+str(joint))

@@ -1,4 +1,4 @@
-"""导出当前已有资产图片，不运行建模脚本或调用模型。"""
+"""Export the existing asset images without running modeling scripts or calling the model."""
 import argparse
 from pathlib import Path
 import sys

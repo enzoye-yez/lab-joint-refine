@@ -45,23 +45,23 @@ class PreviewEntryTests(unittest.TestCase):
     def test_stale_index_and_changed_artifact_cannot_reuse_quality(self):
         write_preview_index(self.run,self.result)
         self.result["status"]="changed";atomic_json(self.run/"result.json",self.result)
-        with self.assertRaisesRegex(ValidationError,"版本不一致"):resolve_artifact(self.root,"example")
+        with self.assertRaisesRegex(ValidationError,"does not match the result version"):resolve_artifact(self.root,"example")
         write_preview_index(self.run,self.result)
         (self.artifact/"model.xml").write_text("changed")
-        with self.assertRaisesRegex(ValidationError,"场景文件已变化"):resolve_artifact(self.root,"example")
+        with self.assertRaisesRegex(ValidationError,"scene files changed"):resolve_artifact(self.root,"example")
 
     def test_missing_invalid_oversized_and_no_scene_have_distinct_errors(self):
         p=self.run/"result.json"
         p.unlink()
-        with self.assertRaisesRegex(ValidationError,"缺少结果文件"):resolve_artifact(self.root,"example")
+        with self.assertRaisesRegex(ValidationError,"missing result file"):resolve_artifact(self.root,"example")
         p.write_text("broken")
         with self.assertRaisesRegex(ValidationError,"Invalid structured file"):resolve_artifact(self.root,"example")
         p.write_text("[]")
-        with self.assertRaisesRegex(ValidationError,"必须为对象"):resolve_artifact(self.root,"example")
+        with self.assertRaisesRegex(ValidationError,"must be an object"):resolve_artifact(self.root,"example")
         with p.open("wb") as f:f.truncate(64000001)
         with self.assertRaisesRegex(ValidationError,"64 MB"):resolve_artifact(self.root,"example")
         atomic_json(p,{"scene_artifact":None})
-        with self.assertRaisesRegex(ValidationError,"尚无已发布场景"):resolve_artifact(self.root,"example")
+        with self.assertRaisesRegex(ValidationError,"no published scene yet"):resolve_artifact(self.root,"example")
 
     def test_paths_remain_confined_and_missing_model_is_not_report_size_error(self):
         for name in ("../outside","C:/outside"):
@@ -70,7 +70,7 @@ class PreviewEntryTests(unittest.TestCase):
         with self.assertRaises(ValidationError):resolve_artifact(self.root,"example")
         self.result["scene_artifact"]="artifact";atomic_json(self.run/"result.json",self.result)
         (self.artifact/"model.xml").unlink()
-        with self.assertRaisesRegex(ValidationError,"model.xml 文件缺失"):resolve_artifact(self.root,"example")
+        with self.assertRaisesRegex(ValidationError,"model.xml file of the published scene is missing"):resolve_artifact(self.root,"example")
 
     def test_failed_index_write_keeps_old_index_and_detects_publication_gap(self):
         write_preview_index(self.run,self.result)
@@ -79,6 +79,6 @@ class PreviewEntryTests(unittest.TestCase):
         with patch("scene_generation.preview.atomic_json",side_effect=OSError("interrupted")):
             with self.assertRaises(OSError):write_preview_index(self.run,self.result)
         self.assertEqual((self.run/"preview.json").read_bytes(),original)
-        with self.assertRaisesRegex(ValidationError,"版本不一致"):resolve_artifact(self.root,"example")
+        with self.assertRaisesRegex(ValidationError,"does not match the result version"):resolve_artifact(self.root,"example")
         write_preview_index(self.run,self.result)
         self.assertEqual(resolve_artifact(self.root,"example")[2]["status"],"new_result")

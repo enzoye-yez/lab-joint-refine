@@ -119,7 +119,7 @@ class EvidenceLoopTests(unittest.TestCase):
     def test_empty_plan_is_corrected_without_discarding_review(self):
         review,_=self.run_review([UNCERTAIN,{'requests':[]},{'requests':[VIEW]},ACCEPT])
         self.assertEqual(review['verdict'],'accept')
-        self.assertIn('为空',self.requests[2][0]['validation_feedback'][0]['error'])
+        self.assertIn('Empty evidence plan',self.requests[2][0]['validation_feedback'][0]['error'])
 
     def test_failed_query_can_retry_but_successful_query_cannot_repeat(self):
         review,_=self.run_review([UNCERTAIN,{'requests':[VIEW]},UNCERTAIN,

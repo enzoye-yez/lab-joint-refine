@@ -70,7 +70,7 @@ class SceneFirstTests(unittest.TestCase):
         # An incomplete measurement is never waved through: the scene stops for checker
         # support with the gap listed, and is not a quality acceptance.
         self.assertEqual(result['status'],'needs_check_support')
-        self.assertTrue(any('主检查未完成' in u for u in result['unverified']))
+        self.assertTrue(any('Main check incomplete' in u for u in result['unverified']))
         self.assertTrue(result['assembly']['complete']);self.assertFalse(result['assembly']['quality_accepted'])
         self.assertTrue(any(x['id']=='asset:instrument:material_integrity' and x['status']=='partial' for x in result['assembly']['issues']))
         self.assertTrue((r.root/result['scene_artifact']/'model.xml').is_file())

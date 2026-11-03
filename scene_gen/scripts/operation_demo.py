@@ -1,4 +1,4 @@
-"""开发者合成演示：不读取基准、不调用模型、不作为正式实验结果。"""
+"""Developer synthetic demo: does not read benchmarks, call the model, or count as a formal experiment result."""
 import argparse
 from pathlib import Path
 import sys

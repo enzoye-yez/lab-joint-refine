@@ -1,4 +1,4 @@
-"""由未解决的证据义务和故障义务调度恢复；状态是执行事实的派生结果。"""
+"""Schedule recovery from unresolved evidence and fault obligations; state is derived from execution facts."""
 
 from copy import deepcopy
 
@@ -45,7 +45,7 @@ def recover(run, report, artifact, destination):
     publish('evidence_recovery_started')
     while True:
         run.check_pause()
-        # 同版本的独立已完成证据也可以解除后来发现的故障，不需要重新执行。
+        # Independent completed evidence of the same version can also clear a later-discovered fault without re-execution.
         for action in actions:
             cap = REGISTRY.get(action['capability'])
             if cap and action['status']=='completed' and action.get('result'):
@@ -76,7 +76,7 @@ def recover(run, report, artifact, destination):
                 for request in proposed:
                     validate_request(request)
                     require(request.get('full_scene') or set(request['checks']) <= {r['id'] for r in report.get('checks',[])},
-                            '补查请求包含不存在的检查')
+                            'supplementary check request contains nonexistent checks')
             except Exception as exc:
                 failure = exception_failure(exc,cap.id)
                 query_failures[cap.id] = failure
@@ -99,12 +99,12 @@ def recover(run, report, artifact, destination):
                     inspected['excluded'].append({'key':key,'reason':reason})
                     retry_exhausted |= exhausted
                     continue
-                # 未执行的备用能力优先于失败方法的重试；不会被反复失败的方法饿死。
+                # Unexecuted fallback capabilities take priority over retrying a failed method, so they are never starved by a repeatedly failing method.
                 candidates.append((1 if previous and previous['status']=='failed' else 0,
                                    cap,request,key,previous,reason))
         if not candidates:
             if new_query_fault:
-                continue  # 给其他能力一次消费新故障范围并重新提案的机会。
+                continue  # Give other capabilities a chance to consume the new fault scope and re-propose.
             session.update(status='budget_exhausted' if retry_exhausted else 'completed', report=deepcopy(report),
                 exhaustion={'reason':'recovery_retry_budget' if retry_exhausted else 'no_executable_action',
                             'capabilities':audit,'action_keys':[a['key'] for a in actions],
@@ -137,7 +137,7 @@ def recover(run, report, artifact, destination):
         action.update(status='started',base_report_key=digest(semantic(report)))
         action.pop('failure',None)
         action.pop('result',None)
-        # 进度基准跟随动作本身：中断恢复重放时也不能错用别的动作的前态。
+        # The progress baseline follows the action itself: a replay after interruption must not use another action's prior state.
         if not replay or 'before_report' not in action:
             action['before_report'] = deepcopy(report)
         session['attempts'] = max(session.get('attempts',0),action['attempts'])
@@ -156,12 +156,12 @@ def recover(run, report, artifact, destination):
                           'failure':exception_failure(exc,cap.id)}
             finally:
                 if snapshot(artifact)!=source:
-                    raise StaleEvidence('只读恢复修改了原场景，拒绝消费')
-            # 保存故障收据与成功收据使用同一协议。磁盘写入故障上抛，不能误算工具重试。
+                    raise StaleEvidence('read-only recovery modified the original scene; refusing to consume it')
+            # Fault receipts and success receipts are saved with the same protocol. Disk write failures propagate and must not be miscounted as tool retries.
             output.mkdir(parents=True,exist_ok=True)
             atomic_json(receipt,result)
         if snapshot(artifact)!=source:
-            raise StaleEvidence('恢复输入已变化')
+            raise StaleEvidence('recovery input has changed')
         try:
             validate_result(result,request,fingerprint,run.limits.validation_mode)
             failure = result.get('failure')
@@ -178,7 +178,7 @@ def recover(run, report, artifact, destination):
                 scope='scene' if request.get('full_scene') else 'pairs' if 'pairs' in request else getattr(cap,'failure_scope','checks'))
         execution = action['executions'][-1]
         execution.update(status=action['status'])
-        # 动作状态与证据进展分开记录：摘要变化不等于问题解决。
+        # Action status and evidence progress are recorded separately: a digest change does not mean the issue is resolved.
         progress = evidence_progress(action.get('before_report', report), report, cap, request,
                                      status=action['status'], failure=deepcopy(failure), result=result)
         action['effective'] = progress['evidence_changed']

@@ -1,4 +1,4 @@
-"""完整场景独立检查与操作姿态探测；不将离散可达性称为完整轨迹。"""
+"""Independent whole-scene checks and operating-pose probing; discrete reachability is never called a complete trajectory."""
 
 from pathlib import Path
 import numpy as np
@@ -51,7 +51,7 @@ def representative(hits, limit=100):
 
 
 def upward_resultant(contacts):
-    """多个无摩擦接触的法向锥能否形成竖直合力；不认证力矩或稳定性。"""
+    """Whether the normal cones of several frictionless contacts can form a vertical resultant force; does not certify torque or stability."""
     normals = np.array([c['normal'] for c in contacts])
     if not len(normals):
         return False
@@ -74,7 +74,7 @@ def support_evidence(model, data, item, tolerance, collision_tolerance, geometry
 
 def _support_evidence(model, data, item, tolerance, collision_tolerance, geometry, query=None,
                      object_geoms=None, support_geoms=None, max_pairs=200000):
-    """寻找朝上的实际承托接触，允许凸缘承托；侧壁接近不等同于支撑。"""
+    """Find actual upward-facing support contacts, allowing flange/lip support; side-wall proximity is not support."""
     own = [g for g in geometry if owner(model,g) == item["id"]]
     query = query or DistanceQuery(model,data)
     parent = item.get("support_instance")
@@ -86,7 +86,7 @@ def _support_evidence(model, data, item, tolerance, collision_tolerance, geometr
         parents = [model.geom("environment__floor").id]
     for selection, ids in ((object_geoms,own),(support_geoms,parents)):
         if selection is not None:
-            require(set(selection) <= {model.geom(g).name for g in ids}, "承托检查几何越出指定实例或真实支撑对象")
+            require(set(selection) <= {model.geom(g).name for g in ids}, "Support-check geoms fall outside the specified instance or the real supporting object")
     if object_geoms is not None:
         own = [g for g in own if model.geom(g).name in object_geoms]
     if support_geoms is not None:
@@ -116,7 +116,7 @@ def _support_evidence(model, data, item, tolerance, collision_tolerance, geometr
                 errors.append({**evidence,'outcome':'unknown',
                     'geom1':model.geom(g1).name,'geom2':model.geom(g2).name,
                     'instances':[item['id'],parent or 'environment'],
-                    'error':'距离界限不能证明承托接触或排除承托候选'})
+                    'error':'Distance bounds cannot prove a support contact or rule out a support candidate'})
             continue
         nearest = distance if nearest is None else min(nearest,distance)
         if not -collision_tolerance <= distance <= tolerance:
@@ -163,7 +163,7 @@ def _support_evidence(model, data, item, tolerance, collision_tolerance, geometr
         skipped += components['component_unexamined_pairs']
         if components['component_unexamined_pairs']:
             errors.append({'error_kind':'resource_limit','unexamined_pairs':components['component_unexamined_pairs'],
-                           'instances':[item['id']],'detail':'独立组件之间的承托接触尚未检查完'})
+                           'instances':[item['id']],'detail':'Support contacts between independent components have not been fully checked'})
     return {"support_tolerance_m":tolerance,"collision_tolerance_m":collision_tolerance,
             "supported":supported,"complete":not error_count and not skipped,
             "gap_m":min((c["distance_m"] for c in contacts),default=nearest),
@@ -172,15 +172,15 @@ def _support_evidence(model, data, item, tolerance, collision_tolerance, geometr
             "unexamined_pairs":skipped,"contact_epsilon_m":min(tolerance,1e-5),
             "vertical_resultant_available":upward_resultant(contacts),
             **components,
-            "reason":"各独立组件均有承托或实际连接链；未检查连接制造适配及力矩平衡" if supported and components.get('component_scope')=='whole_instance' else
-                     "部分独立组件没有已验证的承托链，详见component_support" if components.get('component_scope')=='whole_instance' and contacts else
-                     "接触法向可以形成向上的竖直合力；未检查力矩平衡" if supported else
-                     "存在倾斜接触但不能证明其法向形成竖直合力" if contacts else
-                     "未找到邻近承托几何" if not examined else "邻近几何没有满足间隙与朝上方向的承托接触"}
+            "reason":"Every independent component has support or an actual connection chain; connection manufacturability/fit and torque balance not checked" if supported and components.get('component_scope')=='whole_instance' else
+                     "Some independent components have no verified support chain; see component_support" if components.get('component_scope')=='whole_instance' and contacts else
+                     "Contact normals can form an upward vertical resultant force; torque balance not checked" if supported else
+                     "Inclined contacts exist but their normals cannot be shown to form a vertical resultant force" if contacts else
+                     "No nearby support geometry found" if not examined else "Nearby geometry has no support contact satisfying the gap and upward-direction criteria"}
 
 
 def render_details(model, home, plan, output):
-    """当前完整场景中的实例近景；不切换姿态、不推进物理时间。"""
+    """Close-up of an instance in the current whole scene; does not change pose or advance physics time."""
     from PIL import Image
     output = Path(output)
     data = mujoco.MjData(model)
@@ -222,8 +222,8 @@ def reach_target(model, home, env, target, limits, recovery=False):
     from .tool_contract import has_free_parts
     if has_free_parts(model, target["tool_site"].split("__")[0]+"__"):
         return {"status":"partial", "target":target,
-                "coverage_gaps":[{"error_kind":"unsupported_check", "detail":"可拆末端需要约束耦合的运动学求解"}],
-                "detail":"当前逆运动学只求解永久运动树，不能认证含自由可拆部件的操作姿态"}
+                "coverage_gaps":[{"error_kind":"unsupported_check", "detail":"A detachable end-effector requires a constraint-coupled kinematic solve"}],
+                "detail":"Current inverse kinematics solves only the permanent kinematic tree and cannot certify operating poses involving free detachable parts"}
     data = mujoco.MjData(model)
     data.qpos[:] = home
     mujoco.mj_forward(model,data)
@@ -240,7 +240,7 @@ def reach_target(model, home, env, target, limits, recovery=False):
                   and model.jnt_limited[j]]
     if not robot_joints:
         return {"status":"partial","target":target,"coverage_gaps":[{"error_kind":"unsupported_check",
-                "detail":"目标工具中心没有可求解的机器人关节链"}],"detail":"目标工具中心没有可求解的机器人关节链"}
+                "detail":"The target tool center has no solvable robot joint chain"}],"detail":"The target tool center has no solvable robot joint chain"}
     columns, addresses = model.jnt_dofadr[robot_joints], model.jnt_qposadr[robot_joints]
     destination = data.site_xpos[site] + data.site_xmat[site].reshape(3,3) @ np.array(target["offset"])
     local_rotation = np.zeros(9)
@@ -264,7 +264,7 @@ def reach_target(model, home, env, target, limits, recovery=False):
                                       query=DistanceQuery(model,data,recovery=recovery))
                 if not scan['collisions'] and scan['complete']:
                     return {"status":"pass", "position_error_m":pe, "angle_error_rad":ae,
-                            "qpos":data.qpos.tolist(), "target":target, "detail":"找到无碰撞离散操作姿态；未验证进出路径"}
+                            "qpos":data.qpos.tolist(), "target":target, "detail":"Found a collision-free discrete operating pose; approach/retreat path not verified"}
                 unknown.extend(scan['coverage_gaps'][:8])
                 break
             jacp, jacr = np.zeros((3,model.nv)), np.zeros((3,model.nv))
@@ -276,7 +276,7 @@ def reach_target(model, home, env, target, limits, recovery=False):
                                             model.jnt_range[robot_joints,0], model.jnt_range[robot_joints,1])
     return {"status":"partial" if unknown else "fail", "position_error_m":best[1], "angle_error_rad":best[2], "target":target,
             "coverage_gaps":unknown[:32],
-            "detail":"有限次逆运动学搜索未找到可用姿态，不证明数学上不可达"}
+            "detail":"Bounded inverse-kinematics search found no usable pose; this does not prove mathematical unreachability"}
 
 
 def _body_chain(model, body):
@@ -319,7 +319,7 @@ def scene_checks(root, limits, contract, render_dir=None, recovery=False, checkp
     scan = checkpoints.run("scene_collisions",lambda: collision_scan(model,data,
         limits.collision_tolerance_m,query=query,max_pairs=pair_budget),query)
     hits, gaps = scan['collisions'], scan['coverage_gaps']
-    add("scene_collisions",not hits,"跨实例实际几何距离与机器人自接触",
+    add("scene_collisions",not hits,"Actual cross-instance geometric distances and robot self-contact",
         sorted({i for h in hits for i in h['instances']}),collisions=representative(hits),
         collision_count=len(hits),coverage_gaps=gaps,examined_pairs=scan['examined_pairs'],
         complete=scan['complete'],unexamined_pairs=scan['unexamined_pairs'],
@@ -345,7 +345,7 @@ def scene_checks(root, limits, contract, render_dir=None, recovery=False, checkp
         center,half = np.array(cut["center"]),np.array(cut["size"])/2
         margin = TABLE_EDIT_POLICY["max_instance_margin_m"]
         add("table_modification:"+cut["id"],bool(np.all(center-half >= lo[:2]-margin) and np.all(center+half <= hi[:2]+margin)),
-            "加工区域位于关联实例包络附近；不认证材料承重强度",[cut["instance"]],cut=cut)
+            "Machined region lies near the associated instance envelope; material load-bearing strength not certified",[cut["instance"]],cut=cut)
     for item in plan["instances"]:
         if item["placement"] == "robot":
             continue
@@ -354,7 +354,7 @@ def scene_checks(root, limits, contract, render_dir=None, recovery=False, checkp
         evidence = checkpoints.run("support:"+item["id"],lambda: support_evidence(model,data,item,
             limits.support_tolerance_m,limits.collision_tolerance_m,geometry,query,max_pairs=pair_budget),query)
         add("support:"+item["id"], evidence.pop("supported"),
-            "逐独立组件的承托接触及实际运动树/启用焊接连接链；不证明连接制造适配、重心稳定或承重强度",
+            "Per-independent-component support contacts and actual kinematic-tree/enabled-weld connection chains; does not prove connection manufacturability/fit, center-of-mass stability or load-bearing strength",
             [item["id"]]+([support] if support else []), **evidence)
         if not evidence['complete']:
             rows[-1].update(status="fail" if evidence.get('unsupported_components') else "partial",
@@ -365,14 +365,14 @@ def scene_checks(root, limits, contract, render_dir=None, recovery=False, checkp
             boundary = boundary_evidence(model,local_geometry.get(item.get("table_id"),geometry),
                                          item,{**env,"table":table_for(item,plan,env)},mounts)
             add("table_boundary:"+item["id"],boundary.pop('valid'),
-                "普通部件在桌面内；声明的桌边夹持部件限于安装区，不豁免碰撞和支撑",[item['id']],
+                "Ordinary parts lie within the tabletop; declared table-edge clamp parts are limited to the mounting zone and are not exempt from collision and support",[item['id']],
                 bounds=[lo.tolist(),hi.tolist()],**boundary)
     from .robot_contract import arms, validate_bindings
     selected=validate_bindings(plan,env,partial=True)
     tools = [i for i in plan["instances"] if i["placement"] == "robot"]
     if "arms" not in env["robot"]:
         require(len(tools)==1 or static and not tools and meta.get("partial_without_tool") is True,
-                "旧场景须恰有一个安装末端；缺件必须有显式部分装配记录")
+                "A legacy scene must have exactly one mounted end-effector; missing parts require an explicit partial-assembly record")
     tool = tools[0] if tools else None
     entries=arms(env)
     if "arms" in env["robot"]:
@@ -380,33 +380,33 @@ def scene_checks(root, limits, contract, render_dir=None, recovery=False, checkp
         for tool_item in tools:
             rows.append(mount_contact(model,data,meta,tool_item["id"],
                                       limits.support_tolerance_m,limits.collision_tolerance_m,query))
-    require(set(contract.get("arm_payloads",{})) <= {a["id"] for a in entries}, "工作负载引用未知机械臂")
+    require(set(contract.get("arm_payloads",{})) <= {a["id"] for a in entries}, "Workload references an unknown robot arm")
     for arm in entries:
         binding=selected[arm["id"]]
         target=next((i for i in tools if i["id"]==binding["instance"]),None)
         kind="payload:"+arm["id"] if "arms" in env["robot"] else "payload"
         workload=contract.get("arm_payloads",{}).get(arm["id"],contract["payload_mass_kg"])
         if len(entries)>1 and contract["payload_mass_kg"] and arm["id"] not in contract.get("arm_payloads",{}):
-            rows.append({"id":kind,"status":"partial","instances":[],"detail":"多臂非零工作负载须逐臂声明，不把总负载分摊或当成单臂负载"})
+            rows.append({"id":kind,"status":"partial","instances":[],"detail":"Non-zero multi-arm workloads must be declared per arm; the total load is neither split nor treated as a single-arm load"})
             continue
         if binding["mode"]!="stock" and target is None:
-            rows.append({"id":kind,"status":"partial","instances":[],"detail":"该臂计划定制末端缺件，不能验证完整负载"})
+            rows.append({"id":kind,"status":"partial","instances":[],"detail":"This arm's planned custom end-effector is missing; the full payload cannot be verified"})
             continue
         if binding["mode"]=="stock" and arm["stock"] is None:
-            rows.append({"id":kind,"status":"partial","instances":[],"detail":"末端尚未装配，不能验证负载"})
+            rows.append({"id":kind,"status":"partial","instances":[],"detail":"End-effector not yet assembled; payload cannot be verified"})
             continue
         mass=sum(float(model.body_mass[b]) for b in range(model.nbody)
                  if target and (model.body(b).name or "").startswith(target["id"]+"__"))
         stock_mass=arm["stock"]["mass_kg"] if arm["stock"] and binding["mode"]!="replace" else 0
         add(kind,mass+stock_mass+workload<=arm["payload_kg"],
-            "逐臂：定制总成实际质量＋保留原厂夹爪名义质量＋该臂声明工作负载",
+            "Per arm: actual custom assembly mass + nominal mass of the retained stock gripper + the arm's declared workload",
             [target["id"]] if target else ["robot"],arm=arm["id"],tool_mass_kg=mass,
             stock_mass_kg=stock_mass,declared_payload_kg=workload,limit_kg=arm["payload_kg"])
     for fit in contract["fits"]:
         if static and "id" in fit and any(mujoco.mj_name2id(model,mujoco.mjtObj.mjOBJ_SITE,n) < 0
                           for end in ("outer","inner") for n in fit[end]):
             rows.append({"id":"fit:"+fit["id"],"status":"partial","instances":[],
-                         "detail":"部分场景缺少配合标记，保留原验收要求"})
+                         "detail":"Partial scene lacks mating markers; original acceptance requirements retained"})
             continue
         widths = []
         surface_errors = {n:site_surface_distance(model,data,n) for end in ("outer","inner") for n in fit[end]}
@@ -417,10 +417,10 @@ def scene_checks(root, limits, contract, render_dir=None, recovery=False, checkp
         clearance = widths[0]-widths[1]
         add("fit:"+fit["id"], fit["clearance_m"][0] <= clearance <= fit["clearance_m"][1]
             and all(x <= .0005 for x in surface_errors.values()),
-            "实际碰撞表面上的标记间距差；孔壁语义仍须来源和视觉核对",
+            "Marker spacing differences on actual collision surfaces; hole-wall semantics still require source and visual verification",
             sorted({n.split("__")[0] for key in ("outer","inner") for n in fit[key]}), clearance_m=clearance,
             surface_errors_m=surface_errors,evidence=fit["evidence"])
-    # 在整场景中逐关节采样，补充仪器开盖撞到邻居的问题。
+    # Sample each joint in the whole scene to catch instrument lids that hit neighbours when opened.
     sample_failures, sample_count, sample_gaps = [], 0, []
     from .tool_contract import has_free_parts
     coupled_tools = [i["id"]+"__" for i in tools if has_free_parts(model,i["id"]+"__")]
@@ -430,11 +430,11 @@ def scene_checks(root, limits, contract, render_dir=None, recovery=False, checkp
             continue
         if any(name.startswith(prefix) for prefix in coupled_tools):
             sample_gaps.append({"error_kind":"unsupported_check", "joint":name,
-                                "detail":"可拆末端关节扫描需要约束耦合；不能只移动永久运动树"})
+                                "detail":"Joint sweeps with a detachable end-effector require constraint coupling; moving only the permanent kinematic tree is not enough"})
             continue
         if sample_count+7 > budgets["joint_samples"]:
             sample_gaps.append({'error_kind':'resource_limit','joint':name,
-                                'detail':'关节扫描样本预算耗尽（随模型规模缩减，已扫描 %d 个姿态）' % sample_count})
+                                'detail':'Joint-sweep sample budget exhausted (scaled down with model size; %d poses swept)' % sample_count})
             continue
         # Only the instances containing this joint can change contact during the sweep;
         # everything else is unchanged geometry, so rescanning it adds cost but no evidence.
@@ -454,11 +454,11 @@ def scene_checks(root, limits, contract, render_dir=None, recovery=False, checkp
                 sample_gaps.append({'joint':name,'q':float(q),'coverage_gaps':scan['coverage_gaps'][:8]})
             if found:
                 sample_failures.append({"joint":name,"q":float(q),"collisions":found[:8]})
-    add("scene_joint_sweeps",not sample_failures,"逐关节离散开合空间检查", sorted({i for f in sample_failures for h in f["collisions"] for i in h["instances"]}),samples=sample_count,failures=sample_failures[:40])
+    add("scene_joint_sweeps",not sample_failures,"Per-joint discrete open/close clearance check", sorted({i for f in sample_failures for h in f["collisions"] for i in h["instances"]}),samples=sample_count,failures=sample_failures[:40])
     if sample_gaps:
         rows[-1].update(coverage_gaps=sample_gaps[:40],status='fail' if sample_failures else 'partial')
     if static:
-        rows[-1].update(status="skipped", detail="静态模式跳过关节开合空间检查")
+        rows[-1].update(status="skipped", detail="Static mode skips the joint open/close clearance check")
     data.qpos[:] = home
     if static:
         geometry_state(model,data)
@@ -474,9 +474,9 @@ def scene_checks(root, limits, contract, render_dir=None, recovery=False, checkp
             if shift > .02:
                 motion.append({"body":model.body(b).name,"displacement_m":shift})
     add("settling",not motion and np.isfinite(data.qpos).all() and not any(w.number for w in data.warning),
-        "重力下有限时间检查自由部件掉落或明显移动", sorted({m["body"].split("__")[0] for m in motion}),moving_bodies=motion,seconds=float(data.time))
+        "Finite-time check under gravity for free parts falling or moving noticeably", sorted({m["body"].split("__")[0] for m in motion}),moving_bodies=motion,seconds=float(data.time))
     if static:
-        rows[-1].update(status="skipped", detail="静态模式跳过动力学步进")
+        rows[-1].update(status="skipped", detail="Static mode skips dynamics stepping")
     targets = list(contract["targets"]) if not static else []
     automatic_targets = not targets and not static
     if automatic_targets:
@@ -498,7 +498,7 @@ def scene_checks(root, limits, contract, render_dir=None, recovery=False, checkp
     for target in targets:
         target_groups.setdefault(target["id"],[]).append(target)
     if not static:
-        require(len(target_groups) <= 256,"操作姿态数超限")
+        require(len(target_groups) <= 256,"Too many operating poses")
     poses = [("scene",home)]
     for alternatives in (target_groups.values() if not static else ()):
         attempts=[]
@@ -518,19 +518,19 @@ def scene_checks(root, limits, contract, render_dir=None, recovery=False, checkp
         with stage("scene_render"):
             renders = render_views(model,poses,Path(render_dir))
             renders.extend(render_details(model,home,plan,render_dir))
-    coverage = ["离散几何与操作姿态探测不证明连续轨迹或完整实验完成",
-                "网格碰撞距离采用引擎凸包；凹腔必须拆分碰撞几何",
-                "逐组件承托另结合可见材料连通与内部交叠检查；承托点核对显示表面。完整表面等价、活动连接制造适配及质心稳定仍未证明",
-                "额定负载检查尚未认证制造商完整力矩及惯量包络"]
+    coverage = ["Discrete geometry and operating-pose probing do not prove a continuous trajectory or completion of the full experiment",
+                "Mesh collision distances use the engine convex hull; concave cavities must be split into separate collision geoms",
+                "Per-component support is combined with visible-material connectivity and internal-overlap checks; support points are checked against displayed surfaces. Full surface equivalence, manufacturability/fit of moving connections and center-of-mass stability remain unproven",
+                "The rated-payload check does not yet certify the manufacturer's full torque and inertia envelope"]
     if static:
-        rows.append({"id":"robot_reachability", "status":"skipped", "instances":[], "detail":"静态模式不求解操作姿态"})
-        coverage.append("静态模式：未验证运动开合空间、动力学稳定性、操作交互或机器人可达性")
+        rows.append({"id":"robot_reachability", "status":"skipped", "instances":[], "detail":"Static mode does not solve operating poses"})
+        coverage.append("Static mode: motion clearance, dynamic stability, operating interaction and robot reachability not verified")
     if not contract["payload_mass_kg"] and not any(contract.get("arm_payloads",{}).values()):
-        coverage.append("没有声明搬运物质量，目前只核对空载末端装置质量")
+        coverage.append("No carried-object mass declared; only the unloaded end-effector mass is checked for now")
     if automatic_targets and not static:
-        coverage.append("操作姿态由接口坐标系和固定30毫米接近偏移推断，尚需任务规划确认方向")
+        coverage.append("Operating poses are inferred from interface frames with a fixed 30 mm approach offset; direction still needs confirmation by task planning")
     if not targets and not static:
-        coverage.append("没有可探测操作目标，未验证机器人可达性")
+        coverage.append("No probeable operation target; robot reachability not verified")
     layout_advice = {}
     if "layout" in plan:
         from .mobile import assess, boundaries, articulation

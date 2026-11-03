@@ -392,6 +392,10 @@ def audit_assets(run):
                 report=recover_checks(run.sandbox,artifact,report,run.root/"asset_check_recovery",
                     implementation=run.implementation_guard.expected,contract=profile,
                     check_pause=run.check_pause,max_actions=run.limits.max_check_actions,max_retries=run.limits.max_check_retries)
+            if job["role"]=="tool" and report["status"]!="error":
+                from .tool_contract import printability_check
+                report={**report,"checks":report["checks"]+[printability_check(artifact)]}
+                report["status"]=report_status(report["checks"])
             report,images=load_images(run,report,renders)
             if not images:images=[image_record(safe_path(run.root,x),run.root,run.generation) for x in current.get("preview_paths",[])]
         record.update(feedback={"numerical":report},preview_paths=[i["path"] for i in images],status="needs_review",numeric_audit_key=audit_key)

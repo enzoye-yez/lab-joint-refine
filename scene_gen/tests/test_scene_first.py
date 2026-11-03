@@ -86,7 +86,7 @@ class SceneFirstTests(unittest.TestCase):
                 return {"status":"pass","results":[{"request":requests[0],"complete":True,"checks":[{
                     "id":"support:station","status":"pass","complete":True,"component_scope":"whole_instance"}]}]},None
         uncertain={"verdict":"uncertain","findings":[],"unverified":[],"blocking":["support unknown"]}
-        r,t=self.make([plan(),ASSET,TOOL,ACCEPT,ACCEPT,uncertain,{"requests":[{"kind":"support","instance":"station"}]},ACCEPT],Supplement())
+        r,t=self.make([plan(),ASSET,TOOL,ACCEPT,uncertain,{"requests":[{"kind":"support","instance":"station"}]},ACCEPT],Supplement())
         result=r.run()
         self.assertEqual(result["status"],"static_candidate_ready")
         row=next(r for r in result["assembly"]["issues"] if r["id"]=="support:station")
@@ -96,8 +96,21 @@ class SceneFirstTests(unittest.TestCase):
         self.assertLess(r.sandbox.events.index("assemble"),r.sandbox.events.index("scene_check"))
 
     def test_quality_pass_still_requires_reviews(self):
-        r,t=self.make([plan(),ASSET,TOOL,ACCEPT,ACCEPT,ACCEPT]);result=r.run()
-        self.assertEqual(result['status'],'static_candidate_ready');self.assertEqual(len(t.requests),6)
+        # The instrument and the scene are reviewed; the tool's use is deferred to the operation stage.
+        r,t=self.make([plan(),ASSET,TOOL,ACCEPT,ACCEPT]);result=r.run()
+        self.assertEqual(result['status'],'static_candidate_ready');self.assertEqual(len(t.requests),5)
+    def test_passing_tool_skips_asset_review_and_defers_to_operation(self):
+        b=Backend();r,t=self.make([plan(),ASSET,TOOL,ACCEPT,ACCEPT],b);result=r.run()
+        self.assertEqual(result['status'],'static_candidate_ready')
+        phases=[c.get('phase') for c in r.store.state['calls']]
+        self.assertIn('asset_review:instrument',phases)
+        self.assertNotIn('asset_review:tool',phases)
+        self.assertEqual(result['jobs']['tool'],'candidate_ready')
+        tool=r.state['jobs']['tool']
+        self.assertEqual(tool['feedback']['visual']['source'],'operation_stage')
+        self.assertIn('printability',[c['id'] for c in tool['feedback']['numerical']['checks']])
+        rows=[x for x in result['deferred_checks'] if x['job']=='tool']
+        self.assertEqual([(x['id'],x['stage'],x['status']) for x in rows],[('tool:tool_operation','operation','pending')])
     def test_checker_interruption_keeps_published_scene(self):
         r,t=self.make([plan(),ASSET,TOOL],Backend(crash=True))
         with self.assertRaises(OSError):r.run()
@@ -119,14 +132,14 @@ class SceneFirstTests(unittest.TestCase):
         with patch.object(r.store,'reserve',side_effect=interrupt):
             with self.assertRaises(BudgetExceeded):r.run()
         original=r.result()['scene_sha256']
-        b2=Backend();r2,t2=self.make([ACCEPT,ACCEPT,ACCEPT],b2,resume=True)
+        b2=Backend();r2,t2=self.make([ACCEPT,ACCEPT],b2,resume=True)
         result=r2.run()
         self.assertEqual(result['status'],'static_candidate_ready')
         self.assertEqual(result['scene_sha256'],original)
         self.assertNotIn('generate',b2.events)
         self.assertNotIn('assemble',b2.events)
         self.assertNotIn('scene_check',b2.events)
-        self.assertEqual(len(t2.requests),3)
+        self.assertEqual(len(t2.requests),2)
 
     def test_independent_job_runs_before_retry_and_partial_scene_is_labelled(self):
         from scene_fixtures import write_component

@@ -9,6 +9,7 @@ from pathlib import Path
 import sys
 import time
 
+from asset_generation.check_report import report_status
 from asset_generation.contracts import GenerationConfig, check_profile
 from asset_generation.local import LocalBackend
 
@@ -53,6 +54,10 @@ def run(workspace):
     report, renders = backend.build_and_check(workspace / "model.py", destination, job["asset_ids"],
                                               check_profile(job["profile"]))
     rows = report.get("checks", [])
+    if job.get("role") == "tool" and (destination / "artifact").is_dir():
+        from scene_generation.tool_contract import printability_check
+        rows = rows + [printability_check(destination / "artifact")]
+        report["status"] = report_status(rows)
     summary = {"status": report.get("status"),
                "errors": [compact(r) for r in rows if r.get("status") == "error"] or
                          ([report["error"]] if report.get("error") else []),

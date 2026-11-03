@@ -135,7 +135,7 @@ class TaskContinuationTests(unittest.TestCase):
     backend=repairs.PhysicalRepairLoopTests.backend
 
     def test_deferred_asset_review_does_not_block_other_asset_or_scene_review(self):
-        r,t=self.make([plan(),scenes.ASSET,scenes.TOOL,ACCEPT,ACCEPT])
+        r,t=self.make([plan(),scenes.ASSET,scenes.TOOL,ACCEPT])
         ask=r.model.ask;phases=[]
         def deferred(instruction,context,images,phase):
             phases.append(phase)
@@ -143,12 +143,15 @@ class TaskContinuationTests(unittest.TestCase):
             return ask(instruction,context,images,phase)
         with patch.object(r.model,"ask",side_effect=deferred):
             result=r.run()
-        self.assertIn("asset_review:tool",phases)
+        # The stalled instrument review does not hold back the tool (which passes its static
+        # checks and is deferred to the operation stage without a review call) or the scene review.
+        self.assertNotIn("asset_review:tool",phases)
+        self.assertEqual(result["jobs"]["tool"],"candidate_ready")
         self.assertIn("scene_review",phases)
         self.assertNotEqual(result["status"],"paused")
         self.assertTrue(result["assembly"]["complete"])
         self.assertFalse(result["assembly"]["quality_accepted"])
-        self.assertEqual(result["budget"]["model_calls"],5)
+        self.assertEqual(result["budget"]["model_calls"],4)
 
     def test_confirmed_support_defect_is_repaired_despite_deferred_asset_review(self):
         p=plan();p["instances"][0]["position"][2]=.9

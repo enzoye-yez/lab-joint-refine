@@ -322,9 +322,9 @@ class PipelineDispatchTests(unittest.TestCase):
         from scene_generation.pipeline import SceneRun
         with patch('scene_generation.pipeline.decide',return_value='needs_review'), \
              patch.object(SceneRun,'route_repair',side_effect=AssertionError('must not repair')):
-            result,transport = self.run_loop(self.base_replies+[REVIEW])
+            result,transport = self.run_loop(self.base_replies)
         self.assertEqual(result['status'],'needs_review')
-        self.assertEqual(len(transport.requests),6)
+        self.assertEqual(len(transport.requests),5)
 
     def test_second_capability_interrupt_keeps_scene_and_model_ledger(self):
         backend = self.backend()

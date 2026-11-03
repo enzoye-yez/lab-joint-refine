@@ -128,8 +128,9 @@ class RuntimeBindingTests(unittest.TestCase):
             root or self.root/'run', transport, SceneSandbox(), sample.root/'robot', self.project, provenance=PROVENANCE)
 
     def test_migrated_scene_rechecks_saved_geometry_without_regeneration(self):
+        # Static mode: the instrument and the scene are reviewed; the tool is not (operation stage).
         replies = [plan(), {'model_py':fixture.ASSET_SOURCE},
-                   {'model_py':fixture.TOOL_SOURCE}, fixture.REVIEW, fixture.REVIEW, fixture.REVIEW]
+                   {'model_py':fixture.TOOL_SOURCE}, fixture.REVIEW, fixture.REVIEW]
         old = self.make_run(FakeTransport(replies), root=self.project/'runs/old')
         old.run()
         old.state['status'] = 'needs_review'
@@ -150,15 +151,15 @@ class RuntimeBindingTests(unittest.TestCase):
                         'manifest':json.loads((artifact/'interfaces.json').read_text(encoding='utf-8')),
                         'renders':['fixture.png'],'coverage':['developer fixture']}, renders
         backend = RecheckBackend()
-        transport = FakeTransport([fixture.REVIEW, fixture.REVIEW, fixture.REVIEW])
+        transport = FakeTransport([fixture.REVIEW, fixture.REVIEW])
         resumed = SceneRun(old.catalogue,old.env,old.contract,old.model.config,old.generation,old.limits,
             old.model.credentials,self.project/'runs/new',transport,backend,old.robot_root,self.project,
             resume=True,provenance=PROVENANCE)
         resumed.run()
         self.assertEqual(backend.rechecks,2)
         self.assertEqual(backend.build_calls,0)
-        self.assertEqual(len(transport.requests),3)
-        self.assertEqual(resumed.store.state['calls'][:6], old.store.state['calls'])
+        self.assertEqual(len(transport.requests),2)
+        self.assertEqual(resumed.store.state['calls'][:5], old.store.state['calls'])
         self.assertEqual(len(resumed.state['rounds']),2)
         # 新复查图像属于审查阶段，仍须绑定原几何，且允许再升级一次。
         resumed.state['status']='needs_review'
@@ -169,7 +170,7 @@ class RuntimeBindingTests(unittest.TestCase):
 
     def test_persistent_recheck_error_never_falls_through_to_asset_author(self):
         replies = [plan(), {'model_py':fixture.ASSET_SOURCE},
-                   {'model_py':fixture.TOOL_SOURCE}, fixture.REVIEW, fixture.REVIEW, fixture.REVIEW]
+                   {'model_py':fixture.TOOL_SOURCE}, fixture.REVIEW, fixture.REVIEW]
         transport=FakeTransport(replies)
         run=self.make_run(transport)
         run.run()
@@ -187,7 +188,7 @@ class RuntimeBindingTests(unittest.TestCase):
         self.assertTrue(run.state['jobs']['instrument']['needs_implementation_recheck'])
         self.assertEqual(backend.rechecks,2)
         self.assertEqual(backend.build_calls,0)
-        self.assertEqual(len(transport.requests),6)
+        self.assertEqual(len(transport.requests),5)
 
     def test_main_boundary_refuses_without_spending_model_budget(self):
         transport = FakeTransport([plan()])

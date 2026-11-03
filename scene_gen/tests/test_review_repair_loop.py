@@ -223,7 +223,7 @@ class PhysicalRepairLoopTests(unittest.TestCase):
     def test_real_support_repair_and_full_recheck(self):
         p=plan();p["instances"][0]["position"][2]=.9
         repair={"jobs":[],"placements":[{"id":"station","position":[.5,0,.8],"yaw":0}],"reason":"developer fixture: lower whole asset onto table"}
-        r,t=self.make([p,loop_fixtures.ASSET,loop_fixtures.TOOL,ACCEPT,ACCEPT,ACCEPT,repair,ACCEPT,ACCEPT,ACCEPT],self.backend())
+        r,t=self.make([p,loop_fixtures.ASSET,loop_fixtures.TOOL,ACCEPT,ACCEPT,repair,ACCEPT,ACCEPT,ACCEPT],self.backend())
         result=r.run()
         self.assertEqual(result["status"],"static_candidate_ready",result.get("stop_reason"))
         history=r.state["repair_history"][0]
@@ -235,7 +235,7 @@ class PhysicalRepairLoopTests(unittest.TestCase):
         bad={"jobs":[],"placements":[{"id":"station","position":[.5,0,1.0],"yaw":0}],"reason":"developer fixture: avoid overlap but introduce floating"}
         # Repeated-instance review explicitly reports one prototype unit.
         unit={**ACCEPT,"prototype_units":1}
-        r,t=self.make([p,loop_fixtures.ASSET,loop_fixtures.TOOL,unit,ACCEPT,ACCEPT,bad,unit,ACCEPT,ACCEPT],
+        r,t=self.make([p,loop_fixtures.ASSET,loop_fixtures.TOOL,unit,ACCEPT,bad,unit,ACCEPT,ACCEPT],
                       self.backend(),limits=SceneConfig(validation_mode="static",max_iterations=2))
         result=r.run()
         self.assertEqual(result["scene_rounds"],2)
@@ -252,7 +252,7 @@ class PhysicalRepairLoopTests(unittest.TestCase):
         bad={"jobs":[],"placements":[{"id":"station","position":[.5,0,1.0],"yaw":0}],"reason":"developer regression"}
         unit={**ACCEPT,"prototype_units":1}
         limit=SceneConfig(validation_mode="static",max_iterations=2)
-        r,t=self.make([p,loop_fixtures.ASSET,loop_fixtures.TOOL,unit,ACCEPT,ACCEPT,bad,unit,ACCEPT,ACCEPT],self.backend(),limits=limit)
+        r,t=self.make([p,loop_fixtures.ASSET,loop_fixtures.TOOL,unit,ACCEPT,bad,unit,ACCEPT,ACCEPT],self.backend(),limits=limit)
         original=r.select_repair_candidate
         def interrupt():
             if r.state.get("repair_history") and r.state["repair_history"][-1]["status"]=="evaluated":raise KeyboardInterrupt()
@@ -269,7 +269,7 @@ class PhysicalRepairLoopTests(unittest.TestCase):
     def test_explicit_repair_blocker_is_persistent_without_repeat_calls(self):
         p=plan();p["instances"][0]["position"][2]=.9
         blocker={"blocked":{"kind":"unsupported_repair","detail":"developer fixture: no permitted change available"}}
-        r,t=self.make([p,loop_fixtures.ASSET,loop_fixtures.TOOL,ACCEPT,ACCEPT,ACCEPT]+[blocker]*4,self.backend())
+        r,t=self.make([p,loop_fixtures.ASSET,loop_fixtures.TOOL,ACCEPT,ACCEPT]+[blocker]*4,self.backend())
         result=r.run()
         self.assertEqual(result["stop_reason"]["reason"],"repair_tasks_deferred")
         self.assertEqual(len(r.state["repair_planning"]["attempts"]),2)  # Identical scopes share their failed plan attempts.
@@ -290,7 +290,7 @@ class PhysicalRepairLoopTests(unittest.TestCase):
             return assemble(*args)
         backend.assemble_candidate=fail_second
         alternate={**repair,"placements":[{**repair["placements"][0],"yaw":.1}]}
-        r,t=self.make([p,loop_fixtures.ASSET,loop_fixtures.TOOL,ACCEPT,ACCEPT,ACCEPT,repair,alternate,ACCEPT,ACCEPT,ACCEPT],backend)
+        r,t=self.make([p,loop_fixtures.ASSET,loop_fixtures.TOOL,ACCEPT,ACCEPT,repair,alternate,ACCEPT,ACCEPT,ACCEPT],backend)
         result=r.run()
         self.assertEqual(result["status"],"static_candidate_ready")
         self.assertEqual(r.state["repair_history"][0]["selection"],"baseline_preserved")

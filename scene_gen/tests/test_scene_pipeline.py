@@ -29,6 +29,8 @@ class ScenePipelineTests(unittest.TestCase):
         self.catalog = catalog(self.source,self.generation)
         self.env = environment(self.root/"robot")
         self.project = Path(__file__).resolve().parents[1]
+        # Instrument author + review, tool author, then the first scene review: the tool gets no
+        # asset review (its use is judged in the robot-operation stage).
         self.base_replies = [plan(),{"model_py":ASSET_SOURCE},REVIEW,{"model_py":TOOL_SOURCE},REVIEW]
 
     def run_loop(self,replies,*,resume=False,limits=None,sandbox=None,feedback=None,retry_uncertain=False):
@@ -46,9 +48,9 @@ class ScenePipelineTests(unittest.TestCase):
         return result,transport
 
     def test_complete_scene_no_extraction_and_default_model(self):
-        result,transport = self.run_loop(self.base_replies+[REVIEW])
+        result,transport = self.run_loop(self.base_replies)
         self.assertEqual(result["status"],"candidate_ready")
-        self.assertEqual(result["budget"]["model_calls"],6)
+        self.assertEqual(result["budget"]["model_calls"],5)
         self.assertTrue(all(x["model"] == Config().model for x in transport.requests))
         self.assertEqual(set(transport.urls),{Config().base_url+"/chat/completions"})
         self.assertTrue((self.root/"run"/result["scene_artifact"]/"model.xml").is_file())
@@ -82,7 +84,7 @@ class ScenePipelineTests(unittest.TestCase):
         result,transport=self.run_loop(self.base_replies,sandbox=MeasurementBackend())
         self.assertEqual(result['status'],'needs_check_support')
         self.assertEqual(result['check_failure']['kind'],'measurement_error')
-        self.assertEqual(len(transport.requests),5)
+        self.assertEqual(len(transport.requests),4)
 
     def test_empty_repair_replans_with_evidence_then_succeeds(self):
         empty={"jobs":[],"placements":[],"reason":"缺少信息"}
@@ -163,9 +165,9 @@ class ScenePipelineTests(unittest.TestCase):
         with self.assertRaises(UncertainRequest):
             self.run_loop(self.base_replies[:2]+[timeout],sandbox=sandbox)
         with self.assertRaises(UncertainRequest):self.run_loop([],resume=True,sandbox=sandbox)
-        result,transport = self.run_loop(self.base_replies[2:]+[REVIEW],resume=True,retry_uncertain=True,sandbox=sandbox)
+        result,transport = self.run_loop(self.base_replies[2:],resume=True,retry_uncertain=True,sandbox=sandbox)
         self.assertEqual(result["status"],"candidate_ready")
-        self.assertEqual(result["budget"]["model_calls"],7)
+        self.assertEqual(result["budget"]["model_calls"],6)
         self.assertEqual(sandbox.build_calls,2)
         state=json.loads((self.root/'run/state.json').read_text(encoding='utf-8'))
         self.assertEqual(state['calls'][2]['request_sha256'],state['calls'][3]['request_sha256'])
@@ -190,24 +192,26 @@ class ScenePipelineTests(unittest.TestCase):
         feedback = {"scene_sha256":result["scene_sha256"],"failures":[{"kind":"collision","instances":["station"],
                     "detail":"合成规划失败","evidence":"开发者指定碰撞对"}]}
         repair = {"jobs":[],"placements":[{"id":"station","position":[.6,0,.8],"yaw":0}],"reason":"规划失败证据"}
-        result,transport = self.run_loop([repair,REVIEW,REVIEW],resume=True,feedback=feedback)
+        # The repair, then the scene review; the moved instrument is not re-reviewed and the tool
+        # has no asset review.
+        result,transport = self.run_loop([repair,REVIEW],resume=True,feedback=feedback)
         self.assertEqual(result["status"],"candidate_ready")
-        self.assertEqual(len(transport.requests),3)
+        self.assertEqual(len(transport.requests),2)
         result,transport = self.run_loop([],resume=True,feedback=feedback)
         self.assertEqual(transport.requests,[])
 
     def test_visual_uncertainty_is_not_success(self):
-        result,_ = self.run_loop(self.base_replies+[{"verdict":"uncertain","findings":[],"unverified":["看不清"],"blocking":["当前视角无法辨认部件"]}])
+        result,_ = self.run_loop(self.base_replies[:4]+[{"verdict":"uncertain","findings":[],"unverified":["看不清"],"blocking":["当前视角无法辨认部件"]}])
         self.assertEqual(result["status"],"needs_review")
 
     def test_asset_review_format_retry_does_not_modify_geometry(self):
         sandbox = SceneSandbox()
         invalid = {"verdict":"accept", "motion_coverage": [],"findings":["未见缺件"],"unverified":[]}
-        replies = self.base_replies[:2]+[invalid]+self.base_replies[2:]+[REVIEW]
+        replies = self.base_replies[:2]+[invalid]+self.base_replies[2:]
         result,transport = self.run_loop(replies,sandbox=sandbox)
         self.assertEqual(result["status"],"candidate_ready")
         self.assertEqual(sandbox.build_calls,2)
-        self.assertEqual(result["budget"]["model_calls"],7)
+        self.assertEqual(result["budget"]["model_calls"],6)
         self.assertIn("review_format_correction",json.loads(transport.requests[3]["messages"][1]["content"][0]["text"]))
 
     def test_invalid_scene_review_retries_without_reassembly(self):
@@ -248,34 +252,43 @@ class ScenePipelineTests(unittest.TestCase):
         self.assertEqual(len(set(aliases)), 2)
 
     def test_deferred_asset_reaches_assembly_and_scene_must_resolve_it(self):
+        # Static mode: the tool gets no asset review (its use is deferred to the operation
+        # stage), so the deferrals under test come from the instrument's review.
         deferred = {"verdict":"accept","motion_coverage":[],"findings":[],"unverified":[],
                     "deferred":[{"stage":"scene","detail":"组合装配后的夹具间隙"},
                                 {"stage":"operation","detail":"真实抓取保持力"}]}
-        resolved = {**REVIEW,"deferred_results":[{"id":"tool:00007_asset_review:1","status":"resolved",
+        resolved = {**REVIEW,"deferred_results":[{"id":"instrument:00006_asset_review:1","status":"resolved",
                       "evidence":"合成场景视角及夹具间隙检查证据"}]}
-        result,transport = self.run_loop(self.base_replies[:4]+[deferred,resolved],limits=SceneConfig(validation_mode="static"))
+        result,transport = self.run_loop(self.base_replies[:2]+[{"model_py":TOOL_SOURCE},deferred,resolved],
+                                         limits=SceneConfig(validation_mode="static"))
         self.assertEqual(result["status"],"static_candidate_ready")
         self.assertEqual(result["jobs"]["tool"],"candidate_ready")
-        self.assertEqual([x["status"] for x in result["deferred_checks"]],["resolved","pending"])
+        self.assertEqual([(x["id"],x["status"]) for x in result["deferred_checks"]],
+                         [("instrument:00006_asset_review:1","resolved"),("instrument:00006_asset_review:2","pending"),
+                          ("tool:tool_operation","pending")])
         scene_context = json.loads(transport.requests[-1]["messages"][1]["content"][0]["text"])
-        self.assertEqual(len(scene_context["deferred_checks"]),2)
+        self.assertEqual(len(scene_context["deferred_checks"]),3)
         self.assertTrue(any("真实抓取保持力" in x for x in result["unverified"]))
 
     def test_missing_deferred_resolution_cannot_pass_scene(self):
         deferred = {"verdict":"accept","motion_coverage":[],"findings":[],"unverified":[],
                     "deferred":[{"stage":"scene","detail":"装配间隙"}]}
-        result,_ = self.run_loop(self.base_replies[:4]+[deferred,REVIEW,REVIEW,REVIEW])
+        # The scene-stage deferral comes from the instrument review (the tool is not reviewed).
+        result,_ = self.run_loop(self.base_replies[:2]+[deferred,{"model_py":TOOL_SOURCE},REVIEW,REVIEW,REVIEW])
         self.assertEqual(result["status"],"needs_review")
         self.assertEqual(result["deferred_checks"][0]["status"],"unresolved")
         self.assertIn("framework record",result["deferred_checks"][0]["evidence"])
         self.assertIsNotNone(result["scene_artifact"])
 
     def test_static_preview_keeps_other_pose_checks_pending_not_resolved(self):
+        # The scene-stage deferral comes from the instrument review: in static mode the tool
+        # has no asset review.
         deferred = {"verdict":"accept","motion_coverage":[],"findings":[],"unverified":[],
                     "deferred":[{"stage":"scene","detail":"工具抓取时的配合姿态"}]}
-        review = {**REVIEW,"deferred_results":[{"id":"tool:00007_asset_review:1","status":"out_of_scope",
+        review = {**REVIEW,"deferred_results":[{"id":"instrument:00006_asset_review:1","status":"out_of_scope",
                  "target_stage":"static_fit","evidence":"当前悬停，只验证初始几何布局"}]}
-        result,_ = self.run_loop(self.base_replies[:4]+[deferred,review],limits=SceneConfig(validation_mode="static"))
+        result,_ = self.run_loop(self.base_replies[:2]+[{"model_py":TOOL_SOURCE},deferred,review],
+                                 limits=SceneConfig(validation_mode="static"))
         self.assertEqual(result["status"],"static_preview_ready")
         self.assertEqual(result["deferred_checks"][0]["status"],"pending")
         self.assertEqual(result["deferred_checks"][0]["stage"],"static_fit")
@@ -295,15 +308,21 @@ class ScenePipelineTests(unittest.TestCase):
         self.assertEqual(len(context["dependencies"]["instrument"]["deferred_checks"]),1)
 
     def test_resume_uncertain_reviews_existing_geometry_only(self):
+        # The uncertain review is the instrument's (the tool has no asset review). Resuming
+        # re-reviews the existing instrument geometry without regenerating it; only the
+        # not-yet-built tool is authored.
         uncertain = {"verdict":"uncertain","findings":[],"unverified":[],"blocking":["部件图像不清楚"]}
-        result,_ = self.run_loop(self.base_replies[:4]+[uncertain])
+        result,_ = self.run_loop(self.base_replies[:2]+[uncertain])
         self.assertEqual(result["status"],"needs_review")
         sandbox = SceneSandbox()
-        result,transport = self.run_loop([REVIEW,REVIEW],resume=True,sandbox=sandbox)
+        result,transport = self.run_loop([REVIEW,{"model_py":TOOL_SOURCE},REVIEW],resume=True,sandbox=sandbox)
         self.assertEqual(result["status"],"candidate_ready")
-        self.assertEqual(sandbox.build_calls,0)
-        self.assertEqual(len(transport.requests),2)
-        self.assertTrue((self.root/"run/stages/00004_asset_review/review.json").is_file())
+        self.assertEqual(sandbox.build_calls,1)
+        self.assertEqual(len(transport.requests),3)
+        phases=[c.get("phase") for c in json.loads((self.root/"run/state.json").read_text(encoding="utf-8"))["calls"]]
+        self.assertEqual(phases.count("asset:instrument"),1)
+        self.assertEqual(phases.count("asset_review:instrument"),2)
+        self.assertTrue((self.root/"run/stages/00003_asset_review/review.json").is_file())
 
     def test_hard_asset_failure_does_not_reach_review_or_assembly(self):
         class Failing(SceneSandbox):
@@ -324,15 +343,20 @@ class ScenePipelineTests(unittest.TestCase):
         Image.new("RGB",(20,20),"red").save(self.root/"reference.png")
         self.source.write_text("### A01｜合成仪器\n![照片](reference.png)",encoding="utf-8")
         self.catalog = catalog(self.source,self.generation)
-        _,transport = self.run_loop(self.base_replies+[REVIEW])
-        request = transport.requests[4]["messages"][1]["content"]
+        result,transport = self.run_loop(self.base_replies)
+        # The device (tool) is not visually reviewed: it passes on its static checks and its
+        # use is deferred to the robot-operation stage.
+        phases=[c.get("phase") for c in json.loads((self.root/"run/state.json").read_text(encoding="utf-8"))["calls"]]
+        self.assertNotIn("asset_review:tool",phases)
+        self.assertEqual(result["jobs"]["tool"],"candidate_ready")
+        self.assertIn(("tool:tool_operation","operation"),[(x["id"],x["stage"]) for x in result["deferred_checks"]])
+        # Its author still works from the built instrument, not the instrument's photo.
+        request = transport.requests[3]["messages"][1]["content"]
         context = json.loads(request[0]["text"])
+        self.assertEqual(context["job"]["role"],"tool")
         self.assertIn("instrument",context["dependencies"])
-        # The instrument's photo was judged in its own review; the device sees its render.
-        self.assertEqual(context["evidence"]["original_reference_images"],[])
-        self.assertEqual(len(context["evidence"]["design_reference_images"]),1)
-        # The fixture renders every model to the same bytes, so the two images collapse into one.
-        self.assertGreaterEqual(sum(x["type"] == "image_url" for x in request),1)
+        self.assertEqual(len(context["input"]["images"]),1)
+        self.assertIn("renders",context["input"]["images"][0]["path"])
         for request in transport.requests[1:]:
             self.assertIn("changes to the model's own design values need no human approval",request["messages"][0]["content"])
             context = json.loads(request["messages"][1]["content"][0]["text"])

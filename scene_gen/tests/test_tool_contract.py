@@ -18,7 +18,7 @@ from scene_generation.candidate import inspect_candidate
 from scene_generation.contracts import SceneConfig, numerical_contract
 from scene_generation.checks import scene_checks, reach_target
 from scene_generation.inspection import mount
-from scene_generation.tool_contract import tool_roots
+from scene_generation.tool_contract import tool_roots, printability
 from scene_fixtures import environment, plan, write_component
 
 XML = '''<mujoco><compiler angle="radian"/><worldbody>
@@ -153,3 +153,21 @@ class ToolContractTests(unittest.TestCase):
         self.write(xml)
         with self.assertRaisesRegex(ValidationError,"same permanent kinematic tree"):
             inspect_candidate(self.tool,["A01"],{"assembly_role":"tool"})
+
+
+class PrintabilityTest(unittest.TestCase):
+    def test_printed_parts_are_printable(self):
+        self.assertEqual(printability(mujoco.MjModel.from_xml_string(XML), MANIFEST), [])
+
+    def test_thin_and_oversized_printed_parts_fail(self):
+        xml=XML.replace('size=".01 .01 .02" mass=".05"','size=".0005 .01 .02" mass=".05"').replace(
+            '<geom name="base_geom" type="box" size=".02 .02 .02"','<geom name="base_geom" type="box" size=".15 .02 .02"')
+        problems=printability(mujoco.MjModel.from_xml_string(xml), MANIFEST)
+        self.assertTrue(any("finger_geom" in p and "1.0 mm thick" in p for p in problems), problems)
+        self.assertTrue(any("body base spans 300 mm" in p for p in problems), problems)
+
+    def test_purchased_parts_are_not_checked(self):
+        xml=XML.replace('size=".01 .01 .02" mass=".05"','size=".0005 .01 .02" mass=".05"')
+        manifest=copy.deepcopy(MANIFEST)
+        manifest["parts"][1]["fabrication"]="purchased"
+        self.assertEqual(printability(mujoco.MjModel.from_xml_string(xml), manifest), [])

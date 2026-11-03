@@ -175,6 +175,10 @@ def isolation(writable):
             prefix += ["--tmpfs", str(path)]
         elif path.exists():
             prefix += ["--ro-bind", "/dev/null", str(path)]
+    # The process temp directory stays writable where it lives under the home directory.
+    temp = Path(tempfile.gettempdir()).resolve()
+    if temp.is_relative_to(home):
+        prefix += ["--bind", str(temp), str(temp)]
     folder = Path(writable).resolve()
     return prefix + ["--bind", str(folder), str(folder), "--chdir", str(folder), "--die-with-parent", "--"]
 
@@ -236,7 +240,8 @@ class CodexTransport:
         (workspace / "instructions.md").write_text(payload["messages"][0]["content"], encoding="utf-8")
         (workspace / "context.json").write_text(json.dumps(context, ensure_ascii=False, indent=1), encoding="utf-8")
         (workspace / "model.py").write_text(previous or "", encoding="utf-8")
-        (workspace / "selfcheck.json").write_text(json.dumps({"asset_ids": asset_ids, "profile": context["profile"]},
+        (workspace / "selfcheck.json").write_text(json.dumps({"asset_ids": asset_ids, "profile": context["profile"],
+                                                             "role": (context.get("job") or {}).get("role", "asset")},
                                                              ensure_ascii=False), encoding="utf-8")
         check = workspace / "check"
         check.write_text(CHECK_SCRIPT.format(src=Path(__file__).resolve().parents[1], python=sys.executable),

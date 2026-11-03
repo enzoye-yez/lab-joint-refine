@@ -3,13 +3,67 @@ import numpy as np
 import mujoco
 from defusedxml import ElementTree as ET
 from xml.etree.ElementTree import SubElement, tostring
+from asset_generation.checks import load_model
+from asset_generation.configurations import catalogue, selection
 from asset_generation.contracts import require
 from asset_generation.static_state import geometry_state
 
 TOOL_POLICY = """The tool's local origin is the robot mounting flange and +Z is the flange axis; a tcp operation site is required. The main-body root is fixed-mounted and has no free joint.
 Exchangeable parts must be separate bodies directly under worldbody with a freejoint, connected to the main body by initially active welds declared in the manifest connections (chained connections are allowed).
 Do not put detachable parts in the main body's permanent subtree, and do not deliver free parts that are not connected to the main body. The framework mounts only the main body on the flange; independent parts keep their world-root free joints and are transformed to the actual flange pose.
-The manifest's release/engage events, locating sites and tolerances follow the common connection contract; static checks do not certify operational capability. The mass of the complete device, including detachable parts, counts toward the payload. Active mechanisms contain real joints and actuators."""
+The manifest's release/engage events, locating sites and tolerances follow the common connection contract; static checks do not certify operational capability. The mass of the complete device, including detachable parts, counts toward the payload. Active mechanisms contain real joints and actuators.
+Keep this a simple first version that makes the robot's work easy: a flange adapter plus few parts (at most 6 printed parts), passive features (V-grooves, pegs, hooks, compliant pads, alignment chamfers) before extra actuators, and an actuator only where the protocol cannot be done without one. Its use (grasps, actuation, release) is verified and repaired later in the robot-operation stage, not now: deliver a clean, buildable, mountable draft.
+It must be printable on a common FDM printer: every printed part fits a 220 x 220 x 220 mm build volume, walls and features are at least 1.5 mm thick (2 mm where they carry load), holes are at least 3 mm across, there are no enclosed voids and no interpenetrating parts, and each part has a flat face to print on. Moving joints use standard hardware (M3 screws, 3 mm pins, 608 bearings) or printed hinges with 0.3 mm clearance. Give printed parts PLA/PETG density (about 1250 kg/m^3). Blades, springs, screws, bearings, magnets and electronics are bought parts: declare them in the manifest parts with "fabrication": "purchased"; every other part counts as printed and is checked."""
+
+OPERATION_REVIEW = {"verdict": "accept", "source": "operation_stage", "findings": [], "unverified": [], "motion_coverage": []}
+OPERATION_CHECK = {"stage": "operation", "status": "pending",
+                   "detail": "End-effector use is unverified: grasp, actuate and release every served interface "
+                             "with a trajectory, and repair the tool where it fails"}
+BUILD_VOLUME_M = .22
+MIN_FEATURE_M = .0015
+
+
+def printability(model, manifest):
+    """3D-printing feasibility of each printed body: its collision geometry fits the build volume
+    and no collision feature is thinner than MIN_FEATURE_M. Bodies of parts declared
+    fabrication="purchased" are skipped. Returns problem strings; empty means printable."""
+    purchased = {model.body(p["body"]).id for p in manifest["parts"] if p.get("fabrication") == "purchased"}
+    corners = np.array([[x, y, z] for x in (-1, 1) for y in (-1, 1) for z in (-1, 1)], float)
+    points, problems = {}, []
+    for g in range(model.ngeom):
+        b = int(model.geom_bodyid[g])
+        if b == 0 or b in purchased or not (model.geom_contype[g] or model.geom_conaffinity[g]):
+            continue
+        name = model.geom(g).name or str(g)
+        center, half = model.geom_aabb[g, :3], model.geom_aabb[g, 3:]
+        kind = model.geom_type[g]
+        size = model.geom_size[g]
+        thickness = 2*size[0] if kind in (mujoco.mjtGeom.mjGEOM_SPHERE, mujoco.mjtGeom.mjGEOM_CAPSULE,
+                                          mujoco.mjtGeom.mjGEOM_CYLINDER) else 2*float(np.min(half))
+        if thickness < MIN_FEATURE_M:
+            problems.append(f"geom {name} on body {model.body(b).name} is {thickness*1000:.1f} mm thick; printed "
+                            f"features need at least {MIN_FEATURE_M*1000:.1f} mm (thicken it, make cosmetic detail visual-only, or mark a bought part fabrication=purchased)")
+        rotation = model.geom_quat[g]
+        matrix = np.zeros(9)
+        mujoco.mju_quat2Mat(matrix, rotation)
+        points.setdefault(b, []).append(model.geom_pos[g] + (center + corners*half) @ matrix.reshape(3, 3).T)
+    for b, chunks in points.items():
+        extent = np.ptp(np.vstack(chunks), axis=0)
+        if extent.max() > BUILD_VOLUME_M:
+            problems.append(f"printed body {model.body(b).name} spans {extent.max()*1000:.0f} mm; it must fit a "
+                            f"{BUILD_VOLUME_M*1000:.0f} mm build volume, so split it into parts joined with screws")
+    return problems
+
+
+def printability_check(root):
+    """The printability check row over every delivered configuration of a tool artifact."""
+    problems = []
+    for name in sorted(catalogue(root)):
+        _, filename, manifest = selection(root, name)
+        problems += [f"{name}: {p}" for p in printability(load_model(root, model_file=filename), manifest)]
+    return {"id": "printability", "status": "fail" if problems else "pass", "problems": problems[:24],
+            "detail": f"Printed parts fit a {BUILD_VOLUME_M*1000:.0f} mm build volume and have no collision feature "
+                      f"thinner than {MIN_FEATURE_M*1000:.1f} mm; {len(problems)} problems"}
 
 
 def tool_roots(model, manifest):

@@ -259,9 +259,9 @@ class FaultPipelineTests(unittest.TestCase):
     def test_failed_first_tool_then_real_worker_allows_visual_review(self):
         backend=self.backend()
         with patch.object(backend,'recheck_scene',side_effect=TypeError('isolated full-check implementation')):
-            result,transport=self.run_loop(self.base_replies+[fixtures.REVIEW],sandbox=backend)
+            result,transport=self.run_loop(self.base_replies,sandbox=backend)
         self.assertEqual(result['status'],'candidate_ready')
-        self.assertEqual(len(transport.requests),6)
+        self.assertEqual(len(transport.requests),5)  # The end-effector has no asset review.
         self.assertEqual(backend.scene_calls,1)
         self.assertEqual(backend.build_calls,2)
         actions=result['check_recovery'][0]['actions']
@@ -301,7 +301,7 @@ class FaultPipelineTests(unittest.TestCase):
         self.assertEqual(result['status'],'needs_environment')
         self.assertEqual(result['check_failure']['kind'],'check_execution')
         self.assertEqual(result['check_failure']['failures'][0]['status'],'open')
-        self.assertEqual(len(transport.requests),5)
+        self.assertEqual(len(transport.requests),4)  # The tool has no asset review.
 
     def test_local_backend_preserves_typed_process_failure(self):
         from asset_generation.local import LocalBackend

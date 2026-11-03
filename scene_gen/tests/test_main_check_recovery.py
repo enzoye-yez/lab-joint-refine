@@ -93,8 +93,9 @@ class MainCheckRecoveryTests(unittest.TestCase):
         self.assertTrue(any('scene_collisions' in s for s in result['unverified']))
 
     def test_generation_receives_authoritative_layout(self):
-        result,transport=self.run_loop(self.base_replies+[REVIEW])
-        for index in (3,4):
+        # Request 3 is the tool author; the tool has no asset review (operation stage).
+        result,transport=self.run_loop(self.base_replies)
+        for index in (3,):
             ctx=json.loads(transport.requests[index]['messages'][1]['content'][0]['text'])
             self.assertEqual(ctx['scene_layout']['instances'],self.base_replies[0]['instances'])
             self.assertEqual(ctx['dependencies']['instrument']['instances'],[self.base_replies[0]['instances'][0]])

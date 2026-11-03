@@ -254,6 +254,17 @@ class SceneRun:
 
     def review_asset(self, job, bundle, references, previews, report, destination, record):
         self.check_pause()
+        if job["role"] == "tool":
+            # The end-effector is a first working draft: its static checks gate it, and its use
+            # (grasps, actuation, release) is judged and repaired in the robot-operation stage,
+            # where trajectories show what it has to do. A visual review here cannot judge that.
+            from .tool_contract import OPERATION_REVIEW, OPERATION_CHECK
+            atomic_json(destination/"review.json",OPERATION_REVIEW)
+            record["deferred_checks"] = [{**OPERATION_CHECK,"id":job["id"]+":tool_operation","job":job["id"]}]
+            record["feedback"] = {"numerical":report,"visual":dict(OPERATION_REVIEW)}
+            record['layout_revision'] = self.layout_context()['revision']
+            record["status"] = "candidate_ready"
+            return record["feedback"]
         if job["role"] != "asset":
             # The served instruments were judged against their photos in their own reviews; a
             # tool is judged against them as built, one render each, not every original photo.

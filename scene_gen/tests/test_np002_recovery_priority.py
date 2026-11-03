@@ -146,8 +146,10 @@ class WorkflowTests(unittest.TestCase):
         visual={'verdict':'repair','findings':['Developer fixture: move station'],
                 'unverified':[],'affected_instances':['station']}
         action={'jobs':[],'placements':[{'id':'station','position':[.6,0,.8],'yaw':0}],'reason':'fixture visual repair'}
-        run,_=self.make([fixture.plan(),fixture.ASSET,fixture.TOOL,fixture.ACCEPT,fixture.ACCEPT,
-                        visual,action,fixture.ACCEPT,fixture.ACCEPT,fixture.ACCEPT],Backend(),
+        # The tool has no asset review (its use is judged in the operation stage): the
+        # instrument and scene reviews come before the repair, the scene review after it.
+        run,_=self.make([fixture.plan(),fixture.ASSET,fixture.TOOL,fixture.ACCEPT,
+                        visual,action,fixture.ACCEPT],Backend(),
                         limits=SceneConfig(validation_mode='static',max_iterations=2))
         run.run()
         scenes=[s for s in run.state['stages'] if s['kind']=='scene']
@@ -168,11 +170,11 @@ class WorkflowTests(unittest.TestCase):
         repair={'jobs':[],'placements':[{'id':'station','position':[.6,0,.8],'yaw':0}],'reason':'confirmed defect'}
         backend=Backend()
         run,transport=self.make([fixture.plan(),fixture.ASSET,fixture.TOOL,
-                                fixture.ACCEPT,fixture.ACCEPT,fixture.ACCEPT,repair,fixture.ACCEPT,fixture.ACCEPT],backend)
+                                fixture.ACCEPT,fixture.ACCEPT,repair,fixture.ACCEPT],backend)
         result=run.run()
         self.assertEqual(result['status'],'static_candidate_ready')
         self.assertEqual(result['scene_rounds'],2)
-        self.assertEqual(len(transport.requests),9)
+        self.assertEqual(len(transport.requests),7)
         self.assertLess(backend.events.index('scene_check'),backend.events.index('asset_check'))
         first=next(s for s in run.state['stages'] if s['kind']=='scene')
         self.assertEqual(first['review']['verdict'],'accept')

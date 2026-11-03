@@ -23,13 +23,13 @@ class SceneRecoveryTests(unittest.TestCase):
         outage = ProviderError("synthetic unavailable", diagnostics={"http_status":503})
         sandbox = SceneSandbox()
         with patch("asset_generation.model.time.sleep"):
-            result, _ = self.run_loop(self.base_replies[:3] + [outage]*8 + self.base_replies[3:] + [REVIEW],
+            result, _ = self.run_loop(self.base_replies[:3] + [outage]*8 + self.base_replies[3:],
                                      sandbox=sandbox, limits=SceneConfig(max_iterations=1))
         self.assertEqual(result["status"], "candidate_ready")
         self.assertEqual(sandbox.build_calls, 2)
         self.assertEqual(sandbox.scene_calls, 1)
         self.assertEqual(result["requests"]["retry_attempts"], 8)
-        self.assertEqual(result["requests"]["successful_responses"], 6)
+        self.assertEqual(result["requests"]["successful_responses"], 5)
 
     def test_provider_failure_is_reported_and_cleared_after_resume(self):
         error = ProviderError("synthetic", diagnostics={"http_status":400,
@@ -53,19 +53,21 @@ class SceneRecoveryTests(unittest.TestCase):
         source = self.root/"run/stages/00002_asset/model.py"
         before = file_hash(source)
         sandbox = SceneSandbox()
-        result,transport = self.run_loop([REVIEW,{"model_py":TOOL_SOURCE},REVIEW,REVIEW],
+        # Instrument review, tool author, scene review (the tool has no asset review).
+        result,transport = self.run_loop([REVIEW,{"model_py":TOOL_SOURCE},REVIEW],
                                         resume=True,retry_uncertain=True,sandbox=sandbox)
         self.assertEqual(result["status"],"candidate_ready")
         self.assertEqual(sandbox.build_calls,1)  # 仅新工具，已有资产不重建。
         self.assertEqual(file_hash(source),before)
-        self.assertEqual(len(transport.requests),4)
+        self.assertEqual(len(transport.requests),3)
         state=json.loads((self.root/"run/state.json").read_text(encoding="utf-8"))
         self.assertFalse(any(c["status"] == "pending" for c in state["calls"]))
         self.assertEqual(self.run_loop([],resume=True)[1].requests,[])
 
     def test_scene_review_interrupt_resumes_without_reassembly(self):
         with self.assertRaises(KeyboardInterrupt):
-            self.run_loop(self.base_replies+[KeyboardInterrupt()])
+            # The scene review (after the instrument review; the tool has none) is interrupted.
+            self.run_loop(self.base_replies[:4]+[KeyboardInterrupt()])
         sandbox=SceneSandbox()
         result,transport=self.run_loop([REVIEW],resume=True,retry_uncertain=True,sandbox=sandbox)
         self.assertEqual(result["status"],"candidate_ready")
@@ -132,9 +134,11 @@ class SceneRecoveryTests(unittest.TestCase):
                 "affected_instances":["micro_rack"]}
         action={"jobs":["tool"],"placements":[],"reason":"synthetic tool repair"}
         edit={"edits":[{"old":"    pass","new":"    return None"}]}
-        result,transport=self.run_loop([p,*self.base_replies[1:],defect,action,edit,REVIEW,REVIEW])
+        # The defect comes from the first scene review (the tool has no asset review); after the
+        # tool edit only the scene is reviewed again.
+        result,transport=self.run_loop([p,*self.base_replies[1:4],defect,action,edit,REVIEW])
         self.assertEqual(result["status"],"candidate_ready")
-        context=json.loads(transport.requests[6]["messages"][1]["content"][0]["text"])
+        context=json.loads(transport.requests[5]["messages"][1]["content"][0]["text"])
         self.assertEqual(context["allowed_instances"],["micro_rack"])
         self.assertEqual(context["allowed_jobs"],["tool"])
 
@@ -156,9 +160,11 @@ class SceneRecoveryTests(unittest.TestCase):
                     f"    (output_dir/'interfaces.json').write_text({json.dumps(manifest(tool))!r},encoding='utf-8')\n")
         backend=LocalBackend(self.generation,self.project)
         limits=SceneConfig(validation_mode="static")
+        # Static mode: the instrument review is answered, the tool has no asset review (its
+        # use is deferred to the operation stage), and the scene review is interrupted.
         with self.assertRaises(KeyboardInterrupt):
             self.run_loop([plan(),{"model_py":source(ASSET,False)},REVIEW,
-                           {"model_py":source(TOOL,True)},REVIEW,KeyboardInterrupt()],
+                           {"model_py":source(TOOL,True)},KeyboardInterrupt()],
                           sandbox=backend,limits=limits)
         # 真正完成本地构建、检查、渲染、装配后，恢复只允许审查。
         with patch.object(backend,"build_and_check",side_effect=AssertionError("must reuse assets")), \

@@ -178,10 +178,11 @@ class MobileLayoutTests(unittest.TestCase):
         review={"verdict":"accept", "motion_coverage": [],"findings":[],"unverified":["开发者样例"]}
         run,transport=self.run_fixture([self.plan,{"model_py":"def build(output_dir):\n pass"},
             {"keep_layout":"已核对合成几何"},{"model_py":"def build(output_dir):\n # TOOL_FIXTURE\n pass"},
-            review,review,review])
+            review,review])
         result=run.run()
         self.assertEqual(result["status"],"static_candidate_ready")
-        self.assertEqual(result["budget"]["model_calls"],7)
+        # Instrument and scene reviews; the tool's review is deferred to the operation stage.
+        self.assertEqual(result["budget"]["model_calls"],6)
         import json
         tool_request=next(p for p in transport.requests
             if json.loads(p["messages"][1]["content"][0]["text"]).get("job",{}).get("role")=="tool"

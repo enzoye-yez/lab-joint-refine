@@ -391,7 +391,11 @@ class SceneRun:
                         "\nWhere a hose, tube or cable ends on a port of another instance or configuration, compute the port in "
                         "this model's local frame from scene_layout, run the last segment coaxially with the port axis, and mate "
                         "without interpenetration: a hose bore fits over a barb or nozzle whose outer radius is smaller than the bore, "
-                        "or the hose stops 0.5 mm short of a solid face. Never end a hose inside solid port geometry.")
+                        "or the hose stops 0.5 mm short of a solid face. Never end a hose inside solid port geometry."
+                        "\nFace the operator along local -Y: the side a person works from (controls, door, lid hinge opposite, "
+                        "loading slot) is the -Y face, and operation interfaces declare their approach_axis. The framework turns "
+                        "that face to the robot aisle; keep controls the robot must use on that face and within the front "
+                        "0.30 m of the footprint where the instrument allows.")
         if self.limits.validation_mode == "static":
             instruction += "\n当前仅验收静态场景外观和几何。仍按资料建立运动关节、按钮、连接及接口；本轮跳过操作验证并不允许把可动仪器简化为不可动外壳。"
         if job["role"] != "asset":
@@ -810,6 +814,10 @@ class SceneRun:
                             and isinstance(blocked["detail"],str) and blocked["detail"].strip(),"修复阻塞须明确kind及detail")
                         raise ValidationError("该方案暂不可用；核对局部摆放、已有接口或资产局部重设计，优先处理本范围内可推进的部分："+str(blocked))
                     updated=repair_action(value,self.state["plan"],scoped_jobs,allowed,self.limits,self.env)
+                    if "layout" in updated and (value.get("layout") or value.get("placements")):
+                        # Layout edits choose benches and order; coordinates stay arranged.
+                        from .arrangement import arrange, shapes_for
+                        updated=arrange(updated,shapes_for(self,updated),self.env)
                     self.validate_prepared_plan(updated)
                     chosen_tasks=action_tasks(scoped_tasks,value,self.state['plan'],updated)
                     require(bool(chosen_tasks),'修改必须涉及当前授权的目标问题')

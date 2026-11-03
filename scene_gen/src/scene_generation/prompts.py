@@ -81,31 +81,38 @@ REPAIR += """
 """
 
 MOBILE_LAYOUT = '''
-当前采用移动实验室机器人。机器人型号/底盘规格来自environment，不自行缩放或替换。
-environment.table仅为工作台尺寸参考；实际装配以layout中逐桌参数为准。
-先自主提出合理房间边界、工作台数量及尺寸，并直接继续生成。所有资料仪器维持真实尺寸和结构。
-优先2–3张工作台，按流程关联共享操作面，避免按资产类别各建一桌。超过三张时逐桌reason须列出服务实例和尺寸、操作空间或分区依据；不能只写方便布局。
-先尝试合并闲置桌面、调整朝向和尺寸，再增加桌子；不能缩放仪器、占用必要通道或把台式仪器随意落地。
-layout_metrics提供几何占用上界与未知操作留空，不能将留空一律认作浪费。保持真实尺寸和检查覆盖，先避免新增缺陷，再减少桌数、桌面面积和房间面积。
-layout必须包含：
-{"room":{"size":[房间X长度,房间Y长度],"reason":"尺寸依据"},
- "tables":[{"id":"bench1","size":[长,宽,厚],"height":台面高度,"position":[世界x,y],"yaw":弧度,"reason":"用途和数量必要性"}],
- "robot_home":[底盘世界x,y,yaw],
- "docks":[{"id":"dock1","instance":"仪器实例编号","pose":[底盘世界x,y,yaw],"reason":"接近位置依据"}]}
-房间以世界原点为中心。每个table实例必须增加table_id；floor与robot实例不能填写table_id。
-support_instance连接的整条支撑链使用同一placement及table_id；
-例如物品放在独立落地仪器的内部工作面上，placement仍为floor，position的z取真实承托高度，不强行归入工作台。
-仪器实例position始终是世界坐标；工作台yaw会旋转其局部坐标。
-所有桌面切槽center和edge_mounts的边方向使用对应工作台的局部坐标。
-生成后可改变桌子尺寸、位置、数量与初始停靠点，默认room边界保持不变；确需变更时修复指令须有room_revision_reason，说明具体尺寸和操作空间依据，并申请全部环境实例复核；
-新增桌子必须解释已有桌面、通道或分区为何不足，不通过无理由增加桌子回避布局。
-机械臂可在不同停靠点服务不同仪器；预留底盘通道、开盖空间及合理操作面。
-此阶段只生产场景：必要活动部件须具有实际关节，不要求完成轨迹或逐操作逆运动学。
-layout_assessment只是声明姿态下整机包络连通与逐臂距离建议，不能认证能执行任务；建议失败也不是已确认几何缺陷。
-修复可返回完整layout替换；placements可增加placement、table_id、support_instance，后两者用null清除。
-桌子移动时框架自动携带未在placements中显式给出的桌上实例及支撑后代；仪器尺寸不会缩放。
-删除工作台须显式重新安排该桌所有实例。保持原table_modifications和edge_mounts合法，必要时同时更新完整列表。
-明确保留未验证内容和缺件，优先形成可加载的完整或部分场景。
+The scene uses a mobile lab robot. Its model and chassis come from environment; never scale or replace them.
+environment.table is only a size reference; assembly uses the per-table parameters in layout.
+Propose the room, benches and placements yourself and continue without approval. Every instrument keeps its real size and structure.
+Coordinates are computed by the framework once the assets exist (deterministic arrangement): benches stand against the long walls in
+two rows facing one robot aisle; on every bench the instruments stand in a single row, operating face to the aisle, front face 4 cm
+behind the edge; floor instruments join the rows; each instrument gets a dock with the chassis square to the bench just short of the
+edge; whatever rests on another instance keeps its pose relative to that support. What you decide, and what the arrangement keeps:
+- which bench each instrument stands on (group by workflow: instruments used one after another share a bench), or placement=floor
+  for free-standing equipment (refrigerator, safety cabinet, floor centrifuge);
+- the order along each bench: give positions so that the order along the bench's local x is the working order;
+- support chains (support_instance) and the pose of a supported part relative to its support (a tube in its rack slot);
+- which row a bench goes in follows your order; balance the two rows.
+Prefer 2-3 benches, shared by workflow, not one per asset class; more than three needs a per-bench reason listing the instances served.
+Your coordinates are still validated, so keep them plausible (inside the room, instances on their bench), but you do not need to pack them.
+layout must contain:
+{"room":{"size":[room X length,room Y length],"reason":"basis for the size"},
+ "tables":[{"id":"bench1","size":[length,depth,thickness],"height":top height,"position":[world x,y],"yaw":radians,"reason":"use and why it is needed"}],
+ "robot_home":[chassis world x,y,yaw],
+ "docks":[{"id":"dock1","instance":"instrument instance id","pose":[chassis world x,y,yaw],"reason":"approach basis"}]}
+The room is centred on the world origin. Every table instance needs table_id; floor and robot instances must not have table_id.
+A whole support_instance chain uses one placement and table_id;
+e.g. an item on the inner work surface of a free-standing instrument is still placement=floor with z at the real support height.
+Instance positions are always world coordinates; a bench's yaw rotates its local coordinates.
+Table cut centres and edge_mounts edge directions use the local coordinates of their bench.
+A repair may move an instance to another bench or floor, change the order, or add/remove a bench (explain why the existing benches
+are insufficient); the framework re-arranges coordinates after every layout repair. Do not add benches without a reason.
+This stage produces the scene only: required moving parts must have real joints; trajectories and per-operation inverse kinematics are not required.
+layout_assessment reports per-arm reach from each declared dock to the operation interfaces; an unreachable interface means the
+instrument's interfaces sit too deep, too high or too low for the robot, not that the robot needs another pose you invent.
+A repair may return a complete layout replacement; placements may add placement, table_id and support_instance; null clears the latter two.
+Deleting a bench requires reassigning all its instances explicitly. Keep table_modifications and edge_mounts valid, updating the full lists when needed.
+State unverified content and missing parts explicitly; prefer a loadable complete or partial scene.
 '''
 
 

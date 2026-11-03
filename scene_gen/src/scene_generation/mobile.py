@@ -70,8 +70,11 @@ def assess(model, data, plan, env, geometry, manifest=None):
         for arm in entries:
             sid=mujoco.mj_name2id(model,mujoco.mjtObj.mjOBJ_SITE,"robot__"+arm["shoulder_site"]) if arm["shoulder_site"] else -1
             pos=probe.site_xpos[sid].copy() if sid>=0 else np.r_[home,env["robot"]["mobile"]["mount_height"]]
+            # reach_m ends at the wrist; the target is touched by the gripper tip.
+            ids=[mujoco.mj_name2id(model,mujoco.mjtObj.mjOBJ_SITE,"robot__"+arm[k]) if arm.get(k) else -1 for k in ("wrist_site","tcp_site")]
+            tip=float(np.linalg.norm(probe.site_xpos[ids[0]]-probe.site_xpos[ids[1]])) if min(ids)>=0 else 0.
             shoulders.append({"arm":arm["id"],"xy":(pos[:2]-home)@rotation,
-                              "height":float(pos[2]),"reach":arm["reach_m"],"posture":posture,
+                              "height":float(pos[2]),"reach":arm["reach_m"]+tip,"posture":posture,
                               "source":"model_shoulder_site" if sid>=0 else "legacy_mount_approximation"})
     def distances(positions, target, shoulder, angles):
         c,s=np.cos(angles),np.sin(angles)
@@ -115,7 +118,27 @@ def assess(model, data, plan, env, geometry, manifest=None):
             if nxt in free and nxt not in reached:
                 reached.add(nxt);queue.append(nxt)
     positions = np.array([[xs[x],ys[y]] for x,y in sorted(reached)]).reshape(-1,2)
-    def connected(point):
+    chassis=np.array(env["robot"]["mobile"]["base_size"][:2])/2+.01
+    def chassis_clear(pose):
+        """The chassis rectangle at a dock pose clears every obstacle box (arms tucked)."""
+        c,s=math.cos(pose[2]),math.sin(pose[2])
+        corners=np.array([[pose[0]+c*x-s*y,pose[1]+s*x+c*y] for x in (-chassis[0],chassis[0]) for y in (-chassis[1],chassis[1])])
+        lo,hi=corners.min(axis=0),corners.max(axis=0)
+        return (bool(np.all(np.abs(corners)<=room-.025)) and
+                not any(np.all(lo<b_hi) and np.all(b_lo<hi) for b_lo,b_hi in obstacles))
+    def connected(point, yaw=None):
+        """Reachable from the grid: straight in from a free cell, chassis clear on the way."""
+        if yaw is not None:
+            direction=np.array([math.cos(yaw),math.sin(yaw)])
+            if not chassis_clear([*point,yaw]):
+                return False
+            for back in np.arange(step,1.5+1e-9,step/2):
+                start=point-direction*back
+                if not chassis_clear([*start,yaw]):
+                    return False
+                if len(positions) and np.min(np.linalg.norm(positions-start,axis=1))<=step*.75:
+                    return True
+            return False
         if not clear(point,radius):
             return False
         nearby = positions[np.linalg.norm(positions-point,axis=1)<=step*1.5]
@@ -123,6 +146,13 @@ def assess(model, data, plan, env, geometry, manifest=None):
     grouped_bounds={key:(np.min([b[0] for b in boxes],axis=0),np.max([b[1] for b in boxes],axis=0))
                     for key,boxes in by_instance.items() if boxes and key!="environment"}
     grouped_bounds.update({"environment:"+str(g):box for g,box in geometry.items() if owner(model,g)=="environment"})
+    items_by_id={i["id"]:i for i in plan["instances"]}
+    def support_root(item):
+        """The instance and every support below it: a tube is operated from its rack's dock."""
+        chain=[item["id"]]
+        while items_by_id.get(chain[-1],{}).get("support_instance") in items_by_id and len(chain)<32:
+            chain.append(items_by_id[chain[-1]]["support_instance"])
+        return set(chain)
     rows = []
     for item in plan["instances"]:
         if item["placement"] == "robot":
@@ -139,12 +169,26 @@ def assess(model, data, plan, env, geometry, manifest=None):
                                           np.max([b[1] for b in boxes],axis=0))/2)]
         outcomes = []
         target_interfaces={i["id"]:i for i in declared_interfaces}
+        own_docks=[d for d in layout["docks"] if d["instance"] in support_root(item)]
         for label,target in targets:
             interface=target_interfaces.get(label,{})
             axis=interface.get("approach_axis")
             normal=(data.site_xmat[model.site(interface["site"]).id].reshape(3,3)@np.array(axis)) if axis else None
             pose = None
             best=None
+            # The arranged docks first: chassis square to the bench, nearest shoulder and lift.
+            for dock in own_docks:
+                point=np.array(dock["pose"][:2])
+                for shoulder in shoulders:
+                    distance=float(distances(point[None,:],target,shoulder,np.array([dock["pose"][2]]))[0])
+                    if distance<=shoulder["reach"] and (best is None or distance<best[0]):
+                        best=(distance,None,shoulder,dock["pose"])
+            if best:
+                outcomes.append({"target":label,"position":target.tolist(),"suggested_dock":best[3],
+                                 "arm":best[2]["arm"],"robot_posture":best[2]["posture"],"shoulder_source":best[2]["source"],
+                                 "approach_direction":"not_screened_from_declared_dock","obstruction_screen":"none",
+                                 "operation_verified":False,"distance_m":best[0],"status":"plausible"})
+                continue
             angles=np.arctan2(target[1]-positions[:,1],target[0]-positions[:,0])
             for shoulder in shoulders:
                 distance=distances(positions,target,shoulder,angles)
@@ -180,9 +224,9 @@ def assess(model, data, plan, env, geometry, manifest=None):
             per_arm=[{"arm":s["arm"],"robot_posture":s["posture"],
                       "target_distances_m":[float(distances(point[None,:],t,s,np.array([dock["pose"][2]]))[0])
                                             for _,t in targets]} for s in shoulders]
-            declared.append({"id":dock["id"],"pose":dock["pose"],"base_clear":clear(point,current_radius),
+            declared.append({"id":dock["id"],"pose":dock["pose"],"base_clear":chassis_clear(dock["pose"]),
                              "whole_robot_envelope_clear":clear(point,current_radius),
-                             "grid_connected":connected(point),"arm_distances":per_arm})
+                             "grid_connected":connected(point,dock["pose"][2]),"arm_distances":per_arm})
         rows.append({"instance":item["id"],"targets":outcomes,"declared_docks":declared,
                      "target_source":target_source,"operation_verified":False,
                      "status":"plausible" if outcomes and all(t["suggested_dock"] for t in outcomes)

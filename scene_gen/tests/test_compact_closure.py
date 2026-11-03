@@ -14,7 +14,6 @@ from scene_generation.candidate import assembly_manifest, inspect_candidate
 from scene_generation.assembly import namespace_manifest
 from scene_generation.layout_metrics import union_area, measure
 from scene_generation.progress import repair_comparison
-from scene_generation.layout_planning import refine
 
 class CompactClosureTests(unittest.TestCase):
     def test_footprints_use_union_not_sum_and_missing_is_explicit(self):
@@ -92,24 +91,6 @@ class CompactClosureTests(unittest.TestCase):
         after=copy.deepcopy(before);after["layout_assessment"]["compactness"]["table_count"]=3
         after["layout_assessment"]["instances"]=[]
         self.assertFalse(repair_comparison(before,after)["adopt"])
-
-    def test_partial_assets_refine_once_per_real_input_without_budget_reset(self):
-        jobs=[{"id":"a","role":"asset"},{"id":"b","role":"asset"}]
-        plan={"jobs":jobs,"instances":[],"layout":{"tables":[],"room":{"size":[8,8]}}}
-        state={"plan":plan,"jobs":{"a":{"assembly_readiness":{"loadable":True,"artifact_sha256":"one"}}}}
-        calls=[]
-        def ask(instruction,context,images,phase):
-            calls.append(context);return {"keep_layout":"developer fixture"},{}
-        run=SimpleNamespace(state=state,env={"robot":{}},limits=SimpleNamespace(max_repair_plan_attempts=3),robot_joints={},
-                            check_pause=lambda:None,store=SimpleNamespace(save=lambda:None),model=SimpleNamespace(ask=ask))
-        with patch("scene_generation.layout_planning.usable",side_effect=lambda r,v:bool(v)),patch("scene_generation.layout_planning.table_policy",return_value={}):
-            refine(run);refine(run)
-            self.assertEqual(len(calls),1)
-            self.assertEqual(calls[0]["missing_assets"][0]["job"],"b")
-            state["jobs"]["b"]={"assembly_readiness":{"loadable":True,"artifact_sha256":"two"}}
-            refine(run)
-            self.assertEqual(len(calls),2)
-            self.assertEqual(len(state["layout_refinement"]["attempts"]),2)
 
     def test_segment_obstruction_is_geometry_based(self):
         from scene_generation.mobile import segment_box

@@ -354,6 +354,12 @@ class DistanceQuery:
                     break
         if normal is None:
             return None,"Cannot verify the closest points and contact normal against the support face of the actual collision shape"
+        if distance < -eps:
+            # A penetration is no deeper than the overlap in the opposite direction along the same
+            # normal; MuJoCo 3.3.7 reports some flush face contacts as a full-thickness overlap.
+            low,high = self.interval(g1,np.array(normal))[0],self.interval(g2,np.array(normal))[1]
+            if high-low < -distance-eps:
+                return None,"Penetration depth exceeds the overlap in the opposite direction along its own normal"
         return {"distance_m":distance,"lower_bound_m":None,"points":segment.tolist(),
                 "normal":normal,"surface_errors_m":errors},None
 

@@ -67,6 +67,15 @@ class DistanceEvidenceTests(unittest.TestCase):
                      '<geom name="b" type="sphere" size=".1" pos=".1 0 0"/></worldbody></mujoco>')
         self.assertIsNone(DistanceQuery(m,d).convex_distance(0,1,.5))
 
+    def test_flush_face_contact_is_not_a_full_thickness_penetration(self):
+        # MuJoCo 3.3.7 returns -5.95 mm for this tube tip seated flush on a rack floor.
+        plate=('<mesh name="plate" vertex="-.051 -.032 0 .051 -.032 0 .051 .032 0 -.051 .032 0 '
+               '-.051 -.032 .0053 .051 -.032 .0053 .051 .032 .0053 -.051 .032 .0053"/>')
+        for z,expected in ((.005625,0.),(.005325,-.0003)):
+            m,d=compiled(f'<mujoco><asset>{plate}</asset><worldbody><geom name="a" type="mesh" mesh="plate"/>'
+                         f'<geom name="b" type="cylinder" size=".0009 .000325" pos="0 -.0178 {z}"/></worldbody></mujoco>')
+            self.assertAlmostEqual(DistanceQuery(m,d).measure(0,1)['distance_m'],expected,places=7)
+
     def test_unresolved_contact_cannot_silently_pass_collision_checker(self):
         m,d=compiled('<mujoco><worldbody><geom name="a__g" type="sphere" size=".1"/>'
                      '<geom name="b__g" type="sphere" size=".1" pos=".1 0 0"/></worldbody></mujoco>')

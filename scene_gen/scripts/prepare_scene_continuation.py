@@ -148,6 +148,8 @@ def prepare(project, source_name, target_name, before_file=None, kind="stage_rev
                        "src/asset_generation/codex_transport.py",
                        # scene check reports above 8 MB no longer stop the scene stage
                        "src/asset_generation/sandbox.py"},
+                   # a flush face contact was measured as a full-thickness penetration
+                   "collision_depth":{"src/asset_generation/distance.py"},
                    "asset_checks":{"src/asset_generation/probes.py", "src/asset_generation/motion.py",
                        "src/asset_generation/checks.py", "src/asset_generation/local.py"},
                    "transport_recovery":{"src/asset_generation/contracts.py", "src/asset_generation/model.py",
@@ -169,7 +171,7 @@ def prepare(project, source_name, target_name, before_file=None, kind="stage_rev
         require(archive_only or changed and {p.replace("\\", "/") for p in changed} <= allowed,
                 "source changes outside stage review exist; this upgrade is not supported")
         scene = state["scene"]
-        require(not scene.get("pending") or kind in {"evidence_recovery", "transport_recovery", "evidence_pipeline", "agent_context", "review_contract", "phase_budget", "budget_limits", "repair_loop", "tool_draft"}, "an unarchived workspace exists")
+        require(not scene.get("pending") or kind in {"evidence_recovery", "transport_recovery", "evidence_pipeline", "agent_context", "review_contract", "phase_budget", "budget_limits", "repair_loop", "tool_draft", "collision_depth"}, "an unarchived workspace exists")
         if kind in {'main_check_recovery', 'implementation_binding', 'archive_revalidation', 'evidence_pipeline'}:
             require(state['identity']['limits']['validation_mode']=='static'
                     and scene['status'] in {'needs_check_support','needs_environment','needs_review','paused',
@@ -204,7 +206,7 @@ def prepare(project, source_name, target_name, before_file=None, kind="stage_rev
                 images = [file_hash(safe_path(source, path)) for path in job.get("preview_paths", [])]
                 dependencies = {k: scene["jobs"].get(k, {}).get("assembly_readiness") for k in plan_job["depends_on"]}
                 job["review_key"] = review_key(plan_job, job["assembly_readiness"], None, dependencies, numerical, images)
-        elif kind == "tool_draft":
+        elif kind in {"tool_draft", "collision_depth"}:
             # The end-effector is accepted on its static checks and repaired in the operation stage;
             # the implementation digest re-audits every asset, and unchanged reviews stand.
             scene.pop("scene_review_resume", None)
@@ -247,7 +249,7 @@ def prepare(project, source_name, target_name, before_file=None, kind="stage_rev
             require(all(j["status"] in {"candidate_ready", "assembly_ready"} and not j.get("dirty")
                         for j in scene["jobs"].values()), "a scene-capacity upgrade does not change any asset review result")
         unknown = any(c["status"] == "pending" for c in state["calls"])
-        require(not unknown or kind in {"evidence_recovery", "transport_recovery", "evidence_pipeline", "agent_context", "review_contract", "phase_budget", "budget_limits", "repair_loop", "tool_draft"}, "requests with unknown outcome exist; reconcile the billing ledger first")
+        require(not unknown or kind in {"evidence_recovery", "transport_recovery", "evidence_pipeline", "agent_context", "review_contract", "phase_budget", "budget_limits", "repair_loop", "tool_draft", "collision_depth"}, "requests with unknown outcome exist; reconcile the billing ledger first")
         for call in state["calls"]:
             if call["status"] == "done":
                 require(file_hash(safe_path(source, call["file"])) == call["sha256"], "call record digest mismatch")
@@ -262,7 +264,7 @@ def prepare(project, source_name, target_name, before_file=None, kind="stage_rev
                     'archive revalidation only accepts static runs whose assets are all archived and that have not passed full scene acceptance')
         recheck = []
         for key, job in scene["jobs"].items():
-            if kind in {"agent_context", "review_contract", "asset_checks", "phase_budget", "budget_limits", "repair_loop", "tool_draft"}:
+            if kind in {"agent_context", "review_contract", "asset_checks", "phase_budget", "budget_limits", "repair_loop", "tool_draft", "collision_depth"}:
                 break  # no job is marked; asset_checks re-audits through the implementation digest
             if kind=="evidence_pipeline":
                 owner=job.get("artifact_stage",job["stage"]).replace("\\", "/")
@@ -373,6 +375,9 @@ def prepare(project, source_name, target_name, before_file=None, kind="stage_rev
                              "keep assets, reviews and call ledger; the end-effector is accepted on its static and printability checks and handed to the operation stage; "
                              "scene check reports up to 64 MB are read"
                              if kind == "tool_draft" else
+                             "keep assets, reviews and call ledger; flush face contacts are no longer measured as full-thickness penetrations; "
+                             "every asset and the scene are re-checked, and unchanged reviews stand"
+                             if kind == "collision_depth" else
                              "keep existing geometry and ledger; re-review after enabling read-only evidence supplementation; unknown requests stay pending and automatic resend is forbidden"
                              if kind == "evidence_recovery" else
                              "keep existing geometry and engineering checks; re-run per-stage review; old conclusions are not automatically upgraded to a pass"
@@ -422,6 +427,6 @@ if __name__ == "__main__":
     parser.add_argument("--source", required=True)
     parser.add_argument("--target", required=True)
     parser.add_argument("--before-sources", type=Path)
-    parser.add_argument("--kind", choices=("evidence_pipeline", "archive_revalidation", "implementation_binding", "stage_review", "scene_capacity", "scene_repair", "static_preview", "evidence_recovery", "transport_recovery", "local_repair", "evidence_checks", "main_check_recovery", "agent_context", "review_contract", "asset_checks", "phase_budget", "budget_limits", "repair_loop", "tool_draft"), default="stage_review")
+    parser.add_argument("--kind", choices=("evidence_pipeline", "archive_revalidation", "implementation_binding", "stage_review", "scene_capacity", "scene_repair", "static_preview", "evidence_recovery", "transport_recovery", "local_repair", "evidence_checks", "main_check_recovery", "agent_context", "review_contract", "asset_checks", "phase_budget", "budget_limits", "repair_loop", "tool_draft", "collision_depth"), default="stage_review")
     args = parser.parse_args()
     print(json.dumps(prepare(PROJECT, args.source, args.target, args.before_sources, args.kind), ensure_ascii=False))

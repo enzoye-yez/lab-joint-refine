@@ -14,6 +14,9 @@ from asset_prep.storage import atomic_json, safe_path
 from .contracts import read_json, require
 from .check_report import checked_report, failed_report
 
+# A check report of a whole scene (22 assets, every probe and collision row) reaches ~10 MB.
+REPORT_MAX_BYTES = 64_000_000
+
 
 class SandboxUnavailable(PrepError):
     pass
@@ -106,7 +109,7 @@ class ExecutionBackend:
                                  max_artifact_files=limits.max_artifact_files,
                                  build_timeout_seconds=limits.build_timeout_seconds)
         backend._run('validate',[(artifact,'/input/artifact'),(job,'/input/job.json')],output)
-        return read_json(output/'report.json',8000000)
+        return read_json(output/'report.json',REPORT_MAX_BYTES)
 
     def recheck_scene(self, artifact, destination, limits, contract):
         """Recheck on the original scene copy without rebuilding assets, modifying the original report or re-rendering."""
@@ -125,7 +128,7 @@ class ExecutionBackend:
                                  build_timeout_seconds=limits.build_timeout_seconds)
         try:
             backend._run('validate',[(artifact,'/input/artifact'),(job,'/input/job.json')],output)
-            return checked_report(read_json(output/'report.json',8000000),domain='scene',mode=limits.validation_mode)
+            return checked_report(read_json(output/'report.json',REPORT_MAX_BYTES),domain='scene',mode=limits.validation_mode)
         except ValidationError as exc:
             return failed_report(exc)
 
@@ -140,7 +143,7 @@ class ExecutionBackend:
         output.mkdir()
         try:
             self._run("inspect",[(artifact,"/input/artifact"),(job,"/input/job.json")],output)
-            return read_json(output/"report.json",8000000),output/"renders"
+            return read_json(output/"report.json",REPORT_MAX_BYTES),output/"renders"
         except ValidationError as exc:
             return {"status":"incomplete","error":str(exc),"renders":[],"simulation_steps":0},None
 
@@ -157,7 +160,7 @@ class ExecutionBackend:
             checked = destination/"checked"
             checked.mkdir()
             self._run("validate", [(artifact, "/input/artifact"), (job, "/input/job.json")], checked)
-            return checked_report(read_json(checked/"report.json"),domain='asset',mode=profile.get('validation_mode','full')), checked/"renders"
+            return checked_report(read_json(checked/"report.json",REPORT_MAX_BYTES),domain='asset',mode=profile.get('validation_mode','full')), checked/"renders"
         except ValidationError as exc:
             if phase == 'validate':
                 return failed_report(exc),None
@@ -179,7 +182,7 @@ class ExecutionBackend:
         output=destination/'checked';output.mkdir()
         try:
             self._run('validate',[(artifact,'/input/artifact'),(job,'/input/job.json')],output)
-            report=checked_report(read_json(output/'report.json',8000000),domain='asset',mode='static')
+            report=checked_report(read_json(output/'report.json',REPORT_MAX_BYTES),domain='asset',mode='static')
             if admitted and not report.get('assembly_readiness',{}).get('loadable'):
                 return {**admitted,"render_failure":report},None
             return report,output/'renders'
@@ -200,7 +203,7 @@ class ExecutionBackend:
             max_artifact_files=limits.max_artifact_files,build_timeout_seconds=limits.build_timeout_seconds)
         try:
             backend._run('validate',[(artifact,'/input/artifact'),(job,'/input/job.json')],output)
-            return checked_report(read_json(output/'report.json',8000000),domain='scene',mode=limits.validation_mode),output/'renders'
+            return checked_report(read_json(output/'report.json',REPORT_MAX_BYTES),domain='scene',mode=limits.validation_mode),output/'renders'
         except ValidationError as exc:
             return failed_report(exc),None
 
@@ -215,7 +218,7 @@ class ExecutionBackend:
         output = destination/'checked'
         output.mkdir()
         self._run('validate', [(artifact, '/input/artifact'), (job, '/input/job.json')], output)
-        return checked_report(read_json(output/'report.json'), domain='asset',
+        return checked_report(read_json(output/'report.json',REPORT_MAX_BYTES), domain='asset',
                               mode=profile.get('validation_mode','full')), output/'renders'
 
     def assemble_and_check(self, plan, environment, artifacts, robot_root, destination, limits, contract, *, admission=False):
@@ -239,7 +242,7 @@ class ExecutionBackend:
             scene_backend._run("scene",mounts,output)
             elapsed=monotonic()-started
             phase = 'report'
-            report=checked_report(read_json(output/"report.json",8000000),domain='scene',mode=limits.validation_mode)
+            report=checked_report(read_json(output/"report.json",REPORT_MAX_BYTES),domain='scene',mode=limits.validation_mode)
             report["execution_timing"]={"worker_seconds":round(elapsed,3),
                 "budget_seconds":getattr(scene_backend,'last_work_budget',{}).get('seconds',limits.build_timeout_seconds),
                 "base_budget_seconds":limits.build_timeout_seconds,

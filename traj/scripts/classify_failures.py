@@ -24,6 +24,7 @@ CATEGORIES = {
     "G4_replan_failed": "Grasp: no IK solution from the measured parking pose",
     "F1_force_on_target": "Force: contact force limit on the target part",
     "F2_force_on_other": "Force: contact force limit against another object",
+    "F3_latched": "Force: the part is held by a latch/lock that must be released first (mechanical event)",
     "M1_mechanism_partial": "Mechanism: moved but stopped short of the goal",
     "M2_mechanism_wrong_way": "Mechanism: moved the wrong way",
     "M3_mechanism_no_motion": "Mechanism: grasped but the joint did not move",
@@ -88,6 +89,8 @@ def classify(r):
         return ("G3_grasp_missed_part_not_pads" if own else "G2_grasp_missed_other"), {"touching": touching[:3]}
     if reason == "contact_force_limit":
         own = instrument(detail.get("geom", "")) == r["instance"]
+        if own and any(k in detail.get("geom", "") for k in ("latch", "lock", "catch", "clip")):
+            return "F3_latched", {"geom": detail.get("geom"), "force_n": round(detail.get("force_n", 0))}
         return ("F1_force_on_target" if own else "F2_force_on_other"), {"geom": detail.get("geom"), "force_n": round(detail.get("force_n", 0))}
     if reason in ("no_arm_path", "arm_tracking", "base_timeout", "no_base_path", "goal_in_collision"):
         return "E1_arm_path_or_tracking", {"reason": reason, **{k: v for k, v in detail.items() if k != "trace"}}

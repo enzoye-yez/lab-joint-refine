@@ -16,10 +16,11 @@ class Frame:
     position: np.ndarray       # TCP position at the grasp / contact
     rotation: np.ndarray       # world 3x3, columns = tool x, y, z
     width: float               # part width across the fingers (m), inf if not measured
+    rank: int = 0              # 0: declared approach, 1: from above or a side, 2: oblique
 
     def offset(self, distance):
         """The same frame moved `distance` back along the tool z axis (a pre-grasp)."""
-        return Frame(self.position - self.rotation[:, 2] * distance, self.rotation, self.width)
+        return Frame(self.position - self.rotation[:, 2] * distance, self.rotation, self.width, self.rank)
 
 
 def _frame(z, y):
@@ -43,6 +44,14 @@ def outward_normals(model, data, interface, fallback=True):
         return declared
     rest = [n for n in SIDES if not declared or n @ declared[0] < 0.95]
     return declared + rest
+
+
+def approach_rank(model, data, interface, normal):
+    if interface.approach is not None and interface.site >= 0:
+        declared = data.site_xmat[interface.site].reshape(3, 3) @ interface.approach
+        if normal @ declared > 0.95:
+            return 0
+    return 2 if 0.3 < abs(normal[2]) < 0.95 else 1
 
 
 def local_points(model, data, body, centre, half=0.04, spacing=0.004):
@@ -73,6 +82,7 @@ def grasp_frames(model, data, interface, max_width, angles=12, depth=0.010, back
     cloud = local_points(model, data, interface.body, centre)
     out = []
     for normal in outward_normals(model, data, interface):
+        rank = approach_rank(model, data, interface, normal)
         z = -normal / np.linalg.norm(normal)
         points = cloud[np.abs((cloud - centre) @ z) <= depth] if len(cloud) else cloud
         if not len(points):
@@ -91,9 +101,15 @@ def grasp_frames(model, data, interface, max_width, angles=12, depth=0.010, back
             widths.append((np.inf if reaches_edge else float(np.ptp(along)), y))
         for width, y in sorted(widths, key=lambda w: w[0])[:3]:
             if width <= max_width:
+                x = np.cross(y, z)
+                along = (points - centre) @ x
+                # An elongated part (a handle, a rod) can be held anywhere along its length.
+                reach = max(0.0, min(float(np.max(along)), -float(np.min(along))) - 0.006)
+                shifts = (0.0,) + ((0.6 * reach, -0.6 * reach) if reach > 0.004 else ())
                 for sign in (1, -1):
                     for back in backoffs:          # shallower grasps keep the fingertips off a support below
-                        out.append(Frame(centre - z * back, _frame(z, sign * y), width))
+                        for shift in shifts:
+                            out.append(Frame(centre - z * back + x * shift, _frame(z, sign * y), width, rank))
     return out
 
 

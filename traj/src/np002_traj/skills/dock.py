@@ -25,6 +25,8 @@ class Dock:
 
 
 SHOULDER_FORWARD = 0.08    # m, arm mounts ahead of the base centre (data/robot build)
+SHORT_PRE = 0.05           # m, fallback pre-grasp distance
+RANK_PENALTY = 0.15        # declared approach first, then the main sides, then oblique ones
 FREE_MARGIN = 0.005        # m, clearance in free motion
 GOAL_MARGIN = 0.002        # m, clearance to neighbours at the grasp itself (FR3 repeatability is 0.1 mm)
 
@@ -78,7 +80,7 @@ def nearest_free(occupancy, target_xy, u, normal, lateral, phi, half, start=0.3,
 
 
 def find_dock(session, kinematics, occupancy, frames, pre_distance=0.10, allowed=(), extra=(0.0, 0.06, 0.15),
-              bearings=36, lift_offsets=(0.15, 0.0, 0.3), max_candidates=300):
+              bearings=36, lift_offsets=(0.15, 0.0, 0.3), max_candidates=600):
     robot, m = session.robot, session.model
     half = robot.profile["base"]["footprint_half_m"]
     lift_range = robot.profile["lift"]["range_m"]
@@ -88,45 +90,50 @@ def find_dock(session, kinematics, occupancy, frames, pre_distance=0.10, allowed
     tried = 0
     reasons = {"footprint": 0, "reach": 0, "pre_ik": 0, "pre_collision": 0, "goal_ik": 0, "goal_collision": 0, "approach": 0}
     blocking = {}
-    for frame in frames:
+    # Rank every (grasp frame, base pose) pair together so that no approach direction is starved.
+    distances = {}
+    options = []
+    for index, frame in enumerate(frames):
         target = frame.position
         heading = frame.rotation[:, 2][:2]                     # tool pointing, projected on the floor
         preferred = np.arctan2(heading[1], heading[0]) if np.linalg.norm(heading) > 0.3 else None
-        options = []
         for k in range(bearings):
             phi = 2 * np.pi * k / bearings
             u = np.array([np.cos(phi), np.sin(phi)])
             normal = np.array([-u[1], u[0]])
             for side in robot.arms:
                 lateral = robot.profile["arms"][side]["lateral_m"]   # this arm's shoulder in line with the part
-                r0 = nearest_free(occupancy, target[:2], u, normal, lateral, phi, half)
+                key = (round(target[0], 3), round(target[1], 3), k, side)
+                if key not in distances:
+                    distances[key] = nearest_free(occupancy, target[:2], u, normal, lateral, phi, half)
+                r0 = distances[key]
                 if r0 is None:
                     reasons["footprint"] += 1
                     continue
                 for dr in extra:
                     r = r0 + dr
-                    score = r + (0.0 if preferred is None else 0.6 * (1 - np.cos(phi - preferred)))
-                    options.append((score, r, phi, side, lateral))
-        for _, r, phi, side, lateral in sorted(options, key=lambda o: o[0]):
-            u = np.array([np.cos(phi), np.sin(phi)])
-            normal = np.array([-u[1], u[0]])
-            centre = target[:2] - r * u - lateral * normal
-            base = np.array([*centre, phi])
-            if not footprint_free(occupancy, base, half):
-                reasons["footprint"] += 1
+                    score = (r + (0.0 if preferred is None else 0.6 * (1 - np.cos(phi - preferred)))
+                             + RANK_PENALTY * frame.rank + 0.01 * index / len(frames))
+                    options.append((score, index, r, phi, side, lateral))
+    for _, index, r, phi, side, lateral in sorted(options, key=lambda o: o[0]):
+        frame = frames[index]
+        target = frame.position
+        u = np.array([np.cos(phi), np.sin(phi)])
+        normal = np.array([-u[1], u[0]])
+        centre = target[:2] - r * u - lateral * normal
+        base = np.array([*centre, phi])
+        for offset in lift_offsets:
+            lift = float(np.clip(target[2] + offset - shoulder0, *lift_range))
+            shoulder = np.array([*(target[:2] - (r - SHOULDER_FORWARD) * u), shoulder0 + lift])
+            if np.linalg.norm(target - shoulder) > reach + 0.15:
+                reasons["reach"] += 1
                 continue
-            for offset in lift_offsets:
-                lift = float(np.clip(target[2] + offset - shoulder0, *lift_range))
-                shoulder = np.array([*(target[:2] - (r - SHOULDER_FORWARD) * u), shoulder0 + lift])
-                if np.linalg.norm(target - shoulder) > reach + 0.15:
-                    reasons["reach"] += 1
-                    continue
-                tried += 1
-                if tried > max_candidates:
-                    return None, {"tried": tried, "reasons": reasons, "blocking": _top(blocking)}
-                plan = _solve(session, kinematics, worlds, side, base, lift, frame, pre_distance, allowed, reasons, blocking)
-                if plan is not None:
-                    return Dock(base, lift, side, frame, *plan, tried), {"tried": tried, "reasons": reasons}
+            tried += 1
+            if tried > max_candidates:
+                return None, {"tried": tried, "reasons": reasons, "blocking": _top(blocking)}
+            plan = _solve(session, kinematics, worlds, side, base, lift, frame, pre_distance, allowed, reasons, blocking)
+            if plan is not None:
+                return Dock(base, lift, side, frame, *plan, tried), {"tried": tried, "reasons": reasons}
     return None, {"tried": tried, "reasons": reasons, "blocking": _top(blocking)}
 
 
@@ -172,11 +179,29 @@ def _solve(session, kinematics, worlds, side, base, lift, frame, pre_distance, a
 
     world.allow(())
     q_pre = solve(Target(pre.position, pre.rotation), "pre", restarts=5)
+    if q_pre is None and pre_distance > SHORT_PRE:
+        # In tight places (inside an enclosure, beside a low box) back off less before the grasp.
+        pre = frame.offset(SHORT_PRE)
+        q_pre = solve(Target(pre.position, pre.rotation), "pre", restarts=3)
     if q_pre is None:
         return None
     world.allow(allowed)
     world.margin, margin = GOAL_MARGIN, world.margin
     q_goal = solve(Target(frame.position, frame.rotation, position_tolerance=1e-3), "goal", seed=q_pre, restarts=1)
+    if q_goal is not None and np.isfinite(frame.width):
+        # The fingers also sweep inwards when they close: check them closed onto the part.
+        fingers = session.model.jnt_qposadr[[session.model.joint(j).id for j in
+                                              [session.model.joint(session.model.jnt_bodyid.tolist().index(b)).name
+                                               for b in robot.arms[side].fingers]]]
+        world.set_joints(fingers, [max(frame.width / 2 - 0.001, 0.0)] * len(fingers))
+        hit = world.blocking(q_goal)
+        world.set_joints(fingers, [robot.arms[side].gripper_open] * len(fingers))
+        if hit is not None:
+            reasons["closing_collision"] = reasons.get("closing_collision", 0) + 1
+            name = "/".join(hit.get("geoms", ["self"]))
+            count, closest = blocking.get(name, (0, 1.0))
+            blocking[name] = (count + 1, min(closest, round(hit["distance_m"], 4)))
+            q_goal = None
     world.allow(())
     world.margin = margin
     if q_goal is None:

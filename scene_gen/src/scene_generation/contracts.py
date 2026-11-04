@@ -34,7 +34,6 @@ class SceneConfig:
     max_reserved_tokens: int = 12000000
     max_jobs: int = 64
     max_instances: int = 128
-    max_repairs_per_round: int = 3
     max_artifact_bytes: int = 256000000
     max_artifact_files: int = 2048
     build_timeout_seconds: int = 300
@@ -218,7 +217,6 @@ def repair_action(value, plan, allowed_jobs, allowed_instances, limits, env=None
     allowed_jobs=set(allowed_jobs)|added_ids
     require(isinstance(value["jobs"], list) and all(isinstance(j,str) for j in value['jobs']) and len(set(value["jobs"])) == len(value["jobs"])
             and set(value["jobs"]) <= set(allowed_jobs), "Asset repair exceeds the allowed scope")
-    require(len(value["jobs"]) <= limits.max_repairs_per_round, "Too many asset repairs in this round")
     if 'geometry_changes' in value:
         require(isinstance(value['geometry_changes'],list) and 0 < len(value['geometry_changes']) <= 64,
                 'Invalid concrete geometry repair action')

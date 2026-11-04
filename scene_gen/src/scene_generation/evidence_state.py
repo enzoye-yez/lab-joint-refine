@@ -31,7 +31,7 @@ def coverage_key(request):
         return digest({k:request.get(k) for k in ("question","kind","configuration","focus_body","focus_geoms")})
     return action_key(request)
 
-def session(run,artifact,phase,scope,context,destination):
+def session_path(run,artifact,phase,scope,context,destination):
     identity=getattr(getattr(run,"store",None),"state",{}).get("identity",{})
     key=digest({"files":snapshot(artifact),"scope":scope,"phase":phase,
                 "implementation":identity.get("implementation"),
@@ -39,7 +39,10 @@ def session(run,artifact,phase,scope,context,destination):
                 "contract":context.get("fixed_contract"),
                 "layout":{k:context.get(k) for k in ("plan","scene_layout","instance_contract")}})
     directory=Path(run.root)/"evidence_sessions" if hasattr(run,"root") else Path(destination)
-    path=directory/("evidence_session_"+key+".json")
+    return key,directory/("evidence_session_"+key+".json")
+
+def session(run,artifact,phase,scope,context,destination):
+    key,path=session_path(run,artifact,phase,scope,context,destination)
     state=read_json(path,32000000) if path.exists() else {"input_key":key,"rounds":[],"actions":{}}
     require(state.get("input_key")==key,"stale evidence session")
     return state,lambda:atomic_json(path,state)

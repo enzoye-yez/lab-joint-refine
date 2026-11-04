@@ -112,7 +112,7 @@ class SceneFirstTests(unittest.TestCase):
         rows=[x for x in result['deferred_checks'] if x['job']=='tool']
         self.assertEqual([(x['id'],x['stage'],x['status']) for x in rows],[('tool:tool_operation','operation','pending')])
     def test_checker_interruption_keeps_published_scene(self):
-        r,t=self.make([plan(),ASSET,TOOL],Backend(crash=True))
+        r,t=self.make([plan(),ASSET,TOOL,ACCEPT],Backend(crash=True))
         with self.assertRaises(OSError):r.run()
         result=json.loads((r.root/'result.json').read_text(encoding='utf-8'))
         self.assertTrue(result['assembly']['available']);self.assertFalse(result['assembly']['quality_accepted'])
@@ -124,22 +124,24 @@ class SceneFirstTests(unittest.TestCase):
         self.assertTrue(result['assembly']['available']);self.assertFalse(result['assembly']['quality_accepted'])
 
     def test_resume_reuses_geometry_and_completed_scene_measurement(self):
-        b=Backend();r,t=self.make([plan(),ASSET,TOOL],b)
+        # Assets are reviewed before the scene is measured; interrupt before the scene review.
+        b=Backend();r,t=self.make([plan(),ASSET,TOOL,ACCEPT],b)
         reserve=r.store.reserve
         def interrupt(*args,**kwargs):
-            if len(r.store.state['calls'])==3:raise BudgetExceeded('developer interruption before sending')
+            if len(r.store.state['calls'])==4:raise BudgetExceeded('developer interruption before sending')
             return reserve(*args,**kwargs)
         with patch.object(r.store,'reserve',side_effect=interrupt):
             with self.assertRaises(BudgetExceeded):r.run()
         original=r.result()['scene_sha256']
-        b2=Backend();r2,t2=self.make([ACCEPT,ACCEPT],b2,resume=True)
+        self.assertIn('scene_check',b.events)
+        b2=Backend();r2,t2=self.make([ACCEPT],b2,resume=True)
         result=r2.run()
         self.assertEqual(result['status'],'static_candidate_ready')
         self.assertEqual(result['scene_sha256'],original)
         self.assertNotIn('generate',b2.events)
         self.assertNotIn('assemble',b2.events)
         self.assertNotIn('scene_check',b2.events)
-        self.assertEqual(len(t2.requests),2)
+        self.assertEqual(len(t2.requests),1)
 
     def test_independent_job_runs_before_retry_and_partial_scene_is_labelled(self):
         from scene_fixtures import write_component

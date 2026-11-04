@@ -160,6 +160,106 @@ class QualityLoopTests(unittest.TestCase):
             (root/'a.py').write_text('relevant change')
             self.assertIn('a',[t['id'] for t in schedule(run,deepcopy(tasks))])
 
+    def test_task_the_current_checker_no_longer_reports_is_retired_for_good(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);(root/'a.py').write_text('a');(root/'b.py').write_text('b')
+            run=SimpleNamespace(root=root,implementation_guard=SimpleNamespace(expected='new'),contract={},env={},
+                state={'plan':{'jobs':[{'id':k,'depends_on':[]} for k in ('a','b')],
+                    'instances':[{'id':k,'job':k} for k in ('a','b')]},
+                    'jobs':{k:{'source':k+'.py','assembly_readiness':{'artifact_sha256':k}} for k in ('a','b')},
+                    'stages':[{'directory':'stages/old','assessment_implementation':'old'}],'latest':{'directory':'stages/now'}})
+            tasks=[{'id':k,'check_id':k,'instances':[k],'repair_level':'asset_structure'} for k in ('a','b')]
+            schedule(run,deepcopy(tasks))
+            for task in run.state['repair_schedule']:task['evidence_record']='stages/old/record.json'
+            self.assertEqual([t['id'] for t in schedule(run,deepcopy(tasks[1:]))],['b'])
+            retired=run.state['retired_repair_tasks']['a']
+            self.assertEqual((retired['reason'],retired['retired_by']),('checker_corrected','stages/now'))
+            # The same task under the same asset versions and checker is never scheduled again...
+            self.assertEqual([t['id'] for t in schedule(run,deepcopy(tasks))],['b'])
+            # ...but a changed asset can bring a real defect back.
+            (root/'a.py').write_text('changed')
+            self.assertEqual(sorted(t['id'] for t in schedule(run,deepcopy(tasks))),['a','b'])
+
+    def test_candidate_against_a_baseline_from_an_old_checker_is_voided(self):
+        from scene_generation.scene_first import void_stale_repairs
+        restored=[]
+        stale={'status':'applied','baseline':{'scene':'stages/old','jobs':{}}}
+        current={'status':'applied','baseline':{'scene':'stages/now','jobs':{}}}
+        decided={'status':'evaluated','selection':'adopted','baseline':{'scene':'stages/old','jobs':{}}}
+        run=SimpleNamespace(implementation_guard=SimpleNamespace(expected='new'),store=SimpleNamespace(save=lambda:None),
+            restore_baseline=restored.append,state={'repair_history':[decided,stale,current],
+                'stages':[{'directory':'stages/old','assessment_implementation':'old'},
+                          {'directory':'stages/now','assessment_implementation':'new'}]})
+        void_stale_repairs(run)
+        self.assertEqual(restored,[stale])
+        self.assertEqual((stale['status'],stale['selection']),('voided','voided'))
+        self.assertEqual((current['status'],decided['selection']),('applied','adopted'))
+
+    def test_a_regressed_asset_reverts_alone_and_the_others_go_on(self):
+        from scene_generation.local_repair import precheck
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);records={}
+            for key in ('a_old','a_new','b_old','b_new'):
+                artifact=root/key;artifact.mkdir();(artifact/'geometry').write_text(key)
+                records[key]={'directory':key,'artifact':key,'assembly_readiness':{'loadable':True,'artifact_sha256':digest(snapshot(artifact))}}
+            # a loses its bridge (a new disconnected island); b gains one.
+            def recheck(artifact,*args):
+                row=material(artifact.name in {'a_old','b_new'})
+                return {'checks':[row],'status':row['status']},None
+            entry={'status':'applied','baseline':{'scene':'scene','jobs':{'a':'a_old','b':'b_old'}},
+                'action':{'jobs':['a','b'],'placements':[]},'target_checks':[],'call_start':0}
+            run=SimpleNamespace(root=root,contract={'jobs':{}},implementation_guard=SimpleNamespace(expected='code'),
+                state={'repair_history':[entry],'stages':[records['a_old'],records['b_old']],'jobs':{'a':records['a_new'],'b':records['b_new']},
+                    'plan':{'jobs':[{'id':k,'asset_ids':[k]} for k in 'ab'],'instances':[{'id':k,'job':k} for k in 'ab']}},
+                store=SimpleNamespace(state={'calls':[]},save=lambda:None),repair_input_key=lambda:'candidate',
+                sandbox=SimpleNamespace(recheck_asset=recheck),limits=SimpleNamespace(parallel_authors=1),
+                archived_versions=lambda versions:{k:{'reverted_to':d} for k,d in versions.items()})
+            def begin(kind):
+                run.destination=root/('check'+str(len(run.state['stages'])));run.destination.mkdir();return run.destination
+            def commit(kind,record):
+                stage={**record,'directory':run.destination.name,'files':snapshot(run.destination)}
+                run.state['stages'].append(stage);return stage
+            run.begin,run.commit=begin,commit
+            self.assertFalse(precheck(run))
+            self.assertEqual(entry['reverted_jobs'],['a'])
+            self.assertEqual((run.state['jobs']['a'],run.state['jobs']['b']),({'reverted_to':'a_old'},records['b_new']))
+            self.assertEqual(entry['status'],'applied')
+
+    def test_audit_ignores_dependency_status_and_versions_but_not_geometry(self):
+        from scene_generation.scene_first import dependency_geometry
+        dependency={'manifest':{'interfaces':[1]},'geometry_summary':{'bounds':[1]},'status':'candidate_ready','stage':'s1'}
+        run=SimpleNamespace(state={'jobs':{'d':dependency}})
+        job={'depends_on':['d']}
+        before=dependency_geometry(run,job)
+        dependency.update(status='failed',stage='s2',feedback={'visual':{'verdict':'repair'}})
+        self.assertEqual(dependency_geometry(run,job),before)
+        dependency['geometry_summary']={'bounds':[2]}
+        self.assertNotEqual(dependency_geometry(run,job),before)
+
+    def test_prepared_recheck_is_adopted_by_the_identical_call(self):
+        from unittest.mock import patch
+        from asset_generation.sandbox import ExecutionBackend
+        from asset_prep.storage import atomic_json
+        class Backend(ExecutionBackend):
+            runs=0
+            def job_identity(self):return {}
+            def _run(self,name,mounts,output):
+                Backend.runs+=1
+                (output/'renders').mkdir();(output/'renders'/'view.png').write_bytes(b'png')
+                atomic_json(output/'report.json',{'status':'pass','checks':[],'renders':['view.png']})
+        with tempfile.TemporaryDirectory() as directory, patch('asset_generation.sandbox.checked_report',lambda report,**_:report):
+            root=Path(directory);artifact=root/'artifact';artifact.mkdir()
+            backend=Backend()
+            backend.prepare('recheck_asset',root/'prepared/x',artifact,['A01'],{'mode':'static'})
+            stage=root/'stage';stage.mkdir()
+            report,renders=backend.recheck_asset(artifact,stage,['A01'],{'mode':'static'})
+            self.assertEqual((Backend.runs,report['renders'],renders),(1,['view.png'],stage/'checked/renders'))
+            self.assertTrue((renders/'view.png').is_file());self.assertFalse((root/'prepared/x').exists())
+            # A different request is measured anew.
+            other=root/'other';other.mkdir()
+            backend.recheck_asset(artifact,other,['A02'],{'mode':'static'})
+            self.assertEqual(Backend.runs,2)
+
     def test_only_edited_targets_are_charged(self):
         plan={'instances':[{'id':'x','job':'a'},{'id':'y','job':'b'}]}
         tasks=[{'id':i,'instances':[i]} for i in ('x','y')]

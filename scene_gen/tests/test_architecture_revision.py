@@ -83,6 +83,8 @@ class RevisionTests(unittest.TestCase):
         run=SimpleNamespace(root=self.root,env=self.env,catalogue={"asset_ids":["A01"]},limits=SceneConfig(),
                             store=SimpleNamespace(state={"calls":[{"reserved_tokens":999}]},save=lambda:None),
                             state={"repair_history":[entry],"stages":[old,asset],"order":["instrument","tool"]})
+        run.restore_baseline=lambda e:SceneRun.restore_baseline(run,e)
+        run.archived_versions=lambda v:SceneRun.archived_versions(run,v)
         self.assertTrue(SceneRun.select_repair_candidate(run))
         self.assertEqual(run.state["plan"],self.plan)
         self.assertEqual(run.state["order"],["instrument","tool"])

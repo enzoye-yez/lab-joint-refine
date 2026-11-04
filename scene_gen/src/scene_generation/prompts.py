@@ -32,7 +32,7 @@ current_assets contains the actual scripts, interfaces and geometry; choose repa
 In the support check, unsupported_components are independent components confirmed to have no support chain; unknown entries in component_support are only for follow-up checks and must not justify geometry changes.
 Distinguish a wrong overall placement height, a missing component connection and a visual/collision surface mismatch; repair the specific component, and never lower the whole instance to hide a locally floating part.
 The tool is mounted on a fixed flange and its mounting position cannot be moved; to change the tool's shape, modify the tool script.
-The framework limits the scope and number of changes per round.'''
+Repair every task in repair_tasks in this round; tasks on different assets are independent and are all handled now. The framework limits the scope of changes to allowed_jobs and allowed_instances.'''
 REPAIR += EDGE_MOUNT
 REPAIR += '''\nFor asset geometry repairs provide geometry_changes:[{job:job id,operation:concrete operation,parameters:object naming the target parts and design parameters}].
 These parameters are only constrained repair instructions for the asset author, not executable tools. Changed reason text is not a new action; different designs for the same job must be distinguished by concrete parameters.

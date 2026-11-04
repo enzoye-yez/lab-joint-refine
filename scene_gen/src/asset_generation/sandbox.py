@@ -92,6 +92,34 @@ class ExecutionBackend:
         return {'implementation':binding.require_identity(self.implementation_identity(),
                                                           where=f'{type(self).__name__} job dispatch')}
 
+    @staticmethod
+    def prepared_key(name, source, asset_ids, profile):
+        from asset_prep.storage import digest, file_hash
+        source = Path(source)
+        identity = file_hash(source) if source.is_file() else str(source.resolve())
+        return digest({"name":name, "source":identity, "asset_ids":asset_ids, "profile":profile})
+
+    def prepare(self, name, scratch, source, asset_ids, profile):
+        """Run build_candidate or recheck_asset ahead, in a worker thread, into scratch; the later
+        identical call moves the files into its own stage directory and returns the same result."""
+        scratch = Path(scratch)
+        scratch.mkdir(parents=True)
+        report, renders = getattr(self, name)(source, scratch, asset_ids, profile)
+        self.__dict__.setdefault("prepared", {})[self.prepared_key(name, source, asset_ids, profile)] = (scratch, report, renders)
+
+    def adopt(self, name, source, destination, asset_ids, profile):
+        entry = self.__dict__.get("prepared", {}).pop(self.prepared_key(name, source, asset_ids, profile), None)
+        if entry is None:
+            return None
+        scratch, report, renders = entry
+        destination = Path(destination)
+        destination.mkdir(parents=True, exist_ok=True)
+        for item in scratch.iterdir():
+            if not (destination/item.name).exists():
+                shutil.move(str(item), str(destination/item.name))
+        shutil.rmtree(scratch)
+        return report, destination/renders.relative_to(scratch) if renders else None
+
     def recover_scene(self, artifact, destination, limits, contract, capability, request, input_key):
         """Trusted registered capabilities run on the scene copy, reusing the original process isolation, time limits and output limits."""
         from dataclasses import asdict, replace
@@ -170,6 +198,8 @@ class ExecutionBackend:
                     "renders": [], "manifest": None, "coverage": ["Build not finished; subsequent checks not run"]}, None
 
     def build_candidate(self, script, destination, asset_ids, profile):
+        adopted=self.adopt("build_candidate",script,destination,asset_ids,profile)
+        if adopted:return adopted
         report,_=self.build_and_check(script,destination,asset_ids,profile,admission=True)
         if not report.get("assembly_readiness",{}).get("loadable"):return report,None
         return self.admit_asset(Path(destination)/"artifact",Path(destination)/"candidate_views",asset_ids,profile,render=True,admitted=report)
@@ -212,6 +242,9 @@ class ExecutionBackend:
 
     def recheck_asset(self, artifact, destination, asset_ids, profile):
         """After an implementation upgrade, re-measure the archived geometry; never execute the modelling script."""
+        adopted = self.adopt('recheck_asset', artifact, destination, asset_ids, profile)
+        if adopted:
+            return adopted
         destination = Path(destination)
         job = destination/'job.json'
         atomic_json(job, {'asset_ids':asset_ids, 'profile':profile, **self.job_identity()})

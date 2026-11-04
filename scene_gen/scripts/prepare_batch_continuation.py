@@ -48,6 +48,11 @@ def prepare_batch(project, source_name, target_name, before_sources, kind="evide
             atomic_json(target/"config/generation.json",generation)
             manifest["transport_recovery"] = {k:generation[k] for k in
                 ("max_transport_retries", "max_unknown_http_retries", "transport_cooldown_seconds")}
+        if kind == "repair_schedule":
+            scene = read(target/"config/scene.json")
+            scene.pop("max_repairs_per_round", None)  # Repairs are no longer capped per round.
+            SceneConfig(**scene)
+            atomic_json(target/"config/scene.json", scene)
         if kind == "budget_limits":
             for name, config_class in (("scene.json", SceneConfig), ("generation.json", GenerationConfig)):
                 value = read(target/"config"/name)
@@ -91,7 +96,7 @@ if __name__ == "__main__":
     parser.add_argument("--target",required=True)
     parser.add_argument("--before-sources",type=Path,required=True)
     parser.add_argument('--resume-preparation',action='store_true')
-    parser.add_argument("--kind",choices=("evidence_recovery","transport_recovery","evidence_pipeline","agent_context","review_contract","asset_checks","phase_budget","budget_limits","repair_loop","tool_draft","collision_depth"),default="evidence_recovery")
+    parser.add_argument("--kind",choices=("evidence_recovery","transport_recovery","evidence_pipeline","agent_context","review_contract","asset_checks","phase_budget","budget_limits","repair_loop","tool_draft","collision_depth","repair_schedule"),default="evidence_recovery")
     args=parser.parse_args()
     print(json.dumps(prepare_batch(Path(__file__).resolve().parents[1],args.source,args.target,args.before_sources,args.kind,
                                   resume_preparation=args.resume_preparation),ensure_ascii=False))

@@ -31,6 +31,17 @@ def precheck(run):
     stages={s['directory']:s for s in run.state['stages']}
     jobs={j['id']:j for j in run.state['plan']['jobs']}
     cache=run.state.setdefault('local_checks',{})
+    # Re-measure every edited asset and its baseline at once; each recheck below adopts its result.
+    from .scene_first import prepare_rechecks
+    due=[]
+    for key in action['jobs']:
+        if key not in entry['baseline']['jobs']:continue
+        profile=check_profile({**run.contract['jobs'].get(key,{}),'validation_mode':'static'})
+        for record in (stages[entry['baseline']['jobs'][key]],run.state['jobs'][key]):
+            artifact=record.get('artifact',record.get('directory',record.get('stage',''))+'/artifact')
+            if record.get('assembly_readiness',{}).get('loadable') and check_key(run,record,jobs[key],profile) not in cache:
+                due.append((safe_path(run.root,artifact),jobs[key]['asset_ids'],profile))
+    prepare_rechecks(run,due)
     comparisons=[]
     for key in action['jobs']:
         if key not in entry['baseline']['jobs']:continue
@@ -73,14 +84,21 @@ def precheck(run):
             'checks':[r['id'] for r in reports[0].get('checks',[]) if r.get('status')=='fail'],
             'complete':all(r.get('checks') and all(complete(c) or c.get('status')=='skipped' for c in r['checks']) for r in reports)})
     entry['local_verification']=comparisons
-    regression=any(c['comparison']['new_defects'] for c in comparisons)
+    regressed={c['job'] for c in comparisons if c['comparison']['new_defects']}
+    geometry_only=not any(action.get(k) for k in ('placements','layout','table_modifications','edge_mounts','end_effectors','robot_posture','tool_additions'))
+    if regressed and geometry_only and set(action['jobs'])-regressed:
+        # Independent assets are repaired together: one that got worse goes back to its baseline
+        # version, and the others go on to the scene check.
+        run.state['jobs'].update(run.archived_versions({k:entry['baseline']['jobs'][k] for k in regressed}))
+        entry['reverted_jobs']=sorted(regressed)
+        run.store.save();return False
+    regression=bool(regressed)
     # Unchanged local geometry cannot disprove a placement/cross-asset repair.
     checked={f"asset:{c['job']}:{key}" for c in comparisons for key in c['checks']}
     for c in comparisons:
         if 'material_integrity' in c['checks']:
             checked.update('material_integrity:'+i['id'] for i in run.state['plan']['instances'] if i['job']==c['job'])
     local_targets=bool(entry['target_checks']) and set(entry['target_checks'])<=checked
-    geometry_only=not any(action.get(k) for k in ('placements','layout','table_modifications','edge_mounts','end_effectors','robot_posture','tool_additions'))
     ineffective=(geometry_only and bool(comparisons) and len(comparisons)==len(action['jobs'])
         and (all(c['identical'] for c in comparisons) or local_targets
              and all(c['complete'] and c['comparison']['outcome']=='ineffective' for c in comparisons)))

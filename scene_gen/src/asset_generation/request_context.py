@@ -38,7 +38,7 @@ PINNED = {
     "profile", "contract", "fixed_contract", "environment", "current_model_py",
     "instance_contract", "scene_layout", "repair_directive", "reference_policy",
     "table_edit_policy", "table_modifications", "edge_mount_policy", "edge_mounts",
-    "allowed_jobs", "allowed_instances", "max_repairs", "review_scope", "scope",
+    "allowed_jobs", "allowed_instances", "review_scope", "scope",
     "deferred_checks", "unresolved_checks", "questions", "capabilities",
     "review_format_correction", "authoring_capabilities", "task_recovery",
     "layout_review_targets",

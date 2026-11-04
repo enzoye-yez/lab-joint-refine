@@ -257,14 +257,14 @@ class ScenePipelineTests(unittest.TestCase):
         deferred = {"verdict":"accept","motion_coverage":[],"findings":[],"unverified":[],
                     "deferred":[{"stage":"scene","detail":"组合装配后的夹具间隙"},
                                 {"stage":"operation","detail":"真实抓取保持力"}]}
-        resolved = {**REVIEW,"deferred_results":[{"id":"instrument:00006_asset_review:1","status":"resolved",
+        resolved = {**REVIEW,"deferred_results":[{"id":"instrument:00007_asset_review:1","status":"resolved",
                       "evidence":"合成场景视角及夹具间隙检查证据"}]}
         result,transport = self.run_loop(self.base_replies[:2]+[{"model_py":TOOL_SOURCE},deferred,resolved],
                                          limits=SceneConfig(validation_mode="static"))
         self.assertEqual(result["status"],"static_candidate_ready")
         self.assertEqual(result["jobs"]["tool"],"candidate_ready")
         self.assertEqual([(x["id"],x["status"]) for x in result["deferred_checks"]],
-                         [("instrument:00006_asset_review:1","resolved"),("instrument:00006_asset_review:2","pending"),
+                         [("instrument:00007_asset_review:1","resolved"),("instrument:00007_asset_review:2","pending"),
                           ("tool:tool_operation","pending")])
         scene_context = json.loads(transport.requests[-1]["messages"][1]["content"][0]["text"])
         self.assertEqual(len(scene_context["deferred_checks"]),3)
@@ -285,7 +285,7 @@ class ScenePipelineTests(unittest.TestCase):
         # has no asset review.
         deferred = {"verdict":"accept","motion_coverage":[],"findings":[],"unverified":[],
                     "deferred":[{"stage":"scene","detail":"工具抓取时的配合姿态"}]}
-        review = {**REVIEW,"deferred_results":[{"id":"instrument:00006_asset_review:1","status":"out_of_scope",
+        review = {**REVIEW,"deferred_results":[{"id":"instrument:00007_asset_review:1","status":"out_of_scope",
                  "target_stage":"static_fit","evidence":"当前悬停，只验证初始几何布局"}]}
         result,_ = self.run_loop(self.base_replies[:2]+[{"model_py":TOOL_SOURCE},deferred,review],
                                  limits=SceneConfig(validation_mode="static"))

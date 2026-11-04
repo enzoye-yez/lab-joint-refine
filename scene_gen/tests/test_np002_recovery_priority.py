@@ -175,7 +175,10 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(result['status'],'static_candidate_ready')
         self.assertEqual(result['scene_rounds'],2)
         self.assertEqual(len(transport.requests),7)
-        self.assertLess(backend.events.index('scene_check'),backend.events.index('asset_check'))
+        # Assets are audited before the scene is measured; the scene defect still gets its review.
+        self.assertLess(backend.events.index('asset_check'),backend.events.index('scene_check'))
+        phases=[c.get('phase') for c in run.store.state['calls']]
+        self.assertLess(phases.index('asset_review:instrument'),phases.index('scene_review'))
         first=next(s for s in run.state['stages'] if s['kind']=='scene')
         self.assertEqual(first['review']['verdict'],'accept')
         self.assertEqual(first['report']['checks'][0]['status'],'fail')
@@ -187,7 +190,7 @@ class WorkflowTests(unittest.TestCase):
                 report,renders=super().check_scene(*args)
                 report.update(status='partial',checks=[{'id':'support:station','status':'partial','complete':False}])
                 return report,renders
-        run,_=self.make([fixture.plan(),fixture.ASSET,fixture.TOOL],Backend())
+        run,_=self.make([fixture.plan(),fixture.ASSET,fixture.TOOL,fixture.ACCEPT],Backend())
         with patch.object(run,'recover_checks',side_effect=KeyboardInterrupt),self.assertRaises(KeyboardInterrupt):
             run.run()
         self.assertTrue(any(s['kind']=='scene_measurement' for s in run.state['stages']))
@@ -195,7 +198,7 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(result['status'],'paused')
         self.assertEqual(result['activity']['phase'],'scene_evidence')
         self.assertEqual(result['assembly']['issues'][0]['id'],'support:station')
-        resumed,_=self.make([fixture.ACCEPT,fixture.ACCEPT,fixture.ACCEPT],Backend(),resume=True)
+        resumed,_=self.make([fixture.ACCEPT],Backend(),resume=True)  # Only the scene review remains.
         result=resumed.run()
         self.assertNotIn('scene_check',resumed.sandbox.events)
         self.assertFalse(result['assembly']['quality_accepted'])

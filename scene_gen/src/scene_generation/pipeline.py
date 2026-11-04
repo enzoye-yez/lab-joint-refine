@@ -265,15 +265,42 @@ class SceneRun:
             record['layout_revision'] = self.layout_context()['revision']
             record["status"] = "candidate_ready"
             return record["feedback"]
+        instruction, context, images, phase, validator, artifact = self.asset_review_request(
+            job, bundle, references, previews, report, record, destination)
+        review, call = review_with_evidence(self,instruction,context,images,phase,destination,validator=validator,
+                                  artifact=artifact,scope="asset")
+        atomic_json(destination/"review.json",review)
+        record["review_call"] = call
+        record['evidence_outcome']=self.state.get('evidence_outcomes',{}).get('asset_review:'+job['id'])
+        record["deferred_checks"] = deferred_records(review,job["id"],destination.name)
+        record["feedback"] = {"numerical":report,"visual":review}
+        record['layout_revision'] = self.layout_context()['revision']
+        record["status"] = {"accept":"candidate_ready","uncertain":"needs_review","repair":"failed"}[review["verdict"]]
+        return record["feedback"]
+
+    def review_dependencies(self, job):
+        """What an asset review reads of its dependencies: how they are built and placed. Their
+        review status and stage versions are left out, so a dependency's re-review alone does not
+        change this review's request (and so its cached response stays usable)."""
+        return {key:{"manifest":dependency["manifest"],"geometry":dependency.get("geometry_summary",{}),
+                     "artifact":dependency.get("artifact"),
+                     "instances":[i for i in self.state['plan']['instances'] if i['job']==key],
+                     "source_requirements":next(j["requirements"] for j in self.state["plan"]["jobs"] if j["id"] == key)}
+                for key in job["depends_on"] for dependency in [self.state["jobs"].get(key,{})] if dependency.get("source")}
+
+    def asset_review_request(self, job, bundle, references, previews, report, record, destination):
+        """The exact first review request (and how its answer is validated); shared by the
+        parallel review prefetch and the review itself."""
         if job["role"] != "asset":
             # The served instruments were judged against their photos in their own reviews; a
             # tool is judged against them as built, one render each, not every original photo.
             references, bundle = [], {**bundle, "images": self.dependency_images(job, required=False)}
-        scene_images=[image_record(safe_path(self.root,path),self.root,self.generation)
-                      for path in self.state.get("published_scene",{}).get("preview_paths",[])[:3]]
+        scene=self.state.get("published_scene",{})
+        scene_previews=scene.get("preview_paths") or self.state.get("latest",{}).get("preview_paths",[])
+        scene_images=[image_record(safe_path(self.root,path),self.root,self.generation) for path in scene_previews[:3]]
         images = list({im["sha256"]:im for im in references + bundle["images"] + previews + scene_images}.values())
         context = {"input":public_bundle(bundle),"job":job,"checks":compact_report(report),
-                   "dependencies":self.dependency_context(job),"reference_policy":record["reference_policy"],
+                   "dependencies":self.review_dependencies(job),"reference_policy":record["reference_policy"],
                    "fixed_contract":self.contract["jobs"].get(job["id"],{}),
                    "instance_contract":self.instance_contract(job),
                    "scene_layout":self.layout_context(),
@@ -293,17 +320,8 @@ class SceneRun:
             context['current_model_py']=safe_path(self.root,record['source']).read_text(encoding='utf-8')
             context['current_geometry']=record.get('geometry_summary',{})
         artifact = safe_path(self.root,record["artifact"]) if record.get("artifact") else destination/"artifact"
-        review, call = review_with_evidence(self,REVIEW+REQUIREMENTS_POLICY+ASSET_SCOPE,context,images,"asset_review:"+job["id"],
-                                  destination,validator=lambda value: scoped_review(value,"asset",expected_units=context["instance_contract"]["expected_model_units"]),
-                                  artifact=artifact,scope="asset")
-        atomic_json(destination/"review.json",review)
-        record["review_call"] = call
-        record['evidence_outcome']=self.state.get('evidence_outcomes',{}).get('asset_review:'+job['id'])
-        record["deferred_checks"] = deferred_records(review,job["id"],destination.name)
-        record["feedback"] = {"numerical":report,"visual":review}
-        record['layout_revision'] = self.layout_context()['revision']
-        record["status"] = {"accept":"candidate_ready","uncertain":"needs_review","repair":"failed"}[review["verdict"]]
-        return record["feedback"]
+        validator = lambda value: scoped_review(value,"asset",expected_units=context["instance_contract"]["expected_model_units"])
+        return REVIEW+REQUIREMENTS_POLICY+ASSET_SCOPE, context, images, "asset_review:"+job["id"], validator, artifact
 
     def failure_history(self, key, limit=6):
         """Rejected designs with the reason each was rejected.
@@ -678,34 +696,44 @@ class SceneRun:
 
     def select_repair_candidate(self):
         """Restore archived references only; never rewind calls, stages or attempt budgets."""
-        from copy import deepcopy
         entry=next((r for r in reversed(self.state.get("repair_history",[]))
                     if r.get("status")=="evaluated" and r.get("baseline") and "selection" not in r),None)
         if entry is None:return False
         if not entry.get("comparison") or entry["comparison"]["adopt"]:
             entry["selection"]="adopted";self.store.save();return False
+        self.restore_baseline(entry)
+        entry["selection"]="baseline_preserved"
+        self.store.save()
+        return True
+
+    def archived_versions(self, versions):
+        """Job records of archived stage versions {job: stage directory}; the archives must be intact."""
+        from copy import deepcopy
         stages={r["directory"]:r for r in self.state["stages"]}
-        baseline=entry["baseline"]
-        old=stages[baseline["scene"]]
-        for directory in {baseline["scene"],*baseline["jobs"].values()}:
-            if snapshot(safe_path(self.root,directory))!=stages[directory]["files"]:
-                raise StaleEvidence("The repair baseline archive changed; restoring old evidence is forbidden")
         jobs={}
-        for key,directory in baseline["jobs"].items():
+        for key,directory in versions.items():
             stage=stages[directory]
+            if snapshot(safe_path(self.root,directory))!=stage["files"]:
+                raise StaleEvidence("The repair baseline archive changed; restoring old evidence is forbidden")
             jobs[key]={k:deepcopy(v) for k,v in stage.items() if k not in {"directory","kind","files"}}
             jobs[key].update(stage=directory,dirty=False)
             jobs[key].setdefault("artifact",directory+"/artifact")
             jobs[key].setdefault("artifact_stage",directory)
+        return jobs
+
+    def restore_baseline(self, entry):
+        """Return the plan, assets and scene evidence to the baseline a repair started from."""
+        from copy import deepcopy
+        baseline=entry["baseline"]
+        old=next(r for r in self.state["stages"] if r["directory"]==baseline["scene"])
+        if snapshot(safe_path(self.root,baseline["scene"]))!=old["files"]:
+            raise StaleEvidence("The repair baseline archive changed; restoring old evidence is forbidden")
         restored={k:deepcopy(v) for k,v in old.items() if k not in {"kind","files"}}
-        self.state.update(plan=deepcopy(old.get("requested_plan",old["plan"])),jobs=jobs,latest=restored,feedback=deepcopy(old["report"]),
-                          published_scene=deepcopy(restored),repair_pending=True)
+        self.state.update(plan=deepcopy(old.get("requested_plan",old["plan"])),jobs=self.archived_versions(baseline["jobs"]),
+                          latest=restored,feedback=deepcopy(old["report"]),published_scene=deepcopy(restored),repair_pending=True)
         _,self.state["order"]=validate_plan(self.state["plan"],self.catalogue["asset_ids"],self.limits,self.env)
         for key in ("current_assessment","repair_directive","repair_tasks","scene_review_resume"):
             self.state.pop(key,None)
-        entry["selection"]="baseline_preserved"
-        self.store.save()
-        return True
 
     def deferred_checks(self):
         return [item for job in self.state["jobs"].values() for item in job.get("deferred_checks",[])]
@@ -775,12 +803,10 @@ class SceneRun:
         if planning["cycle"] != cycle:
             planning = self.state["repair_planning"] = {"cycle":cycle,"attempts":[]}
         planning.setdefault("call_start",len(self.store.state["calls"]))
-        # Try the joint problem, then smaller independent job scopes. Same state on
-        # resume consumes the saved attempts instead of restarting a failed loop.
-        # Limit the initial design packet to the same asset count the action can
-        # actually modify. Remaining assets retain their own repair opportunities.
-        initial_jobs=set(jobs[:self.limits.max_repairs_per_round])
-        scopes=[sorted(i for i in affected if items[i]["job"] in initial_jobs)]+[sorted(i for i in affected if items[i]["job"]==j) for j in jobs]
+        # Every open task is handled in this one round: the joint plan covers all their assets,
+        # and only when it cannot be planned (too large, blocked) does it narrow to one asset at
+        # a time. Same state on resume consumes the saved attempts instead of restarting.
+        scopes=[sorted(affected)]+[sorted(i for i in affected if items[i]["job"]==j) for j in jobs]
         solved=False
         for scope_index,allowed in enumerate(scopes):
             scoped_jobs=sorted({items[i]["job"] for i in allowed})
@@ -807,7 +833,7 @@ class SceneRun:
                 context={"plan":self.state["plan"],"feedback":report,"visual":review,
                     "benchmark_environment":(self.catalogue.get('benchmark_public') or {}).get('summary'),
                     "evidence_triage":triage(report),
-                    "allowed_jobs":scoped_jobs,"allowed_instances":allowed,"max_repairs":self.limits.max_repairs_per_round,
+                    "allowed_jobs":scoped_jobs,"allowed_instances":allowed,
                     "environment":self.env,"robot_joint_contract":self.robot_joints,"contract":self.contract,"table_edit_policy":table_policy(self.env),
                     "edge_mount_policy":EDGE_MOUNT_POLICY,"current_assets":current_assets,
                     "repair_tasks":scoped_tasks,"validation_feedback":planning["attempts"],

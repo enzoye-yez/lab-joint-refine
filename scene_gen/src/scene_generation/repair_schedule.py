@@ -49,11 +49,32 @@ def touched(history_entry, jobs, task):
     return layout and task.get('repair_level')!='asset_structure'
 
 
+def retire(run, tasks):
+    """Tasks of the last schedule that the current evidence no longer reports are recorded with
+    the reason, and are not scheduled again for the same asset versions and checker."""
+    retired=run.state.setdefault('retired_repair_tasks',{})
+    current={t['id'] for t in tasks}
+    stages={s['directory']:s for s in run.state.get('stages',[])}
+    latest=run.state.get('latest',{}).get('directory')
+    for old in run.state.get('repair_schedule',[]):
+        if old['id'] in current or retired.get(old['id'],{}).get('binding')==old.get('binding'):continue
+        source=stages.get(old.get('evidence_record','').removesuffix('/record.json'),{})
+        corrected=source.get('assessment_implementation') not in (None,run.implementation_guard.expected)
+        retired[old['id']]={'binding':old.get('binding'),'evidence_record':old.get('evidence_record'),'retired_by':latest,
+            'reason':'checker_corrected' if corrected else 'no_longer_reported',
+            'detail':('Reported only by a checker implementation that has since changed; the current checker does not report it'
+                      if corrected else 'The current evidence no longer reports this problem')}
+
+
 def schedule(run, tasks):
     history=run.state.get('repair_history',[])
     items={i['id']:i for i in run.state['plan']['instances']}
     for task in tasks:
         task['binding']=task_binding(run,task)
+    retire(run,tasks)
+    retired=run.state['retired_repair_tasks']
+    tasks=[t for t in tasks if retired.get(t['id'],{}).get('binding')!=t['binding']]
+    for task in tasks:
         key=task.get('check_id',task['id'])
         jobs={items[i]['job'] for i in task.get('instances',[]) if i in items}
         relevant=[h for h in history if h.get('status')=='evaluated'

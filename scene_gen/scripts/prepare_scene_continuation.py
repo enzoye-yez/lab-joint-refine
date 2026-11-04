@@ -150,6 +150,11 @@ def prepare(project, source_name, target_name, before_file=None, kind="stage_rev
                        "src/asset_generation/sandbox.py"},
                    # a flush face contact was measured as a full-thickness penetration
                    "collision_depth":{"src/asset_generation/distance.py"},
+                   "repair_schedule":{"src/scene_generation/scene_first.py", "src/scene_generation/pipeline.py",
+                       "src/scene_generation/repair_schedule.py", "src/scene_generation/local_repair.py",
+                       "src/scene_generation/evidence_state.py", "src/scene_generation/contracts.py",
+                       "src/scene_generation/prompts.py", "src/asset_generation/request_context.py",
+                       "src/asset_generation/sandbox.py"},
                    "asset_checks":{"src/asset_generation/probes.py", "src/asset_generation/motion.py",
                        "src/asset_generation/checks.py", "src/asset_generation/local.py"},
                    "transport_recovery":{"src/asset_generation/contracts.py", "src/asset_generation/model.py",
@@ -171,7 +176,7 @@ def prepare(project, source_name, target_name, before_file=None, kind="stage_rev
         require(archive_only or changed and {p.replace("\\", "/") for p in changed} <= allowed,
                 "source changes outside stage review exist; this upgrade is not supported")
         scene = state["scene"]
-        require(not scene.get("pending") or kind in {"evidence_recovery", "transport_recovery", "evidence_pipeline", "agent_context", "review_contract", "phase_budget", "budget_limits", "repair_loop", "tool_draft", "collision_depth"}, "an unarchived workspace exists")
+        require(not scene.get("pending") or kind in {"evidence_recovery", "transport_recovery", "evidence_pipeline", "agent_context", "review_contract", "phase_budget", "budget_limits", "repair_loop", "tool_draft", "collision_depth", "repair_schedule"}, "an unarchived workspace exists")
         if kind in {'main_check_recovery', 'implementation_binding', 'archive_revalidation', 'evidence_pipeline'}:
             require(state['identity']['limits']['validation_mode']=='static'
                     and scene['status'] in {'needs_check_support','needs_environment','needs_review','paused',
@@ -210,6 +215,43 @@ def prepare(project, source_name, target_name, before_file=None, kind="stage_rev
             # The end-effector is accepted on its static checks and repaired in the operation stage;
             # the implementation digest re-audits every asset, and unchanged reviews stand.
             scene.pop("scene_review_resume", None)
+        elif kind == "repair_schedule":
+            # The undecided repair was compared with a baseline the old checker assessed; void it and
+            # return to that baseline (run_static does the same on start), then key every standing
+            # review by what it judged under the new review key, so unchanged verdicts are kept.
+            from copy import deepcopy
+            from types import SimpleNamespace
+            from scene_generation.scene_first import review_key, dependency_geometry
+            stages = {s["directory"].replace("\\", "/"): s for s in scene["stages"]}
+            for entry in scene.get("repair_history", []):
+                undecided = entry["status"] == "applied" or entry["status"] == "evaluated" and "selection" not in entry
+                if not undecided or not entry.get("baseline"):
+                    continue
+                baseline = stages[entry["baseline"]["scene"]]
+                require(baseline.get("requested_plan", baseline["plan"]) == scene["plan"], "the voided repair changed the plan")
+                jobs = {}
+                for key, directory in entry["baseline"]["jobs"].items():
+                    jobs[key] = {k: deepcopy(v) for k, v in stages[directory].items() if k not in {"directory", "kind", "files"}}
+                    jobs[key].update(stage=directory, dirty=False)
+                    jobs[key].setdefault("artifact", directory+"/artifact")
+                    jobs[key].setdefault("artifact_stage", directory)
+                restored = {k: deepcopy(v) for k, v in baseline.items() if k not in {"kind", "files"}}
+                scene.update(jobs=jobs, latest=restored, published_scene=deepcopy(restored))
+                for field in ("current_assessment", "repair_directive", "repair_tasks", "scene_review_resume"):
+                    scene.pop(field, None)
+                entry.update(status="voided", selection="voided", void_reason="The checker changed after the baseline scene was assessed; "
+                    "the candidate was not compared, its asset versions were set aside and the baseline is assessed again with the current checker")
+            view = SimpleNamespace(state=scene)
+            for plan_job in scene["plan"]["jobs"]:
+                job = scene["jobs"].get(plan_job["id"]) or {}
+                numerical = job.get("feedback", {}).get("numerical") or {}
+                visual = job.get("feedback", {}).get("visual") or {}
+                if plan_job["role"] != "asset" or numerical.get("status") == "fail" or visual.get("verdict") not in {"accept", "repair"}:
+                    continue
+                images = [file_hash(safe_path(source, path)) for path in job.get("preview_paths", [])]
+                job["review_key"] = review_key(plan_job, job["assembly_readiness"], None, dependency_geometry(view, plan_job), numerical, images)
+            # Repairs are no longer capped per round.
+            state["identity"]["limits"].pop("max_repairs_per_round", None)
         elif kind == "repair_loop":
             # Checker and repair-loop change: the implementation digest re-audits every asset, and
             # failed assets then go back to their authors within their own repair allowance.
@@ -249,7 +291,7 @@ def prepare(project, source_name, target_name, before_file=None, kind="stage_rev
             require(all(j["status"] in {"candidate_ready", "assembly_ready"} and not j.get("dirty")
                         for j in scene["jobs"].values()), "a scene-capacity upgrade does not change any asset review result")
         unknown = any(c["status"] == "pending" for c in state["calls"])
-        require(not unknown or kind in {"evidence_recovery", "transport_recovery", "evidence_pipeline", "agent_context", "review_contract", "phase_budget", "budget_limits", "repair_loop", "tool_draft", "collision_depth"}, "requests with unknown outcome exist; reconcile the billing ledger first")
+        require(not unknown or kind in {"evidence_recovery", "transport_recovery", "evidence_pipeline", "agent_context", "review_contract", "phase_budget", "budget_limits", "repair_loop", "tool_draft", "collision_depth", "repair_schedule"}, "requests with unknown outcome exist; reconcile the billing ledger first")
         for call in state["calls"]:
             if call["status"] == "done":
                 require(file_hash(safe_path(source, call["file"])) == call["sha256"], "call record digest mismatch")
@@ -264,7 +306,7 @@ def prepare(project, source_name, target_name, before_file=None, kind="stage_rev
                     'archive revalidation only accepts static runs whose assets are all archived and that have not passed full scene acceptance')
         recheck = []
         for key, job in scene["jobs"].items():
-            if kind in {"agent_context", "review_contract", "asset_checks", "phase_budget", "budget_limits", "repair_loop", "tool_draft", "collision_depth"}:
+            if kind in {"agent_context", "review_contract", "asset_checks", "phase_budget", "budget_limits", "repair_loop", "tool_draft", "collision_depth", "repair_schedule"}:
                 break  # no job is marked; asset_checks re-audits through the implementation digest
             if kind=="evidence_pipeline":
                 owner=job.get("artifact_stage",job["stage"]).replace("\\", "/")
@@ -378,6 +420,9 @@ def prepare(project, source_name, target_name, before_file=None, kind="stage_rev
                              "keep assets, reviews and call ledger; flush face contacts are no longer measured as full-thickness penetrations; "
                              "every asset and the scene are re-checked, and unchanged reviews stand"
                              if kind == "collision_depth" else
+                             "keep assets, reviews and call ledger; the repair compared with an old-checker baseline is voided and the baseline re-assessed; "
+                             "every open task is repaired in one round with parallel authoring, checks and reviews; tasks the current evidence no longer reports are retired"
+                             if kind == "repair_schedule" else
                              "keep existing geometry and ledger; re-review after enabling read-only evidence supplementation; unknown requests stay pending and automatic resend is forbidden"
                              if kind == "evidence_recovery" else
                              "keep existing geometry and engineering checks; re-run per-stage review; old conclusions are not automatically upgraded to a pass"
@@ -427,6 +472,6 @@ if __name__ == "__main__":
     parser.add_argument("--source", required=True)
     parser.add_argument("--target", required=True)
     parser.add_argument("--before-sources", type=Path)
-    parser.add_argument("--kind", choices=("evidence_pipeline", "archive_revalidation", "implementation_binding", "stage_review", "scene_capacity", "scene_repair", "static_preview", "evidence_recovery", "transport_recovery", "local_repair", "evidence_checks", "main_check_recovery", "agent_context", "review_contract", "asset_checks", "phase_budget", "budget_limits", "repair_loop", "tool_draft", "collision_depth"), default="stage_review")
+    parser.add_argument("--kind", choices=("evidence_pipeline", "archive_revalidation", "implementation_binding", "stage_review", "scene_capacity", "scene_repair", "static_preview", "evidence_recovery", "transport_recovery", "local_repair", "evidence_checks", "main_check_recovery", "agent_context", "review_contract", "asset_checks", "phase_budget", "budget_limits", "repair_loop", "tool_draft", "collision_depth", "repair_schedule"), default="stage_review")
     args = parser.parse_args()
     print(json.dumps(prepare(PROJECT, args.source, args.target, args.before_sources, args.kind), ensure_ascii=False))

@@ -24,6 +24,10 @@ class Dock:
     tried: int
 
 
+SHOULDER_FORWARD = 0.08    # m, arm mounts ahead of the base centre (data/robot build)
+GOAL_MARGIN = 0.004        # m, clearance to neighbours at the grasp itself (tighter than in free motion)
+
+
 class Kinematics:
     """The robot alone: base, lift and arms, for fast IK in world coordinates."""
 
@@ -63,8 +67,17 @@ def footprint_free(occupancy, pose, half, margin=0.03):
     return not occupancy.occupied[cells[:, 0], cells[:, 1]].any()
 
 
-def find_dock(session, kinematics, occupancy, frames, pre_distance=0.10, allowed=(), distances=(0.55, 0.65, 0.75, 0.85),
-              bearings=24, lift_offsets=(0.15, 0.0, 0.3), max_candidates=400):
+def nearest_free(occupancy, target_xy, u, normal, lateral, phi, half, start=0.3, stop=1.3, step=0.02):
+    """Smallest distance along bearing u at which the base rectangle no longer overlaps anything."""
+    for r in np.arange(start, stop, step):
+        centre = target_xy - r * u - lateral * normal
+        if footprint_free(occupancy, np.array([*centre, phi]), half):
+            return float(r)
+    return None
+
+
+def find_dock(session, kinematics, occupancy, frames, pre_distance=0.10, allowed=(), extra=(0.0, 0.06, 0.15),
+              bearings=36, lift_offsets=(0.15, 0.0, 0.3), max_candidates=300):
     robot, m = session.robot, session.model
     half = robot.profile["base"]["footprint_half_m"]
     lift_range = robot.profile["lift"]["range_m"]
@@ -79,38 +92,45 @@ def find_dock(session, kinematics, occupancy, frames, pre_distance=0.10, allowed
         heading = frame.rotation[:, 2][:2]                     # tool pointing, projected on the floor
         preferred = np.arctan2(heading[1], heading[0]) if np.linalg.norm(heading) > 0.3 else None
         options = []
-        for r in distances:
-            for k in range(bearings):
-                phi = 2 * np.pi * k / bearings
-                score = r * 0.5 + (0.0 if preferred is None else 1 - np.cos(phi - preferred))
-                options.append((score, r, phi))
-        for _, r, phi in sorted(options):
+        for k in range(bearings):
+            phi = 2 * np.pi * k / bearings
             u = np.array([np.cos(phi), np.sin(phi)])
+            normal = np.array([-u[1], u[0]])
             for side in robot.arms:
-                lateral = robot.profile["arms"][side].get("lateral_m", 0.22 if side == "left" else -0.22)
-                normal = np.array([-u[1], u[0]])
-                centre = target[:2] - r * u - lateral * normal  # put this arm's shoulder in line with the part
-                base = np.array([*centre, phi])
-                if not footprint_free(occupancy, base, half):
+                lateral = robot.profile["arms"][side]["lateral_m"]   # this arm's shoulder in line with the part
+                r0 = nearest_free(occupancy, target[:2], u, normal, lateral, phi, half)
+                if r0 is None:
                     reasons["footprint"] += 1
                     continue
-                for offset in lift_offsets:
-                    lift = float(np.clip(target[2] + offset - shoulder0, *lift_range))
-                    shoulder = np.array([*centre, shoulder0 + lift])
-                    if np.linalg.norm(target - shoulder) > reach + 0.15:
-                        reasons["reach"] += 1
-                        continue
-                    tried += 1
-                    if tried > max_candidates:
-                        return None, {"tried": tried, "reasons": reasons, "blocking": _top(blocking)}
-                    plan = _solve(session, kinematics, worlds, side, base, lift, frame, pre_distance, allowed, reasons, blocking)
-                    if plan is not None:
-                        return Dock(base, lift, side, frame, *plan, tried), {"tried": tried, "reasons": reasons}
+                for dr in extra:
+                    r = r0 + dr
+                    score = r + (0.0 if preferred is None else 0.6 * (1 - np.cos(phi - preferred)))
+                    options.append((score, r, phi, side, lateral))
+        for _, r, phi, side, lateral in sorted(options, key=lambda o: o[0]):
+            u = np.array([np.cos(phi), np.sin(phi)])
+            normal = np.array([-u[1], u[0]])
+            centre = target[:2] - r * u - lateral * normal
+            base = np.array([*centre, phi])
+            if not footprint_free(occupancy, base, half):
+                reasons["footprint"] += 1
+                continue
+            for offset in lift_offsets:
+                lift = float(np.clip(target[2] + offset - shoulder0, *lift_range))
+                shoulder = np.array([*(target[:2] - (r - SHOULDER_FORWARD) * u), shoulder0 + lift])
+                if np.linalg.norm(target - shoulder) > reach + 0.15:
+                    reasons["reach"] += 1
+                    continue
+                tried += 1
+                if tried > max_candidates:
+                    return None, {"tried": tried, "reasons": reasons, "blocking": _top(blocking)}
+                plan = _solve(session, kinematics, worlds, side, base, lift, frame, pre_distance, allowed, reasons, blocking)
+                if plan is not None:
+                    return Dock(base, lift, side, frame, *plan, tried), {"tried": tried, "reasons": reasons}
     return None, {"tried": tried, "reasons": reasons, "blocking": _top(blocking)}
 
 
 def _top(counter, n=5):
-    return dict(sorted(counter.items(), key=lambda kv: -kv[1])[:n])
+    return dict(sorted(counter.items(), key=lambda kv: -kv[1][0])[:n])
 
 
 def _solve(session, kinematics, worlds, side, base, lift, frame, pre_distance, allowed, reasons, blocking):
@@ -135,7 +155,8 @@ def _solve(session, kinematics, worlds, side, base, lift, frame, pre_distance, a
         if hit is not None:
             reasons[stage + "_collision"] += 1
             name = "/".join(hit.get("geoms", ["self"]))
-            blocking[name] = blocking.get(name, 0) + 1
+            count, closest = blocking.get(name, (0, 1.0))
+            blocking[name] = (count + 1, min(closest, round(hit["distance_m"], 4)))
             return None
         return solution
 
@@ -144,13 +165,17 @@ def _solve(session, kinematics, worlds, side, base, lift, frame, pre_distance, a
     if q_pre is None:
         return None
     world.allow(allowed)
+    world.margin, margin = GOAL_MARGIN, world.margin
     q_goal = solve(Target(frame.position, frame.rotation, position_tolerance=1e-3), "goal", seed=q_pre, restarts=1)
     world.allow(())
+    world.margin = margin
     if q_goal is None:
         return None
     world.allow(allowed)
+    world.margin, margin = GOAL_MARGIN, world.margin
     ok = world.edge_valid(q_pre, q_goal)
     world.allow(())
+    world.margin = margin
     if not ok:
         reasons["approach"] += 1
         return None

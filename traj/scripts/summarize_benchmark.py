@@ -18,7 +18,8 @@ for r in rows:
     reason = r["reason"] or ("disturbed" if r["disturbed"] else None) or ("goal_not_met" if not r["success"] else None)
     if reason:
         reasons[(r["skill"], reason)] += 1
-    for pair, n in ((r.get("detail") or {}).get("blocking") or {}).items():
+    for pair, value in ((r.get("detail") or {}).get("blocking") or {}).items():
+        n = value[0] if isinstance(value, list) else value
         other = [g for g in pair.split("/") if not g.startswith("robot__")]
         blockers["robot/" + ("own part" if not other else "other") if not other else "fingers vs " + other[0].split("__")[0]] += n
 total = sum(r["success"] for r in rows)

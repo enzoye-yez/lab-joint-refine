@@ -28,39 +28,52 @@ def _frame(z, y):
     return np.column_stack([np.cross(y, z), y, z])
 
 
-def outward_normals(model, data, interface):
+SIDES = [np.array(v, float) for v in ([0, 0, 1], [1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0])]
+
+
+def outward_normals(model, data, interface, fallback=True):
+    """The declared approach first; then from above and the four horizontal sides."""
+    declared = []
     if interface.approach is not None and interface.site >= 0:
-        return [data.site_xmat[interface.site].reshape(3, 3) @ interface.approach]
-    # No declared approach: try from above and from the four horizontal sides.
-    return [np.array(v, float) for v in ([0, 0, 1], [1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0])]
+        declared = [data.site_xmat[interface.site].reshape(3, 3) @ interface.approach]
+    if not fallback and declared:
+        return declared
+    rest = [n for n in SIDES if not declared or n @ declared[0] < 0.95]
+    return declared + rest
 
 
-def local_points(model, data, body, centre, radius=0.01):
-    """Box corners of the part's collision geoms that pass within `radius` of the interface site.
-
-    Only geometry at the site counts: a handle on a large door is measured, not the whole door.
-    """
+def local_points(model, data, body, centre, half=0.04, spacing=0.004):
+    """Points of a regular grid around the site that lie inside the part's collision geometry boxes."""
     own = np.flatnonzero(np.isin(model.geom_bodyid, list(subtree_bodies(model, body))))
-    corners = np.array([[x, y, z] for x in (-1, 1) for y in (-1, 1) for z in (-1, 1)], float)
-    points = []
+    axis = np.arange(-half, half + 1e-9, spacing)
+    grid = centre + np.stack(np.meshgrid(axis, axis, axis, indexing="ij"), -1).reshape(-1, 3)
+    inside = np.zeros(len(grid), bool)
     for g in own:
         if not (model.geom_contype[g] or model.geom_conaffinity[g]):
             continue
         rot = data.geom_xmat[g].reshape(3, 3)
         c, h = model.geom_aabb[g, :3], model.geom_aabb[g, 3:]
-        local = rot.T @ (centre - data.geom_xpos[g]) - c
-        if np.linalg.norm(np.maximum(np.abs(local) - h, 0)) <= radius:
-            points.append(data.geom_xpos[g] + (c + corners * h) @ rot.T)
-    return np.concatenate(points) if points else np.zeros((0, 3))
+        if np.any(np.abs(rot.T @ (centre - data.geom_xpos[g]) - c) - h > half):
+            continue
+        local = (grid - data.geom_xpos[g]) @ rot - c
+        inside |= np.all(np.abs(local) <= h + spacing / 2, axis=1)
+    return grid[inside]
 
 
-def grasp_frames(model, data, interface, max_width, angles=12):
-    """Candidate grasps: for each outward normal, the closing axes along which the part fits."""
+def grasp_frames(model, data, interface, max_width, angles=12, depth=0.010):
+    """Candidate grasps: for each outward normal, the closing axes along which the part fits.
+
+    The width is measured on the part's own geometry between the pads: within `depth` of the
+    site along the tool axis, so a wall behind a handle does not count.
+    """
     centre = data.site_xpos[interface.site].copy() if interface.site >= 0 else data.xpos[interface.body].copy()
-    points = local_points(model, data, interface.body, centre)
+    cloud = local_points(model, data, interface.body, centre)
     out = []
     for normal in outward_normals(model, data, interface):
         z = -normal / np.linalg.norm(normal)
+        points = cloud[np.abs((cloud - centre) @ z) <= depth] if len(cloud) else cloud
+        if not len(points):
+            continue
         helper = np.eye(3)[np.argmin(np.abs(z))]
         u0 = np.cross(z, helper)
         u0 /= np.linalg.norm(u0)
@@ -69,8 +82,10 @@ def grasp_frames(model, data, interface, max_width, angles=12):
         for k in range(angles):
             theta = np.pi * k / angles
             y = np.cos(theta) * u0 + np.sin(theta) * u1
-            width = float(np.ptp(points @ y)) if len(points) else np.inf
-            widths.append((width, y))
+            along = (points - centre) @ y
+            # Geometry reaching the edge of the sampled cube continues beyond it: no finger fits there.
+            reaches_edge = np.max(np.abs(along)) >= 0.04 - 0.006
+            widths.append((np.inf if reaches_edge else float(np.ptp(along)), y))
         for width, y in sorted(widths, key=lambda w: w[0])[:3]:
             if width <= max_width:
                 for sign in (1, -1):
@@ -82,7 +97,7 @@ def contact_frames(model, data, interface, finger_reach):
     """Frames for pushing with the closed fingertips along -normal (press, nudge)."""
     centre = data.site_xpos[interface.site].copy() if interface.site >= 0 else data.xpos[interface.body].copy()
     out = []
-    for normal in outward_normals(model, data, interface):
+    for normal in outward_normals(model, data, interface, fallback=False):
         z = -normal / np.linalg.norm(normal)
         helper = np.eye(3)[np.argmin(np.abs(z))]
         for y in (np.cross(z, helper), -np.cross(z, helper), np.cross(z, np.cross(z, helper))):

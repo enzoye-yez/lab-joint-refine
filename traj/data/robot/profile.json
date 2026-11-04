@@ -17,7 +17,7 @@
   "max_yaw_rate": 1.0,
   "footprint_half_m": [
    0.3,
-   0.25
+   0.34
   ]
  },
  "lift": {

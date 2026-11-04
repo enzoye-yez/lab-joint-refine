@@ -20,6 +20,7 @@ BASE_CLEARANCE = 0.01               # m, gap to the floor; the planar joints car
 LIFT_RANGE = (0.0, 0.60)            # m
 PLATFORM_Z = 0.45                   # m, platform top above the floor at lift 0
 SHOULDER_Y = 0.22                   # m, lateral offset of each arm mount
+PLATFORM_HALF_Y = 0.34              # m, the lift platform is wider than the base
 SHOULDER_X = 0.08                   # m, forward offset of the arm mounts
 FINGER_STROKE = 0.04                # m per finger, 0-80 mm total opening
 GRIP_FORCE = 70.0                   # N per finger, actuator force limit
@@ -110,7 +111,7 @@ def build():
     lift = base.add_body(name="lift_platform", pos=[0, 0, PLATFORM_Z])
     lift.add_joint(name="lift", type=mujoco.mjtJoint.mjJNT_SLIDE, axis=[0, 0, 1], range=list(LIFT_RANGE),
                    armature=5.0, damping=100.0)
-    lift.add_geom(name="platform", type=mujoco.mjtGeom.mjGEOM_BOX, size=[0.16, 0.34, 0.03],
+    lift.add_geom(name="platform", type=mujoco.mjtGeom.mjGEOM_BOX, size=[0.16, PLATFORM_HALF_Y, 0.03],
                   pos=[0, 0, -0.03], mass=10.0, rgba=[0.35, 0.37, 0.4, 1])
     lift.add_geom(name="head_mast", type=mujoco.mjtGeom.mjGEOM_BOX, size=[0.02, 0.02, 0.25],
                   pos=[-0.12, 0, 0.25], mass=1.0, rgba=[0.3, 0.3, 0.3, 1])
@@ -165,7 +166,7 @@ def build():
         "root_body": "robot_base",
         "base": {"type": "planar_velocity", "joints": ["base_x", "base_y", "base_yaw"],
                  "actuators": ["base_x_drive", "base_y_drive", "base_yaw_drive"],
-                 "max_speed_mps": 0.5, "max_yaw_rate": 1.0, "footprint_half_m": list(BASE_HALF[:2])},
+                 "max_speed_mps": 0.5, "max_yaw_rate": 1.0, "footprint_half_m": [BASE_HALF[0], PLATFORM_HALF_Y]},
         "lift": {"joint": "lift", "actuator": "lift_drive", "range_m": list(LIFT_RANGE), "platform_z_m": PLATFORM_Z},
         "arms": arms,
         "head_camera": "head_camera",

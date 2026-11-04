@@ -39,14 +39,27 @@ class Interface:
     extra: dict = field(default_factory=dict)
 
 
+def attached(model, bodies):
+    """Whether an active weld/connect equality ties these bodies to something outside them."""
+    for e in range(model.neq):
+        if model.eq_type[e] not in (mujoco.mjtEq.mjEQ_WELD, mujoco.mjtEq.mjEQ_CONNECT) or not model.eq_active0[e]:
+            continue
+        a, b = int(model.eq_obj1id[e]), int(model.eq_obj2id[e])
+        if (a in bodies) != (b in bodies):
+            return True
+    return False
+
+
 def mechanism(model, body):
     b = body
     while b > 0:
         for j in range(model.body_jntadr[b], model.body_jntadr[b] + model.body_jntnum[b]):
             kind = int(model.jnt_type[j])
             if kind == FREE:
-                mass = float(sum(model.body_mass[x] for x in subtree_bodies(model, b)))
-                return Mechanism("free", j, b, None, mass)
+                bodies = subtree_bodies(model, b)
+                mass = float(sum(model.body_mass[x] for x in bodies))
+                # A loose object held in place by an equality (a clip, a mount) needs a release event first.
+                return Mechanism("attached" if attached(model, bodies) else "free", j, b, None, mass)
             if kind in (SLIDE, HINGE):
                 rng = tuple(model.jnt_range[j]) if model.jnt_limited[j] else None
                 return Mechanism("slide" if kind == SLIDE else "hinge", j, b, rng)

@@ -39,4 +39,6 @@ def task_for(interface, model, payload_kg, travel=0.8):
         return Task(name, name, "", {}, excluded=f"{interface.kind} needs a held object or another skill first")
     if interface.kind == "grasp" and mech.kind == "free":
         return Task(name, name, "", {}, excluded=f"loose object of {mech.mass_kg:.1f} kg exceeds the payload")
+    if mech.kind == "attached":
+        return Task(name, name, "", {}, excluded="object held by an equality needs its release event first")
     return Task(name, name, "", {}, excluded=f"{interface.kind} on a {mech.kind} mechanism has no single-skill rule")

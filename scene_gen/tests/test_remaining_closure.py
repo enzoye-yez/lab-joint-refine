@@ -178,6 +178,12 @@ class TriageLayoutTests(unittest.TestCase):
                                    "jobs":{"J01":version("1"),"J02":version("3"),"J03":{}}})
         self.assertEqual(SceneRun.unchanged_assets(run,{"jobs":{"J01":"s/a","J02":"s/b","J03":"s/c"}}),{"J01"})
 
+    def test_a_checker_failure_leaves_the_repair_candidate_unjudged(self):
+        from scene_generation.pipeline import SceneRun
+        run=SimpleNamespace(state={"repair_history":[{"status":"applied","baseline":{"scene":"s/a"}}]})
+        SceneRun.finish_repair(run,{"status":"error","error_kind":"check_execution","checks":[]},None)
+        self.assertEqual(run.state["repair_history"][0]["status"],"applied")
+
     def test_same_body_distinct_islands_are_distinct_repair_obligations(self):
         before={"checks":[{"id":"material_integrity:a","status":"fail","complete":True,"disconnected_count":2,
             "disconnected_components":[{"body":"a__root","geoms":["a__g1"],"detail":"one"},{"body":"a__root","geoms":["a__g2"],"detail":"two"}]}]}

@@ -275,6 +275,30 @@ class FfwTests(unittest.TestCase):
         self.assertEqual(row["status"],"fail")
         self.assertEqual(row["arm"],"left")
 
+    def test_measured_mount_contact_passes_beside_an_unmeasured_pair(self):
+        from unittest.mock import patch
+        import scene_generation.inspection as inspection
+        from scene_generation.inspection import mount_contact
+        from asset_generation.distance import DistanceQuery
+        from asset_generation.check_report import validate_rows
+        self.custom("left","adapter")
+        output=assemble(self.plan,self.env,{"instrument":write_component(self.root/"instrument"),
+                        "tool_left":write_component(self.root/"tool_left",True)},self.robot,self.root/"scene")
+        m=load_model(output,scope="scene");meta=read_json(output/"scene.json")
+        d=mujoco.MjData(m);d.qpos[:]=meta["home_qpos"];mujoco.mj_forward(m,d)
+        results=[]
+        def flaky(*args):
+            # The first pair touches the wrist; every later pair comes back unmeasured.
+            result={"outcome":"unknown","distance_m":None} if results else {"outcome":"measured","distance_m":.001}
+            results.append(result);return result
+        with patch.object(inspection,"observe",flaky):
+            row=mount_contact(m,d,meta,"tool_left",.003,.0005,DistanceQuery(m,d))
+        self.assertEqual(row["status"],"pass")
+        unmeasured=sum(r["outcome"]=="unknown" for r in results)
+        self.assertGreater(unmeasured,0)
+        self.assertEqual(len(row["unmeasured_pairs"]),unmeasured)
+        validate_rows([row])
+
     def test_old_supplementary_evidence_rejected_after_mount_or_posture_change(self):
         from types import SimpleNamespace
         from scene_generation.evidence_state import session, merge_checks

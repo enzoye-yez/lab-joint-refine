@@ -175,8 +175,11 @@ def mount_contact(model, data, meta, target, support_tolerance, collision_tolera
                 gaps.append(evidence)
             elif result["distance_m"] is not None and -collision_tolerance<=result["distance_m"]<=support_tolerance:
                 contacts.append(evidence)
+    # A measured contact answers the question; pairs that could not be measured then leave nothing
+    # open (collisions are judged by scene_collisions), so they are listed but are not coverage gaps.
     return {"id":"mount:"+binding["arm"],"status":"pass" if contacts else "partial" if gaps else "fail",
             "instances":[target],"arm":binding["arm"],"mode":binding["mode"],
-            "attachment_site":"robot__"+binding["site"],"contacts":contacts[:16],"coverage_gaps":gaps[:32],
-            "complete":not gaps,"support_tolerance_m":support_tolerance,"collision_tolerance_m":collision_tolerance,
+            "attachment_site":"robot__"+binding["site"],"contacts":contacts[:16],
+            **({"unmeasured_pairs":gaps[:32]} if contacts else {"coverage_gaps":gaps[:32]}),
+            "complete":bool(contacts) or not gaps,"support_tolerance_m":support_tolerance,"collision_tolerance_m":collision_tolerance,
             "detail":"Custom assembly is in solid contact with the selected wrist/stock gripper; being attached to the same kinematic tree is not treated as a solid joint; does not certify manufactured fit or fastening strength"}

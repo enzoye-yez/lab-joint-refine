@@ -690,6 +690,8 @@ class SceneRun:
                        'artifacts':{k:snapshot(safe_path(self.root,v['artifact'])) for k,v in self.state['jobs'].items()}})
 
     def finish_repair(self, report, review):
+        if report.get('status')=='error' and report.get('error_kind')!='measurement_error':
+            return  # The checker itself failed: the candidate stays unjudged until it is checked again.
         for entry in self.state.get('repair_history',[]):
             if entry.get('status') == 'applied':
                 output_key = self.repair_input_key()

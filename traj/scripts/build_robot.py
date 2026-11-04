@@ -165,6 +165,8 @@ def build():
                       "wrist_camera": f"{side}_wrist_camera",
                       "home": [0, -0.6, 0, -2.2, 0, 1.6, -0.785],
                       "travel": [0, -1.5, 0, -2.8, 0, 1.4, -0.785],
+                      # Folded with the shoulder turned out: frees the space in front of the other arm.
+                      "stow": [-1.2 * sign, -1.5, 0, -2.8, 0, 1.4, -0.785],
                       "lateral_m": sign * SHOULDER_Y,
                       "payload_kg": 3.0, "reach_m": 0.855}
 

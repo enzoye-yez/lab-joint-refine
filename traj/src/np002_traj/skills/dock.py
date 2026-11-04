@@ -22,11 +22,13 @@ class Dock:
     q_pre: np.ndarray
     q_goal: np.ndarray
     tried: int
+    other_posture: str = "travel"   # profile posture of the arm that is not used
 
 
 SHOULDER_FORWARD = 0.08    # m, arm mounts ahead of the base centre (data/robot build)
 SHORT_PRE = 0.05           # m, fallback pre-grasp distance
-RANK_PENALTY = 0.15        # declared approach first, then the main sides, then oblique ones
+RANK_PENALTY = 0.15
+VARIANT_PENALTY = 0.05     # shifted or shallower grasps after the centred one        # declared approach first, then the main sides, then oblique ones
 FREE_MARGIN = 0.005        # m, clearance in free motion
 GOAL_MARGIN = 0.002        # m, clearance to neighbours at the grasp itself (FR3 repeatability is 0.1 mm)
 
@@ -113,7 +115,7 @@ def find_dock(session, kinematics, occupancy, frames, pre_distance=0.10, allowed
                 for dr in extra:
                     r = r0 + dr
                     score = (r + (0.0 if preferred is None else 0.6 * (1 - np.cos(phi - preferred)))
-                             + RANK_PENALTY * frame.rank + 0.01 * index / len(frames))
+                             + RANK_PENALTY * frame.rank + VARIANT_PENALTY * frame.variant + 0.01 * index / len(frames))
                     options.append((score, index, r, phi, side, lateral))
     for _, index, r, phi, side, lateral in sorted(options, key=lambda o: o[0]):
         frame = frames[index]
@@ -131,9 +133,12 @@ def find_dock(session, kinematics, occupancy, frames, pre_distance=0.10, allowed
             tried += 1
             if tried > max_candidates:
                 return None, {"tried": tried, "reasons": reasons, "blocking": _top(blocking)}
-            plan = _solve(session, kinematics, worlds, side, base, lift, frame, pre_distance, allowed, reasons, blocking)
-            if plan is not None:
-                return Dock(base, lift, side, frame, *plan, tried), {"tried": tried, "reasons": reasons}
+            for posture in ("travel", "stow"):
+                plan = _solve(session, kinematics, worlds, side, base, lift, frame, pre_distance, allowed, reasons, blocking, posture)
+                if plan is not None:
+                    return Dock(base, lift, side, frame, *plan, tried, posture), {"tried": tried, "reasons": reasons}
+                if not reasons.pop("_other_arm", False):
+                    break                     # only retry when the other arm was what blocked
     return None, {"tried": tried, "reasons": reasons, "blocking": _top(blocking)}
 
 
@@ -141,7 +146,7 @@ def _top(counter, n=5):
     return dict(sorted(counter.items(), key=lambda kv: -kv[1][0])[:n])
 
 
-def _solve(session, kinematics, worlds, side, base, lift, frame, pre_distance, allowed, reasons, blocking):
+def _solve(session, kinematics, worlds, side, base, lift, frame, pre_distance, allowed, reasons, blocking, posture="travel"):
     robot, kin = session.robot, kinematics
     q_base = kin.qpos(kin.robot.base_joint_values(base), lift, {})
     world = worlds.get(side)
@@ -152,7 +157,7 @@ def _solve(session, kinematics, worlds, side, base, lift, frame, pre_distance, a
     other = [o for o in robot.arms if o != side]
     addresses = np.concatenate([robot.base_qpos, [robot.lift_qpos]] + [robot.arms[o].qpos for o in other])
     values = np.concatenate([robot.base_joint_values(base), [lift]] +
-                            [np.array(robot.profile["arms"][o]["travel"], float) for o in other])
+                            [np.array(robot.profile["arms"][o][posture], float) for o in other])
     world.set_joints(addresses, values)
     world.select()
     pre = frame.offset(pre_distance)
@@ -167,6 +172,9 @@ def _solve(session, kinematics, worlds, side, base, lift, frame, pre_distance, a
         hit = world.blocking(solution)
         if hit is not None:
             reasons[stage + "_collision"] += 1
+            other_prefix = [o for o in robot.arms if o != side][0] + "_"
+            if hit.get("kind") == "self" and any(other_prefix in g for g in hit.get("geoms", [])):
+                reasons["_other_arm"] = True
             closest = reasons.setdefault("_closest", {"distance_m": -1e9})
             if hit["distance_m"] > closest["distance_m"]:
                 reasons["_closest"] = {"distance_m": hit["distance_m"], "stage": stage, "side": side, "base": base.tolist(),

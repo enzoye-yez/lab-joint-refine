@@ -55,6 +55,9 @@ def _approach(ctx, interface, frames, allowed):
         motion.move_arm(s, side, motion.travel_posture(s.robot, side))
     motion.drive(s, dock.base, ctx.occupancy)
     motion.set_lift(s, dock.lift)
+    for side in s.robot.arms:
+        if side != dock.side and dock.other_posture != "travel":
+            motion.move_arm(s, side, np.array(s.robot.profile["arms"][side][dock.other_posture], float))
     _replan_at_measured_base(ctx, dock, allowed)
     motion.move_arm(s, dock.side, dock.q_pre)
     _note(ctx, "pre_pose", side=dock.side)

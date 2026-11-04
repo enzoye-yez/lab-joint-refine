@@ -17,10 +17,11 @@ class Frame:
     rotation: np.ndarray       # world 3x3, columns = tool x, y, z
     width: float               # part width across the fingers (m), inf if not measured
     rank: int = 0              # 0: declared approach, 1: from above or a side, 2: oblique
+    variant: int = 0           # 0: centred full-depth grasp; >0 shifted along the part or shallower
 
     def offset(self, distance):
         """The same frame moved `distance` back along the tool z axis (a pre-grasp)."""
-        return Frame(self.position - self.rotation[:, 2] * distance, self.rotation, self.width, self.rank)
+        return Frame(self.position - self.rotation[:, 2] * distance, self.rotation, self.width, self.rank, self.variant)
 
 
 def _frame(z, y):
@@ -99,7 +100,7 @@ def grasp_frames(model, data, interface, max_width, angles=12, depth=0.010, back
             # Geometry reaching the edge of the sampled cube continues beyond it: no finger fits there.
             reaches_edge = np.max(np.abs(along)) >= 0.04 - 0.006
             widths.append((np.inf if reaches_edge else float(np.ptp(along)), y))
-        for width, y in sorted(widths, key=lambda w: w[0])[:3]:
+        for width, y in sorted(widths, key=lambda w: w[0])[:2]:
             if width <= max_width:
                 x = np.cross(y, z)
                 along = (points - centre) @ x
@@ -109,7 +110,8 @@ def grasp_frames(model, data, interface, max_width, angles=12, depth=0.010, back
                 for sign in (1, -1):
                     for back in backoffs:          # shallower grasps keep the fingertips off a support below
                         for shift in shifts:
-                            out.append(Frame(centre - z * back + x * shift, _frame(z, sign * y), width, rank))
+                            out.append(Frame(centre - z * back + x * shift, _frame(z, sign * y), width, rank,
+                                             int(back > 0) + int(shift != 0)))
     return out
 
 

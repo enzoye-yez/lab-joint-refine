@@ -53,6 +53,31 @@ class Robot:
                                   tuple(model.body(name(x)).id for x in g["finger_bodies"]), np.array(a["home"], float))
         self.bodies = subtree_bodies(model, self.root)
         self.geoms = body_geoms(model, self.bodies)
+        self.base_qpos = model.jnt_qposadr[self.base_joints]
+        self.lift_qpos = int(model.jnt_qposadr[self.lift_joint])
+        # The planar joints live in the frame the robot was attached with (its home pose in the room).
+        self.frame_position = model.body_pos[self.root][:2].copy()
+        q = model.body_quat[self.root]
+        self.frame_yaw = float(np.arctan2(2 * (q[0] * q[3] + q[1] * q[2]), 1 - 2 * (q[2] ** 2 + q[3] ** 2)))
+
+    def _rotate(self, xy, angle):
+        c, s = np.cos(angle), np.sin(angle)
+        return np.array([c * xy[0] - s * xy[1], s * xy[0] + c * xy[1]])
+
+    def base_pose(self, qpos):
+        """World (x, y, yaw) of the base for a qpos vector."""
+        x, y, yaw = qpos[self.base_qpos]
+        return np.array([*(self.frame_position + self._rotate((x, y), self.frame_yaw)), self.frame_yaw + yaw])
+
+    def base_joint_values(self, pose):
+        """Planar joint values that put the base at world (x, y, yaw)."""
+        local = self._rotate(np.asarray(pose[:2]) - self.frame_position, -self.frame_yaw)
+        return np.array([local[0], local[1], pose[2] - self.frame_yaw])
+
+    def base_command(self, data, velocity_xy, yaw_rate):
+        """World-frame base velocity command."""
+        local = self._rotate(velocity_xy, -self.frame_yaw)
+        data.ctrl[self.base_actuators] = [local[0], local[1], yaw_rate]
 
 
 def load_robot():

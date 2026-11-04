@@ -39,20 +39,34 @@ class CollisionWorld:
         self.obstacle_pairs = np.zeros((0, 2), int)
 
     def sync(self, data):
-        """Copy the world state and select obstacle pairs within `radius` of the robot."""
-        d, m = self.data, self.model
+        """Copy the world state; obstacle pairs are re-selected around the robot by `select`."""
+        d = self.data
         d.qpos[:], d.mocap_pos[:], d.mocap_quat[:], d.eq_active[:] = data.qpos, data.mocap_pos, data.mocap_quat, data.eq_active
-        mujoco.mj_kinematics(m, d)
-        robot_set = set(self.robot.geoms.tolist())
-        centre = d.xpos[self.robot.root]
-        others = np.array([g for g in range(m.ngeom) if g not in robot_set and g not in self.ignore
-                           and (m.geom_contype[g] or m.geom_conaffinity[g])], int)
-        if len(others):
-            near = (np.linalg.norm(d.geom_xpos[others] - centre, axis=1) - m.geom_rbound[others] < self.radius) \
-                | np.isin(m.geom_type[others], PLANES)
-            others = others[near]
-        pairs = [(g, h) for g in self.moving for h in others if collides(m, g, h)]
-        self.obstacle_pairs = np.array(pairs, int).reshape(-1, 2)
+        mujoco.mj_kinematics(self.model, d)
+        self.select()
+
+    def select(self, centre=None):
+        """Obstacle pairs within `radius` of the robot root (or `centre`), vectorised."""
+        m, d = self.model, self.data
+        if not hasattr(self, "_others"):
+            robot = np.zeros(m.ngeom, bool)
+            robot[self.robot.geoms] = True
+            usable = (m.geom_contype != 0) | (m.geom_conaffinity != 0)
+            self._others = np.flatnonzero(~robot & usable)
+        others = np.array([g for g in self._others if g not in self.ignore], int) if self.ignore else self._others
+        centre = d.xpos[self.robot.root] if centre is None else np.asarray(centre)
+        near = (np.linalg.norm(d.geom_xpos[others] - centre, axis=1) - m.geom_rbound[others] < self.radius) \
+            | np.isin(m.geom_type[others], PLANES)
+        others = others[near]
+        a = np.repeat(self.moving, len(others))
+        b = np.tile(others, len(self.moving))
+        ok = ((m.geom_contype[a] & m.geom_conaffinity[b]) | (m.geom_contype[b] & m.geom_conaffinity[a])) != 0
+        self.obstacle_pairs = np.stack([a[ok], b[ok]], axis=1)
+
+    def set_joints(self, addresses, values):
+        """Fix other joints of the query world (e.g. a candidate base pose and lift height)."""
+        self.data.qpos[np.asarray(addresses)] = values
+        mujoco.mj_kinematics(self.model, self.data)
 
     def _pose(self, q):
         self.data.qpos[self.joints] = q
@@ -73,10 +87,17 @@ class CollisionWorld:
                 best, pair = value, (int(a[i]), int(b[i]))
         return best, pair
 
+    def allow(self, geoms=()):
+        """Geoms the robot may touch in the next queries (the part being grasped or pressed)."""
+        self.allowed = np.asarray(sorted(set(int(g) for g in geoms)), int)
+
     def clearance(self, q):
         """(distance to obstacles, distance between robot links, closest obstacle pair) at posture q."""
         self._pose(q)
-        obstacle, pair = self._closest(self.obstacle_pairs, self.margin * 4)
+        pairs = self.obstacle_pairs
+        if len(getattr(self, "allowed", ())):
+            pairs = pairs[~np.isin(pairs[:, 1], self.allowed)]
+        obstacle, pair = self._closest(pairs, self.margin * 4)
         own, _ = self._closest(self.self_pairs, self.self_margin * 4)
         return obstacle, own, pair
 

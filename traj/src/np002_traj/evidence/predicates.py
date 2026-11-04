@@ -30,6 +30,7 @@ class Monitor:
     def __init__(self, model, data):
         self.model, self.data = model, data
         self.anchors, self.timers, self.origins, self.details = {}, {}, {}, {}
+        self.reached = set()          # keys that have been true at least once
         self._geoms = {}
         self._force = np.zeros(6)
 
@@ -84,6 +85,8 @@ class Monitor:
         elif "for_s" in rule:
             self.timers.pop(key, None)
         self.details[key] = {"value": value, **detail}
+        if value:
+            self.reached.add(key)
         return value
 
     def _items(self, rule, key):
@@ -113,6 +116,28 @@ class Monitor:
         if rule.get("from") == "high":
             fraction = 1 - fraction
         return rule.get("min", 0.0) <= fraction <= rule.get("max", 1.0), {"fraction": fraction}
+
+    def _joint_travel(self, rule, key):
+        """Progress of a joint from where it was first evaluated towards its farther range end.
+
+        `absolute` (m or rad), when given, is the displacement that counts as done (e.g. a button's
+        actuation point); otherwise `travel` is the required fraction of the remaining range.
+        """
+        j = self.model.joint(rule["joint"])
+        value = float(self.data.qpos[j.qposadr[0]])
+        start = self.origins.setdefault(key, value)
+        low, high = self.model.jnt_range[j.id]
+        far = high if high - start >= start - low else low
+        moved = (value - start) * (1 if far >= start else -1)
+        needed = rule["absolute"] if rule.get("absolute") else rule.get("travel", 0.8) * abs(far - start)
+        return moved >= needed, {"moved": moved, "needed": needed, "far_end": float(far)}
+
+    def _lifted(self, rule, key):
+        """The body is at least height_m above where it was first evaluated."""
+        position, _ = self.pose(rule["body"])
+        start = self.origins.setdefault(key, position)
+        rise = float(position[2] - start[2])
+        return rise >= rule["height_m"], {"rise_m": rise}
 
     def _contact(self, rule, key):
         rows = self.contacts(self.geoms(rule["a"]), self.geoms(rule["b"]))

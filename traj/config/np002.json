@@ -1,0 +1,5 @@
+{
+ "scene_source": "/home/coder/np002_traj_review/NP002_trajectory_devkit_20261104/cases/np002_astra_full_11/scene",
+ "robot_prefix": "robot__",
+ "settle": {"max_seconds": 3.0, "linear_mps": 0.001, "angular_radps": 0.01}
+}

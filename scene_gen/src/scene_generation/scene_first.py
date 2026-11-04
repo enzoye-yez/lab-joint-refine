@@ -75,7 +75,9 @@ def prefetch_candidates(run, jobs, attempts):
             continue
         if len(attempts.get(key,[]))>=run.generation.max_iterations:
             continue
-        if any(not usable(run,run.state["jobs"].get(k)) for k in job["depends_on"]):
+        # A dependency this sweep re-authors changes the request; author after it instead.
+        if any(not usable(run,run.state["jobs"].get(k))
+               or (run.state["jobs"].get(k) or {}).get("regenerate") and k not in blocked for k in job["depends_on"]):
             continue
         result.append(key)
     return result

@@ -86,11 +86,18 @@ def precheck(run):
     entry['local_verification']=comparisons
     regressed={c['job'] for c in comparisons if c['comparison']['new_defects']}
     geometry_only=not any(action.get(k) for k in ('placements','layout','table_modifications','edge_mounts','end_effectors','robot_posture','tool_additions'))
-    if regressed and geometry_only and set(action['jobs'])-regressed:
-        # Independent assets are repaired together: one that got worse goes back to its baseline
-        # version, and the others go on to the scene check.
-        run.state['jobs'].update(run.archived_versions({k:entry['baseline']['jobs'][k] for k in regressed}))
-        entry['reverted_jobs']=sorted(regressed)
+    # An edited asset built against a reverted dependency goes back with it.
+    reverted=set(regressed)
+    while True:
+        more={j['id'] for j in run.state['plan']['jobs'] if j['id'] in action['jobs'] and j['id'] not in reverted
+              and j['id'] in entry['baseline']['jobs'] and reverted&set(j.get('depends_on',[]))}
+        if not more:break
+        reverted|=more
+    if regressed and (set(action['jobs'])-reverted or not geometry_only):
+        # Tasks are repaired together: an asset that got worse goes back to its baseline version,
+        # and the other assets and placement changes go on to the scene check.
+        run.state['jobs'].update(run.archived_versions({k:entry['baseline']['jobs'][k] for k in reverted}))
+        entry['reverted_jobs']=sorted(reverted)
         run.store.save();return False
     regression=bool(regressed)
     # Unchanged local geometry cannot disprove a placement/cross-asset repair.

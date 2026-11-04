@@ -1,5 +1,6 @@
 """Engineering boundary cases; real archived candidates are replayed separately."""
 import unittest
+import unittest.mock
 import tempfile
 from pathlib import Path
 from types import SimpleNamespace
@@ -195,22 +196,25 @@ class QualityLoopTests(unittest.TestCase):
         self.assertEqual((stale['status'],stale['selection']),('voided','voided'))
         self.assertEqual((current['status'],decided['selection']),('applied','adopted'))
 
-    def test_a_regressed_asset_reverts_alone_and_the_others_go_on(self):
+    def local_precheck(self, keys, worse, action, depends_on={}):
+        """Run precheck on assets keys whose edit adds a material defect for those in worse."""
         from scene_generation.local_repair import precheck
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory);records={}
-            for key in ('a_old','a_new','b_old','b_new'):
+            for key in [k+v for k in keys for v in ('_old','_new')]:
                 artifact=root/key;artifact.mkdir();(artifact/'geometry').write_text(key)
                 records[key]={'directory':key,'artifact':key,'assembly_readiness':{'loadable':True,'artifact_sha256':digest(snapshot(artifact))}}
-            # a loses its bridge (a new disconnected island); b gains one.
+            # A worse asset loses its bridge (a new disconnected island); the others gain one.
             def recheck(artifact,*args):
-                row=material(artifact.name in {'a_old','b_new'})
+                key,version=artifact.name.split('_')
+                row=material((version=='old')==(key in worse))
                 return {'checks':[row],'status':row['status']},None
-            entry={'status':'applied','baseline':{'scene':'scene','jobs':{'a':'a_old','b':'b_old'}},
-                'action':{'jobs':['a','b'],'placements':[]},'target_checks':[],'call_start':0}
+            entry={'status':'applied','baseline':{'scene':'scene','jobs':{k:k+'_old' for k in keys}},
+                'action':{'jobs':list(keys),**action},'target_checks':[],'call_start':0}
             run=SimpleNamespace(root=root,contract={'jobs':{}},implementation_guard=SimpleNamespace(expected='code'),
-                state={'repair_history':[entry],'stages':[records['a_old'],records['b_old']],'jobs':{'a':records['a_new'],'b':records['b_new']},
-                    'plan':{'jobs':[{'id':k,'asset_ids':[k]} for k in 'ab'],'instances':[{'id':k,'job':k} for k in 'ab']}},
+                state={'repair_history':[entry],'stages':[records[k+'_old'] for k in keys],'jobs':{k:records[k+'_new'] for k in keys},
+                    'plan':{'jobs':[{'id':k,'asset_ids':[k],'depends_on':depends_on.get(k,[])} for k in keys],
+                        'instances':[{'id':k,'job':k} for k in keys]}},
                 store=SimpleNamespace(state={'calls':[]},save=lambda:None),repair_input_key=lambda:'candidate',
                 sandbox=SimpleNamespace(recheck_asset=recheck),limits=SimpleNamespace(parallel_authors=1),
                 archived_versions=lambda versions:{k:{'reverted_to':d} for k,d in versions.items()})
@@ -220,10 +224,31 @@ class QualityLoopTests(unittest.TestCase):
                 stage={**record,'directory':run.destination.name,'files':snapshot(run.destination)}
                 run.state['stages'].append(stage);return stage
             run.begin,run.commit=begin,commit
-            self.assertFalse(precheck(run))
-            self.assertEqual(entry['reverted_jobs'],['a'])
-            self.assertEqual((run.state['jobs']['a'],run.state['jobs']['b']),({'reverted_to':'a_old'},records['b_new']))
-            self.assertEqual(entry['status'],'applied')
+            return precheck(run),entry,{k:v.get('reverted_to') for k,v in run.state['jobs'].items()}
+
+    def test_a_regressed_asset_reverts_alone_and_the_others_go_on(self):
+        rejected,entry,versions=self.local_precheck('ab',{'a'},{'placements':[]})
+        self.assertFalse(rejected)
+        self.assertEqual((entry['reverted_jobs'],entry['status']),(['a'],'applied'))
+        self.assertEqual(versions,{'a':'a_old','b':None})
+
+    def test_placements_go_on_and_dependents_revert_with_a_regressed_asset(self):
+        # c was authored against the edited a; placements still reach the scene check.
+        rejected,entry,versions=self.local_precheck('abc',{'a','b'},{'placements':[{'instance':'x'}]},{'c':['a']})
+        self.assertFalse(rejected)
+        self.assertEqual((entry['reverted_jobs'],entry['status']),(['a','b','c'],'applied'))
+        self.assertEqual(versions,{'a':'a_old','b':'b_old','c':'c_old'})
+
+    def test_prefetch_waits_for_a_dependency_this_sweep_reauthors(self):
+        from scene_generation.scene_first import prefetch_candidates
+        ready={'artifact':'x','assembly_readiness':{'loadable':True}}
+        jobs={k:{'id':k,'role':'asset','depends_on':d} for k,d in (('a',[]),('b',['a']),('c',[]))}
+        run=SimpleNamespace(generation=SimpleNamespace(max_iterations=3),state={'order':list('abc'),
+            'jobs':{'a':{**ready,'regenerate':'quality'},'b':{**ready,'regenerate':'quality'},'c':{**ready,'regenerate':'quality'}}})
+        with unittest.mock.patch('scene_generation.scene_first.usable',lambda run,record:bool(record)):
+            self.assertEqual(prefetch_candidates(run,jobs,{}),['a','c'])
+            run.state['blocked_jobs']={'a':{'kind':'checker_fault'}}
+            self.assertEqual(prefetch_candidates(run,jobs,{}),['b','c'])
 
     def test_audit_ignores_dependency_status_and_versions_but_not_geometry(self):
         from scene_generation.scene_first import dependency_geometry

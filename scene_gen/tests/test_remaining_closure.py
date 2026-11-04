@@ -158,6 +158,26 @@ class TriageLayoutTests(unittest.TestCase):
         before["layout_assessment"]["compactness"]["workspace_span_m2"]=10
         self.assertFalse(repair_comparison(before,after)["adopt"])
 
+    def test_old_defect_found_on_an_unchanged_asset_does_not_veto_the_round(self):
+        before={"checks":[{"id":"scene_collisions","status":"fail","complete":True,"collision_count":1,"collisions":[{"pair":"a__x|b__y"}]},
+                          {"id":"asset:J02:visual","status":"pass","complete":True}]}
+        after={"checks":[{"id":"scene_collisions","status":"pass","complete":True},
+                         {"id":"asset:J02:visual","status":"fail","complete":True}]}
+        self.assertEqual(repair_comparison(before,after)["outcome"],"mixed")
+        self.assertEqual(repair_comparison(before,after,unchanged_assets={"J01"})["outcome"],"mixed")
+        result=repair_comparison(before,after,unchanged_assets={"J02"})
+        self.assertTrue(result["adopt"])
+        self.assertEqual(result["new_defects"],[])
+        self.assertEqual([d["check"] for d in result["discovered_defects"]],["asset:J02:visual"])
+
+    def test_unchanged_assets_compares_artifact_digests_with_the_baseline(self):
+        from scene_generation.pipeline import SceneRun
+        version=lambda sha:{"assembly_readiness":{"artifact_sha256":sha}}
+        run=SimpleNamespace(state={"stages":[dict(directory="s/a",**version("1")),dict(directory="s/b",**version("2")),
+                                             {"directory":"s/c"}],
+                                   "jobs":{"J01":version("1"),"J02":version("3"),"J03":{}}})
+        self.assertEqual(SceneRun.unchanged_assets(run,{"jobs":{"J01":"s/a","J02":"s/b","J03":"s/c"}}),{"J01"})
+
     def test_same_body_distinct_islands_are_distinct_repair_obligations(self):
         before={"checks":[{"id":"material_integrity:a","status":"fail","complete":True,"disconnected_count":2,
             "disconnected_components":[{"body":"a__root","geoms":["a__g1"],"detail":"one"},{"body":"a__root","geoms":["a__g2"],"detail":"two"}]}]}

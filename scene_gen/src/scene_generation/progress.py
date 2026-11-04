@@ -67,7 +67,7 @@ def repair_history_context(history, problem_key, input_key=None, limit=6, target
         same = input_key is not None and input_key in {entry.get("input_key"), entry.get("output_key")}
         row = {"outcome":outcome, "selection":entry.get("selection"), "action":action,
                "same_baseline":same, "mechanism":repair_mechanism(action)}
-        for key in ("new_defects", "resolved_checks", "remaining_checks", "coverage_lost",
+        for key in ("new_defects", "discovered_defects", "resolved_checks", "remaining_checks", "coverage_lost",
                     "improved_checks", "partially_improved_checks"):
             row[key] = comparison.get(key, [])[:6]
         if entry.get("status") != "evaluated":
@@ -244,7 +244,8 @@ def connectivity_delta(old, new):
     return {'split': split, 'merged': proven}
 
 
-def repair_comparison(previous, updated, old_review=None, new_review=None, *, old_plan=None, new_plan=None):
+def repair_comparison(previous, updated, old_review=None, new_review=None, *, old_plan=None, new_plan=None,
+                      unchanged_assets=()):
     before={r["id"]:r for r in previous.get("checks",[])}
     after={r["id"]:r for r in updated.get("checks",[])}
     resolved, introduced, lost, improved, persistent, superseded = [], [], [], [], [], []
@@ -339,6 +340,12 @@ def repair_comparison(previous, updated, old_review=None, new_review=None, *, ol
                      and bool(old_targets) and old_targets.keys()==new_targets.keys()
                      and all(new_targets[k]=="plausible" for k,v in old_targets.items() if v=="plausible")
                      and not (old_advice.get("home_clear") and not new_advice.get("home_clear")))
+    # Re-reviewing an asset whose geometry the round left untouched (say, after its pose moved)
+    # can find defects it always had. They stay in the report as repair work but are not the
+    # round's regression; counting them threw away a round that fixed four other checks.
+    discovered=[d for d in introduced if d["check"].startswith("asset:")
+                and d["check"].split(":")[1] in unchanged_assets]
+    introduced=[d for d in introduced if d not in discovered]
     gain=bool(resolved or improved)
     # A repair that removes some named defects while leaving the rest is progress; the
     # old rule only counted a fully cleared check, so partial success looked like a
@@ -354,7 +361,7 @@ def repair_comparison(previous, updated, old_review=None, new_review=None, *, ol
              else "improved_layout" if layout_gain else "ineffective")
     return {"outcome":outcome,"layout_compactness_improved":layout_gain,"resolved_checks":sorted(resolved),"improved_checks":improved,
             "partially_improved_checks":improved_partial,
-            "new_defects":introduced,"coverage_lost":sorted(lost),"remaining_checks":sorted(persistent),
+            "new_defects":introduced,"discovered_defects":discovered,"coverage_lost":sorted(lost),"remaining_checks":sorted(persistent),
             "superseded_checks":superseded,
             "adopt":outcome in {"improved","improved_partial","improved_layout"},
             "rule":"an old issue is resolved only by complete current-version evidence under the same check id; reducing named defects also counts as progress; lost coverage is recorded separately and does not veto confirmed improvements in other checks; trade-off candidates are kept but do not automatically replace the baseline"}

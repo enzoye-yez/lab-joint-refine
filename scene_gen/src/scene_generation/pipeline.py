@@ -698,11 +698,19 @@ class SceneRun:
                 baseline=entry.get("baseline")
                 old=next((r for r in self.state["stages"] if r["directory"]==baseline.get("scene")),None) if baseline else None
                 comparison=repair_comparison(old["report"],report,old.get("review"),review,
-                    old_plan=old.get("requested_plan",old.get("plan")),new_plan=self.state["plan"]) if old else None
+                    old_plan=old.get("requested_plan",old.get("plan")),new_plan=self.state["plan"],
+                    unchanged_assets=self.unchanged_assets(baseline)) if old else None
                 entry.update(status='evaluated',output_key=output_key,remaining_problem=remaining,
                              outcome=comparison["outcome"] if comparison else 'ineffective' if remaining==entry['problem_key'] else 'changed',
                              comparison=comparison,scene=self.state['latest']['directory'],
                              calls_consumed=len(self.store.state['calls'])-entry.get('call_start',len(self.store.state['calls'])))
+
+    def unchanged_assets(self, baseline):
+        """Jobs whose current artifact is byte-identical to the one in the repair baseline."""
+        stages={r["directory"]:r for r in self.state["stages"]}
+        sha=lambda job:(job or {}).get("assembly_readiness",{}).get("artifact_sha256")
+        return {k for k,d in baseline.get("jobs",{}).items()
+                if sha(stages.get(d)) and sha(stages.get(d))==sha(self.state["jobs"].get(k))}
 
     def select_repair_candidate(self):
         """Restore archived references only; never rewind calls, stages or attempt budgets."""

@@ -171,7 +171,7 @@ def _solve(session, kinematics, worlds, side, base, lift, frame, pre_distance, a
         return solution
 
     world.allow(())
-    q_pre = solve(Target(pre.position, pre.rotation), "pre", restarts=3)
+    q_pre = solve(Target(pre.position, pre.rotation), "pre", restarts=5)
     if q_pre is None:
         return None
     world.allow(allowed)

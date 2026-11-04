@@ -30,6 +30,8 @@ def _frame(z, y):
 
 
 SIDES = [np.array(v, float) for v in ([0, 0, 1], [1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0])]
+# 45 degrees between the top and each side: low parts near a table top are often only reachable this way.
+SIDES += [(np.array([0, 0, 1.0]) + side) / np.sqrt(2) for side in SIDES[1:5]]
 
 
 def outward_normals(model, data, interface, fallback=True):

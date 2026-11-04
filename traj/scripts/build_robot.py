@@ -128,11 +128,11 @@ def build():
                    armature=5.0, damping=100.0)
     lift.add_geom(name="platform", type=mujoco.mjtGeom.mjGEOM_BOX, size=[0.16, PLATFORM_HALF_Y, 0.03],
                   pos=[0, 0, -0.03], mass=10.0, rgba=[0.35, 0.37, 0.4, 1])
-    lift.add_geom(name="head_mast", type=mujoco.mjtGeom.mjGEOM_BOX, size=[0.02, 0.02, 0.25],
-                  pos=[-0.12, 0, 0.25], mass=1.0, rgba=[0.3, 0.3, 0.3, 1])
+    lift.add_geom(name="head_mast", type=mujoco.mjtGeom.mjGEOM_BOX, size=[0.02, 0.02, 0.35],
+                  pos=[-0.15, 0, 0.35], mass=1.0, rgba=[0.3, 0.3, 0.3, 1])
     lift.add_geom(name="head_camera_body", type=mujoco.mjtGeom.mjGEOM_BOX, size=[0.03, 0.06, 0.025],
-                  pos=[-0.1, 0, 0.52], mass=0.3, rgba=[0.1, 0.1, 0.1, 1])
-    lift.add_camera(name="head_camera", pos=[-0.07, 0, 0.53], xyaxes=[0, -1, 0, 0.6, 0, 0.8])
+                  pos=[-0.15, 0, 0.72], mass=0.3, rgba=[0.1, 0.1, 0.1, 1])
+    lift.add_camera(name="head_camera", pos=[-0.12, 0, 0.73], xyaxes=[0, -1, 0, 0.6, 0, 0.8])
     actuator = spec.add_actuator(name="lift_drive", target="lift", trntype=mujoco.mjtTrn.mjTRN_JOINT,
                                  ctrlrange=list(LIFT_RANGE), ctrllimited=True, forcerange=[-2500, 2500], forcelimited=True)
     actuator.set_to_position(kp=1e6, kv=3e4)

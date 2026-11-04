@@ -133,9 +133,9 @@
       <body name="lift_platform" pos="0 0 0.45">
         <joint name="lift" type="slide" range="0 0.6" armature="5" damping="100"/>
         <geom name="platform" size="0.16 0.34 0.03" pos="0 0 -0.03" type="box" rgba="0.35 0.37 0.4 1" mass="10"/>
-        <geom name="head_mast" size="0.02 0.02 0.25" pos="-0.12 0 0.25" type="box" rgba="0.3 0.3 0.3 1" mass="1"/>
-        <geom name="head_camera_body" size="0.03 0.06 0.025" pos="-0.1 0 0.52" type="box" rgba="0.1 0.1 0.1 1" mass="0.3"/>
-        <camera name="head_camera" quat="0.632456 0.316228 -0.316228 -0.632456" pos="-0.07 0 0.53"/>
+        <geom name="head_mast" size="0.02 0.02 0.35" pos="-0.15 0 0.35" type="box" rgba="0.3 0.3 0.3 1" mass="1"/>
+        <geom name="head_camera_body" size="0.03 0.06 0.025" pos="-0.15 0 0.72" type="box" rgba="0.1 0.1 0.1 1" mass="0.3"/>
+        <camera name="head_camera" quat="0.632456 0.316228 -0.316228 -0.632456" pos="-0.12 0 0.73"/>
         <body name="left_base" childclass="left_fr3" pos="0.08 0.22 0">
           <body name="left_fr3_link0">
             <geom class="left_visual" material="left_black" mesh="left_link0_0"/>

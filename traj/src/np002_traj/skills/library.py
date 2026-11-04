@@ -169,11 +169,15 @@ def actuate(ctx, interface, task):
     low, high = m.jnt_range[joint]
     now = s.data.qpos[m.jnt_qposadr[joint]]
     far = high if high - now >= now - low else low
-    target = now + (far - now) * min(1.0, task.parameters.get("travel", 0.8) + 0.1)
+    # Drive close to the end stop so the part stays where it is left (a lid past vertical, a door open).
+    target = now + (far - now) * DRIVE_FRACTION
     done = lambda: s.monitor.evaluate(task.goal, "goal") is True
     hinge = interface.mechanism.kind == "hinge"
     address = m.jnt_qposadr[joint]
     reached = False
+    cartesian = s.cartesian[dock.side]
+    cartesian.kp[:3] = FOLLOW_STIFFNESS
+    cartesian.kd[:3] = 2 * np.sqrt(FOLLOW_STIFFNESS * 3.0)
     for cycle in range(MAX_REGRASPS + 1):
         now = s.data.qpos[address]
         stroke = target - now
@@ -193,6 +197,8 @@ def actuate(ctx, interface, task):
     _retreat(ctx, dock)
 
 
+DRIVE_FRACTION = 0.97                      # of the remaining joint range
+FOLLOW_STIFFNESS = 2000.0                  # N/m while driving a mechanism
 MAX_REGRASPS, TURN_PER_GRASP = 6, 2.0        # rad of mechanism rotation per grasp (FR3 wrist: +-2.9 rad)
 
 

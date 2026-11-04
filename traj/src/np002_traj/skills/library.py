@@ -107,8 +107,22 @@ def _replan_at_measured_base(ctx, dock, allowed):
     dock.q_pre, dock.q_goal = q_pre, q_goal
 
 
-def _part_geoms(model, body):
-    return set(body_geoms(model, subtree_bodies(model, body)).tolist())
+def _part_geoms(model, body, data=None, centre=None, radius=0.04):
+    """The part's geoms the hand may touch: only those near the interface, not a whole door or lid."""
+    geoms = body_geoms(model, subtree_bodies(model, body))
+    if data is None or centre is None:
+        return set(geoms.tolist())
+    near = set()
+    for g in geoms:
+        rot = data.geom_xmat[g].reshape(3, 3)
+        local = rot.T @ (centre - data.geom_xpos[g]) - model.geom_aabb[g, :3]
+        if np.linalg.norm(np.maximum(np.abs(local) - model.geom_aabb[g, 3:], 0)) <= radius:
+            near.add(int(g))
+    return near
+
+
+def _site(s, interface):
+    return s.data.site_xpos[interface.site].copy() if interface.site >= 0 else s.data.xpos[interface.body].copy()
 
 
 def _pads_touch(ctx, side, geoms):
@@ -157,7 +171,7 @@ def actuate(ctx, interface, task):
     frames = grasp_frames(m, s.data, interface, width)
     if not frames:
         raise Abort("part_wider_than_gripper")
-    moving = _part_geoms(m, interface.mechanism.body)
+    moving = _part_geoms(m, interface.mechanism.body, s.data, _site(s, interface))
     s.allowed_contact = moving
     dock = _approach(ctx, interface, frames, moving)
     arm = s.robot.arms[dock.side]
@@ -251,7 +265,7 @@ def pick(ctx, interface, task):
     frames = grasp_frames(m, s.data, interface, width)
     if not frames:
         raise Abort("part_wider_than_gripper")
-    part = _part_geoms(m, interface.mechanism.body)
+    part = _part_geoms(m, interface.mechanism.body, s.data, _site(s, interface))
     s.allowed_contact = part
     dock = _approach(ctx, interface, frames, part)
     arm = s.robot.arms[dock.side]
@@ -273,7 +287,7 @@ def press(ctx, interface, task):
     s, m = ctx.session, ctx.session.model
     reach = s.robot.profile["arms"]["left"]["gripper"]["fingertip_from_tcp_m"]
     frames = contact_frames(m, s.data, interface, reach)
-    part = _part_geoms(m, interface.mechanism.body if interface.mechanism.body >= 0 else interface.body)
+    part = _part_geoms(m, interface.mechanism.body if interface.mechanism.body >= 0 else interface.body, s.data, _site(s, interface))
     s.allowed_contact = part
     dock = _approach(ctx, interface, frames, part)
     motion.gripper(s, dock.side, 0.0, force=40.0, seconds=0.6)

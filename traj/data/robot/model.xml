@@ -129,7 +129,7 @@
       <joint name="base_y" type="slide" armature="1" damping="1" axis="0 1 0"/>
       <joint name="base_yaw" armature="1" damping="1"/>
       <geom name="base_body" size="0.3 0.25 0.15" pos="0 0 0.16" type="box" rgba="0.2 0.22 0.25 1" mass="60"/>
-      <geom name="lift_column" size="0.06 0.12 0.35" pos="-0.18 0 0.66" type="box" rgba="0.3 0.32 0.35 1" mass="8"/>
+      <geom name="lift_column" size="0.06 0.12 0.35" pos="-0.25 0 0.66" type="box" rgba="0.3 0.32 0.35 1" mass="8"/>
       <body name="lift_platform" pos="0 0 0.45">
         <joint name="lift" type="slide" range="0 0.6" armature="5" damping="100"/>
         <geom name="platform" size="0.16 0.34 0.03" pos="0 0 -0.03" type="box" rgba="0.35 0.37 0.4 1" mass="10"/>

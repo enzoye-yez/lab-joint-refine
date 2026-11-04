@@ -116,7 +116,7 @@ def build():
     base.add_geom(name="base_body", type=mujoco.mjtGeom.mjGEOM_BOX, size=list(BASE_HALF),
                   pos=[0, 0, BASE_CLEARANCE + BASE_HALF[2]], mass=60.0, rgba=[0.2, 0.22, 0.25, 1])
     base.add_geom(name="lift_column", type=mujoco.mjtGeom.mjGEOM_BOX, size=[0.06, 0.12, 0.35],
-                  pos=[-0.18, 0, BASE_CLEARANCE + 2 * BASE_HALF[2] + 0.35], mass=8.0, rgba=[0.3, 0.32, 0.35, 1])
+                  pos=[-0.25, 0, BASE_CLEARANCE + 2 * BASE_HALF[2] + 0.35], mass=8.0, rgba=[0.3, 0.32, 0.35, 1])
     for name, joint, kv, force in (("base_x_drive", "base_x", 3000, 800), ("base_y_drive", "base_y", 3000, 800),
                                    ("base_yaw_drive", "base_yaw", 600, 300)):
         actuator = spec.add_actuator(name=name, target=joint, trntype=mujoco.mjtTrn.mjTRN_JOINT,
@@ -164,7 +164,7 @@ def build():
                                   "finger_bodies": [f"{side}_finger_a", f"{side}_finger_b"], **geometry},
                       "wrist_camera": f"{side}_wrist_camera",
                       "home": [0, -0.6, 0, -2.2, 0, 1.6, -0.785],
-                      "travel": [0, -1.5, 0, -2.8, 0, 1.4, -0.785],
+                      "travel": [0, -0.9, 0, -3.0, 0, 1.4, -0.785],   # collision-free over the whole lift travel
                       # Folded with the shoulder turned out: frees the space in front of the other arm.
                       "stow": [-1.5 * sign, -1.76, 0, -2.6, 0, 1.4, -0.785],
                       "lateral_m": sign * SHOULDER_Y,

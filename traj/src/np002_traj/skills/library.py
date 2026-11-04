@@ -107,7 +107,7 @@ def _replan_at_measured_base(ctx, dock, allowed):
     dock.q_pre, dock.q_goal = q_pre, q_goal
 
 
-def _part_geoms(model, body, data=None, centre=None, radius=0.04):
+def _part_geoms(model, body, data=None, centre=None, radius=0.015):
     """The part's geoms the hand may touch: only those near the interface, not a whole door or lid."""
     geoms = body_geoms(model, subtree_bodies(model, body))
     if data is None or centre is None:

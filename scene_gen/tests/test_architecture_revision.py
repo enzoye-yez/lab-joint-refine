@@ -85,6 +85,7 @@ class RevisionTests(unittest.TestCase):
                             state={"repair_history":[entry],"stages":[old,asset],"order":["instrument","tool"]})
         run.restore_baseline=lambda e:SceneRun.restore_baseline(run,e)
         run.archived_versions=lambda v:SceneRun.archived_versions(run,v)
+        run.salvage_repair=lambda e:SceneRun.salvage_repair(run,e)
         self.assertTrue(SceneRun.select_repair_candidate(run))
         self.assertEqual(run.state["plan"],self.plan)
         self.assertEqual(run.state["order"],["instrument","tool"])

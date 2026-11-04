@@ -354,6 +354,14 @@ class SceneRun:
                 reasons.append({"check":"task_deferred","status":"error",
                                 "detail":str(feedback["task_deferred"])[:600]})
             rows.append({"stage":stage.get("directory"),"reasons":reasons})
+        # Scene repairs that reverted this asset, or that it answered with the same geometry.
+        for entry in self.state.get("repair_history",[]):
+            reasons=[{"check":d["check"],"status":"regressed","detail":str(d.get("added") or d.get("detail") or "")[:600]}
+                     for d in entry.get("revert_reasons",{}).get(key,[])]
+            if key in entry.get("unchanged_jobs",[]):
+                reasons.append({"check":"unchanged_geometry","status":"fail",
+                    "detail":"The repair returned geometry identical to the version it was asked to fix; the repair task was not addressed"})
+            if reasons:rows.append({"stage":entry.get("salvage",{}).get("scene") or entry.get("scene") or "scene_repair","reasons":reasons})
         out=[row for row in rows if row["reasons"]][-limit:]
         if not out:return []
         # Collapse repeated identical rejections into a count; iteration order is kept.
@@ -413,7 +421,9 @@ class SceneRun:
         instruction += ("\nrejected_attempts lists this job's previously rejected designs and their reasons; occurrences is how many times the same rejection repeated. "
                         "When fixing the current error, do not reintroduce another representation that was already rejected; if two representations each trigger a different constraint, "
                         "the representation this part needs has not been declared correctly yet: redeclare it using the valid category and constraint type the checker gives, "
-                        "instead of switching between two known rejected options.")
+                        "instead of switching between two known rejected options. A reason with status regressed is a scene repair "
+                        "of this asset that was reverted because the listed checks got worse; unchanged_geometry means a repair did "
+                        "not change the model at all.")
         instruction += ("\nThe model's default pose (every joint at 0) is the instance's initial state in the scene. Scene assembly "
                         "only places each instance by its position and yaw; it never folds, loads, opens or moves parts, and asset "
                         "keyframes are dropped. Build each part in the state the protocol starts in."
@@ -701,9 +711,53 @@ class SceneRun:
         if entry is None:return False
         if not entry.get("comparison") or entry["comparison"]["adopt"]:
             entry["selection"]="adopted";self.store.save();return False
+        if self.salvage_repair(entry):
+            self.store.save();return True
         self.restore_baseline(entry)
         entry["selection"]="baseline_preserved"
         self.store.save()
+        return True
+
+    def defect_jobs(self, check, added, reports):
+        """Asset jobs a compared check row belongs to; None when it cannot be attributed."""
+        items={i["id"]:i["job"] for i in self.state["plan"]["instances"]}
+        head,_,tail=check.partition(":")
+        if head in items:instances={head}
+        elif head=="scene_collisions" and tail:instances=set(tail.split("|"))
+        elif head=="scene_visual":instances=set(added or [])
+        else:
+            row=next((r for report in reports for r in report.get("checks",[]) if r.get("id")==check),{})
+            instances=set(row.get("instances",[]))
+            if head=="scene_collisions":
+                # A whole-scene collision row: only the pairs that were added count.
+                instances={n.split("__",1)[0] for unit in added or [] for n in unit.removeprefix("pair:").split("|")}
+        jobs={items[i] for i in instances if i in items}
+        return jobs or None
+
+    def salvage_repair(self, entry):
+        """A round that fixed something but also made some assets worse keeps its other changes:
+        the assets behind every new defect (with the edited assets built on them) go back to their
+        baseline versions and the scene is checked once more. Done at most once per round."""
+        from .local_repair import with_dependents, revert, geometry_only
+        comparison=entry["comparison"]
+        gain=comparison.get("resolved_checks") or comparison.get("improved_checks") or comparison.get("partially_improved_checks")
+        if entry.get("salvage") or not gain or comparison["outcome"] not in {"mixed","coverage_lost"}:return False
+        baseline=next(r for r in self.state["stages"] if r["directory"]==entry["baseline"]["scene"])
+        reports=[self.state["latest"]["report"],baseline["report"]]
+        edited=set(entry["action"]["jobs"])-set(entry.get("reverted_jobs",[]))
+        culprits,defects=set(),{}
+        for row in comparison["new_defects"]+[{"check":k} for k in comparison["coverage_lost"]]:
+            jobs=self.defect_jobs(row["check"],row.get("added"),reports)
+            if not jobs or not jobs&edited:return False  # Not caused by a reversible asset edit.
+            for job in jobs&edited:
+                culprits.add(job);defects.setdefault(job,[]).append(row)
+        reverted=with_dependents(self,entry,culprits)
+        if not edited-reverted and geometry_only(entry["action"]):return False
+        entry["salvage"]={"scene":entry["scene"],"comparison":comparison,"reverted_jobs":sorted(reverted)}
+        revert(self,entry,reverted,defects)
+        for key in ("comparison","outcome","output_key","scene","remaining_problem"):
+            entry.pop(key,None)
+        entry["status"]="applied"
         return True
 
     def archived_versions(self, versions):

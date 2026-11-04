@@ -22,6 +22,30 @@ def cached_check(run,binding):
     return record
 
 
+def geometry_only(action):
+    return not any(action.get(k) for k in ('placements','layout','table_modifications','edge_mounts','end_effectors','robot_posture','tool_additions'))
+
+
+def with_dependents(run, entry, jobs):
+    """jobs plus every asset this repair edited that was built against one of them."""
+    reverted=set(jobs)
+    while True:
+        more={j['id'] for j in run.state['plan']['jobs'] if j['id'] in entry['action']['jobs'] and j['id'] not in reverted
+              and j['id'] in entry['baseline']['jobs'] and reverted&set(j.get('depends_on',[]))}
+        if not more:return reverted
+        reverted|=more
+
+
+def revert(run, entry, jobs, defects):
+    """Return jobs to their baseline versions; defects {job: new defects} is what the author sees next."""
+    run.state['jobs'].update(run.archived_versions({k:entry['baseline']['jobs'][k] for k in jobs}))
+    entry['reverted_jobs']=sorted(set(entry.get('reverted_jobs',[]))|set(jobs))
+    depends={j['id']:set(j.get('depends_on',[])) for j in run.state['plan']['jobs']}
+    reasons=entry.setdefault('revert_reasons',{})
+    for key in sorted(jobs):
+        reasons[key]=defects.get(key) or [{'check':'dependency_reverted','added':sorted(depends[key]&set(jobs))}]
+
+
 def precheck(run):
     entry=next((h for h in reversed(run.state.get('repair_history',[]))
         if h.get('status')=='applied' and h.get('baseline')),None)
@@ -85,19 +109,13 @@ def precheck(run):
             'complete':all(r.get('checks') and all(complete(c) or c.get('status')=='skipped' for c in r['checks']) for r in reports)})
     entry['local_verification']=comparisons
     regressed={c['job'] for c in comparisons if c['comparison']['new_defects']}
-    geometry_only=not any(action.get(k) for k in ('placements','layout','table_modifications','edge_mounts','end_effectors','robot_posture','tool_additions'))
-    # An edited asset built against a reverted dependency goes back with it.
-    reverted=set(regressed)
-    while True:
-        more={j['id'] for j in run.state['plan']['jobs'] if j['id'] in action['jobs'] and j['id'] not in reverted
-              and j['id'] in entry['baseline']['jobs'] and reverted&set(j.get('depends_on',[]))}
-        if not more:break
-        reverted|=more
-    if regressed and (set(action['jobs'])-reverted or not geometry_only):
+    # The author returned the version it was asked to repair; reverted jobs are identical by design.
+    entry['unchanged_jobs']=sorted(c['job'] for c in comparisons if c['identical'] and c['job'] not in entry.get('reverted_jobs',[]))
+    reverted=with_dependents(run,entry,regressed)
+    if regressed and (set(action['jobs'])-reverted or not geometry_only(action)):
         # Tasks are repaired together: an asset that got worse goes back to its baseline version,
         # and the other assets and placement changes go on to the scene check.
-        run.state['jobs'].update(run.archived_versions({k:entry['baseline']['jobs'][k] for k in reverted}))
-        entry['reverted_jobs']=sorted(reverted)
+        revert(run,entry,reverted,{c['job']:c['comparison']['new_defects'] for c in comparisons if c['job'] in regressed})
         run.store.save();return False
     regression=bool(regressed)
     # Unchanged local geometry cannot disprove a placement/cross-asset repair.
@@ -106,7 +124,7 @@ def precheck(run):
         if 'material_integrity' in c['checks']:
             checked.update('material_integrity:'+i['id'] for i in run.state['plan']['instances'] if i['job']==c['job'])
     local_targets=bool(entry['target_checks']) and set(entry['target_checks'])<=checked
-    ineffective=(geometry_only and bool(comparisons) and len(comparisons)==len(action['jobs'])
+    ineffective=(geometry_only(action) and bool(comparisons) and len(comparisons)==len(action['jobs'])
         and (all(c['identical'] for c in comparisons) or local_targets
              and all(c['complete'] and c['comparison']['outcome']=='ineffective' for c in comparisons)))
     if not (regression or ineffective):

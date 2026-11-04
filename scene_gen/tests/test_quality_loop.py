@@ -239,6 +239,53 @@ class QualityLoopTests(unittest.TestCase):
         self.assertEqual((entry['reverted_jobs'],entry['status']),(['a','b','c'],'applied'))
         self.assertEqual(versions,{'a':'a_old','b':'b_old','c':'c_old'})
 
+    def salvage_run(self, comparison):
+        from scene_generation.pipeline import SceneRun
+        plan={'jobs':[{'id':'a','depends_on':[]},{'id':'b','depends_on':[]},{'id':'c','depends_on':['a']}],
+              'instances':[{'id':k+'1','job':k} for k in 'abc']}
+        entry={'status':'evaluated','scene':'new','baseline':{'scene':'old','jobs':{k:k+'_old' for k in 'abc'}},
+               'action':{'jobs':['a','b','c']},'comparison':comparison,'outcome':comparison['outcome']}
+        run=SimpleNamespace(state={'plan':plan,'repair_history':[entry],'jobs':{k:{'stage':k+'_new'} for k in 'abc'},
+            'latest':{'directory':'new','report':{'checks':[{'id':'support_fit:a1','instances':['a1']}]}},
+            'stages':[{'directory':'old','report':{'checks':[]}}]},store=SimpleNamespace(save=lambda:None))
+        run.archived_versions=lambda versions:{k:{'stage':d} for k,d in versions.items()}
+        run.restore_baseline=lambda e:run.state.update(restored=True)
+        for name in ('salvage_repair','defect_jobs','failure_history'):
+            setattr(run,name,getattr(SceneRun,name).__get__(run))
+        return run,entry
+
+    def test_a_mixed_scene_round_reverts_only_the_assets_behind_new_defects(self):
+        from scene_generation.pipeline import SceneRun
+        run,entry=self.salvage_run({'outcome':'mixed','adopt':False,'resolved_checks':['scene_collisions:b1|robot'],
+            'new_defects':[{'check':'a1:mechanism_drive:fold','added':['confirmed_failure']}],'coverage_lost':[]})
+        self.assertTrue(SceneRun.select_repair_candidate(run))
+        # a made a new defect; c was built against it; b's fix goes on to one more scene check.
+        self.assertEqual({k:v['stage'] for k,v in run.state['jobs'].items()},{'a':'a_old','b':'b_new','c':'c_old'})
+        self.assertEqual((entry['status'],entry['reverted_jobs'],entry['salvage']['scene']),('applied',['a','c'],'new'))
+        self.assertNotIn('selection',entry)
+        self.assertEqual([r['check'] for r in run.failure_history('a')[-1]['reasons']],['a1:mechanism_drive:fold'])
+        self.assertEqual(run.failure_history('c')[-1]['reasons'][0]['check'],'dependency_reverted')
+        # The rechecked round is decided normally; a second regression restores the baseline.
+        entry.update(status='evaluated',comparison=entry['salvage']['comparison'])
+        self.assertTrue(SceneRun.select_repair_candidate(run))
+        self.assertEqual((entry['selection'],run.state.get('restored')),('baseline_preserved',True))
+
+    def test_an_unattributed_or_gainless_regression_is_not_salvaged(self):
+        from scene_generation.pipeline import SceneRun
+        for comparison in ({'outcome':'mixed','adopt':False,'resolved_checks':['x'],
+                            'new_defects':[{'check':'scene_collisions:robot|environment'}],'coverage_lost':[]},
+                           {'outcome':'regressed','adopt':False,'resolved_checks':[],
+                            'new_defects':[{'check':'support_fit:a1'}],'coverage_lost':[]}):
+            run,entry=self.salvage_run(comparison)
+            self.assertTrue(SceneRun.select_repair_candidate(run))
+            self.assertEqual((entry['selection'],run.state.get('restored'),entry.get('salvage')),('baseline_preserved',True,None))
+
+    def test_an_unchanged_repair_is_shown_to_the_author(self):
+        run,entry=self.salvage_run({'outcome':'ineffective','adopt':False,'new_defects':[],'coverage_lost':[]})
+        entry['unchanged_jobs']=['b']
+        self.assertEqual(run.failure_history('b')[-1]['reasons'][0]['check'],'unchanged_geometry')
+        self.assertEqual(run.failure_history('a'),[])
+
     def test_prefetch_waits_for_a_dependency_this_sweep_reauthors(self):
         from scene_generation.scene_first import prefetch_candidates
         ready={'artifact':'x','assembly_readiness':{'loadable':True}}

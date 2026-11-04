@@ -51,7 +51,7 @@ class Camera:
         try:
             model.vis.global_.offwidth = max(model.vis.global_.offwidth, width)
             model.vis.global_.offheight = max(model.vis.global_.offheight, height)
-            self.renderer = mujoco.Renderer(model, height, width)
+            self.renderer = mujoco.Renderer(model, height, width, max_geom=max(10000, model.ngeom + 2000))
         except Exception as exc:  # no GL here: every frame reports this error, the run continues
             self.error = f"{type(exc).__name__}: {exc}"
 

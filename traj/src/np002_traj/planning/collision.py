@@ -61,6 +61,8 @@ class CollisionWorld:
         a = np.repeat(self.moving, len(others))
         b = np.tile(others, len(self.moving))
         ok = ((m.geom_contype[a] & m.geom_conaffinity[b]) | (m.geom_contype[b] & m.geom_conaffinity[a])) != 0
+        # The base rides on its planar joints: its own geometry is not checked against the floor.
+        ok &= ~((m.geom_bodyid[a] == self.robot.root) & np.isin(m.geom_type[b], PLANES))
         self.obstacle_pairs = np.stack([a[ok], b[ok]], axis=1)
 
     def set_joints(self, addresses, values):

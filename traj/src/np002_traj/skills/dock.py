@@ -25,7 +25,8 @@ class Dock:
 
 
 SHOULDER_FORWARD = 0.08    # m, arm mounts ahead of the base centre (data/robot build)
-GOAL_MARGIN = 0.004        # m, clearance to neighbours at the grasp itself (tighter than in free motion)
+FREE_MARGIN = 0.005        # m, clearance in free motion
+GOAL_MARGIN = 0.002        # m, clearance to neighbours at the grasp itself (FR3 repeatability is 0.1 mm)
 
 
 class Kinematics:
@@ -138,9 +139,14 @@ def _solve(session, kinematics, worlds, side, base, lift, frame, pre_distance, a
     q_base = kin.qpos(kin.robot.base_joint_values(base), lift, {})
     world = worlds.get(side)
     if world is None:
-        world = worlds[side] = CollisionWorld(session.model, robot, robot.arms[side].qpos, margin=0.01)
+        world = worlds[side] = CollisionWorld(session.model, robot, robot.arms[side].qpos, margin=FREE_MARGIN)
         world.sync(session.data)
-    world.set_joints(np.concatenate([robot.base_qpos, [robot.lift_qpos]]), [*robot.base_joint_values(base), lift])
+    # The other arm waits folded (as it does during execution).
+    other = [o for o in robot.arms if o != side]
+    addresses = np.concatenate([robot.base_qpos, [robot.lift_qpos]] + [robot.arms[o].qpos for o in other])
+    values = np.concatenate([robot.base_joint_values(base), [lift]] +
+                            [np.array(robot.profile["arms"][o]["travel"], float) for o in other])
+    world.set_joints(addresses, values)
     world.select()
     pre = frame.offset(pre_distance)
     ik = kin.ik[side]
@@ -154,6 +160,10 @@ def _solve(session, kinematics, worlds, side, base, lift, frame, pre_distance, a
         hit = world.blocking(solution)
         if hit is not None:
             reasons[stage + "_collision"] += 1
+            closest = reasons.setdefault("_closest", {"distance_m": -1e9})
+            if hit["distance_m"] > closest["distance_m"]:
+                reasons["_closest"] = {"distance_m": hit["distance_m"], "stage": stage, "side": side, "base": base.tolist(),
+                                       "lift": lift, "q": solution.tolist(), "geoms": hit.get("geoms")}
             name = "/".join(hit.get("geoms", ["self"]))
             count, closest = blocking.get(name, (0, 1.0))
             blocking[name] = (count + 1, min(closest, round(hit["distance_m"], 4)))

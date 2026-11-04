@@ -30,6 +30,7 @@ class Session:
     invariants: list = field(default_factory=list)
     check_every: int = 10
     max_robot_force: float = 80.0
+    max_grip_force: float = 150.0          # on the part being grasped: the squeeze itself is intended
 
     def __post_init__(self):
         self.joint = {s: JointPD(self.model, a) for s, a in self.robot.arms.items()}
@@ -73,8 +74,20 @@ class Session:
                 self.joint[side].hold(self.data)
         self.data.ctrl[self.robot.base_actuators] = 0.0
 
+    def hold_base(self, pose=None):
+        """Keep the base at `pose` (default: where it is) with a position loop on the velocity drives."""
+        self.base_target = None if pose is False else (self.robot.base_pose(self.data.qpos) if pose is None else np.asarray(pose))
+
+    def _base_loop(self):
+        pose = self.robot.base_pose(self.data.qpos)
+        error = self.base_target - pose
+        error[2] = np.angle(np.exp(1j * error[2]))
+        self.robot.base_command(self.data, 4.0 * error[:2], 4.0 * error[2])
+
     def step(self, ticks=1):
         for _ in range(ticks):
+            if self.base_target is not None:
+                self._base_loop()
             for side in self.robot.arms:
                 (self.cartesian if self.mode[side] == "cartesian" else self.joint)[side].apply(self.data)
             mujoco.mj_step(self.model, self.data)
@@ -93,8 +106,9 @@ class Session:
             for i in np.flatnonzero(mine):
                 mujoco.mj_contactForce(self.model, d, int(i), force)
                 self.peak_force = max(self.peak_force, float(force[0]))
-                if force[0] > self.max_robot_force:
-                    other = int(g2[i] if self.robot_mask[g1[i]] else g1[i])
+                other = int(g2[i] if self.robot_mask[g1[i]] else g1[i])
+                limit = self.max_grip_force if other in self.allowed_contact else self.max_robot_force
+                if force[0] > limit:
                     self.hold()
                     raise Abort("contact_force_limit", force_n=float(force[0]), geom=self.model.geom(other).name)
         for rule in self.invariants:

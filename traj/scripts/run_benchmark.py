@@ -109,12 +109,18 @@ def main():
     if args.only:
         runnable = [i for i in runnable if i in set(args.only)]
     elif args.limit:
+        # Round-robin over (skill, instrument) so one instrument with many parts does not dominate.
         groups = collections.defaultdict(list)
         for i in runnable:
-            groups[tasks[i].skill].append(i)
+            groups[(tasks[i].skill, STATE["interfaces"][i].instance)].append(i)
         rng = np.random.default_rng(0)
-        per = max(1, args.limit // len(groups))
-        runnable = sorted(x for g in groups.values() for x in rng.choice(g, min(per, len(g)), replace=False))
+        for g in groups.values():
+            rng.shuffle(g)
+        order, depth = [], 0
+        while len(order) < args.limit and any(len(g) > depth for g in groups.values()):
+            order += [g[depth] for _, g in sorted(groups.items()) if len(g) > depth]
+            depth += 1
+        runnable = sorted(order[:args.limit])
     from np002_traj.record.run import code_identity
     (out / "config.json").write_text(json.dumps({"scene": str(STATE["directory"]), "code": code_identity(),
                                                  "tasks": len(runnable), "excluded": collections.Counter(

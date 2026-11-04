@@ -23,7 +23,9 @@ for r in rows:
         other = [g for g in pair.split("/") if not g.startswith("robot__")]
         blockers["robot/" + ("own part" if not other else "other") if not other else "fingers vs " + other[0].split("__")[0]] += n
 total = sum(r["success"] for r in rows)
-print(f"{total}/{len(rows)} succeeded")
+enclosed = sum(r["reason"] == "enclosed" for r in rows)
+print(f"{total}/{len(rows)} succeeded; {enclosed} need a prior step (enclosed); "
+      f"{total}/{len(rows) - enclosed} of the accessible ones")
 for key, c in sorted(by.items()):
     print(f"  {key:18s} {c['success']:3d}/{c['total']:3d}")
 print("failure reasons:")

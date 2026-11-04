@@ -94,6 +94,7 @@ class RobotTests(unittest.TestCase):
         data.eq_active[model.equality("box_fixture").id] = 0  # test fixture only: hand the box to the gripper
         box = model.body("box").id
         relative = lambda d: d.site_xmat[arm.tcp].reshape(3, 3).T @ (d.xpos[box] - d.site_xpos[arm.tcp])
+        run(model, data, control, 0.2)            # the hand-over from the fixture centres the box between the pads
         start = relative(data)
         trace = run(model, data, control, 2.0, relative)
         self.assertLess(np.linalg.norm(trace - start, axis=1).max(), 1e-3)

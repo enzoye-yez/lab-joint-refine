@@ -20,7 +20,7 @@ def travel_posture(robot, side):
 
 
 # -- arm -------------------------------------------------------------------
-def arm_world(session, side, margin=0.01):
+def arm_world(session, side, margin=0.005):
     world = CollisionWorld(session.model, session.robot, session.robot.arms[side].qpos, margin=margin)
     world.sync(session.data)
     return world
@@ -132,9 +132,10 @@ def footprint_radius(session):
     return float(np.max(np.linalg.norm(corners - centre, axis=1)))
 
 
-def drive(session, goal, occupancy=None, radius=None, tolerance=(0.01, 0.02), timeout=60.0):
+def drive(session, goal, occupancy=None, radius=None, tolerance=(0.003, 0.005), timeout=60.0):
     """Drive the base to world (x, y, yaw) along an A* path, with the arms holding their posture."""
     robot, d = session.robot, session.data
+    session.hold_base(False)
     for side in robot.arms:
         session.use_joint(side)
     occupancy = occupancy or OccupancyMap(session.model, d, robot)
@@ -160,8 +161,8 @@ def drive(session, goal, occupancy=None, radius=None, tolerance=(0.01, 0.02), ti
         else:
             robot.base_command(d, [0, 0], 0)
             raise Abort("base_timeout", pose=robot.base_pose(d.qpos).tolist(), goal=list(goal))
-    robot.base_command(d, [0, 0], 0)
-    session.wait(0.5, lambda: np.max(np.abs(d.qvel[session.model.jnt_dofadr[robot.base_joints]])) < 1e-3)
+    session.hold_base(np.asarray(goal, float))
+    session.wait(1.0, lambda: np.max(np.abs(d.qvel[session.model.jnt_dofadr[robot.base_joints]])) < 1e-3)
     return robot.base_pose(d.qpos)
 
 

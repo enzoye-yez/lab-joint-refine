@@ -5,6 +5,7 @@ closing axis. The approach axis in interfaces.json is the outward surface normal
 """
 from dataclasses import dataclass
 
+import mujoco
 import numpy as np
 
 from ..geometry import subtree_bodies
@@ -60,7 +61,7 @@ def local_points(model, data, body, centre, half=0.04, spacing=0.004):
     return grid[inside]
 
 
-def grasp_frames(model, data, interface, max_width, angles=12, depth=0.010):
+def grasp_frames(model, data, interface, max_width, angles=12, depth=0.010, backoffs=(0.0, 0.004)):
     """Candidate grasps: for each outward normal, the closing axes along which the part fits.
 
     The width is measured on the part's own geometry between the pads: within `depth` of the
@@ -89,8 +90,43 @@ def grasp_frames(model, data, interface, max_width, angles=12, depth=0.010):
         for width, y in sorted(widths, key=lambda w: w[0])[:3]:
             if width <= max_width:
                 for sign in (1, -1):
-                    out.append(Frame(centre, _frame(z, sign * y), width))
+                    for back in backoffs:          # shallower grasps keep the fingertips off a support below
+                        out.append(Frame(centre - z * back, _frame(z, sign * y), width))
     return out
+
+
+def enclosure(model, data, interface, own_bodies, reach=0.30, step=0.01, hand_radius=0.035):
+    """The first foreign collision geometry on every straight way out from the site, or None if one is free.
+
+    Checks the declared approach and the fallback sides; a site behind a closed lid or door is
+    enclosed and needs that part moved first.
+    """
+    centre = data.site_xpos[interface.site] if interface.site >= 0 else data.xpos[interface.body]
+    usable = (model.geom_contype != 0) | (model.geom_conaffinity != 0)
+    near = np.flatnonzero(usable & ~np.isin(model.geom_bodyid, list(own_bodies)) &
+                          (np.linalg.norm(data.geom_xpos - centre, axis=1) < model.geom_rbound + reach + 0.05)
+                          & (model.geom_type != mujoco.mjtGeom.mjGEOM_PLANE))
+    first = None
+    for normal in outward_normals(model, data, interface):
+        # A corridor as wide as the hand: the axis plus a ring of points around it, beyond the fingertips.
+        helper = np.eye(3)[np.argmin(np.abs(normal))]
+        a = np.cross(normal, helper)
+        a /= np.linalg.norm(a)
+        b = np.cross(normal, a)
+        ring = [np.zeros(3)] + [hand_radius * (np.cos(t) * a + np.sin(t) * b) for t in np.linspace(0, 2 * np.pi, 8, endpoint=False)]
+        points = np.array([centre + normal * t + o for t in np.arange(step, reach + 1e-9, step) for o in ring
+                           if t > 0.03 or not o.any()])
+        blocker = None
+        for g in near:
+            rot = data.geom_xmat[g].reshape(3, 3)
+            local = (points - data.geom_xpos[g]) @ rot - model.geom_aabb[g, :3]
+            if np.any(np.all(np.abs(local) <= model.geom_aabb[g, 3:], axis=1)):
+                blocker = g
+                break
+        if blocker is None:
+            return None
+        first = blocker if first is None else first
+    return first
 
 
 def contact_frames(model, data, interface, finger_reach):

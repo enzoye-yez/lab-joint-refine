@@ -51,35 +51,35 @@
    ],
    "gains": {
     "kp": [
+     1500,
+     1500,
+     1500,
+     1500,
      600,
      600,
-     600,
-     600,
-     300,
-     300,
-     200
+     300
     ],
     "kd": [
-     50,
-     50,
-     50,
-     40,
-     20,
-     20,
-     10
+     80,
+     80,
+     70,
+     60,
+     25,
+     25,
+     12
     ]
    },
    "flange_site": "left_attachment_site",
    "tcp_site": "left_tcp",
    "gripper": {
     "actuator": "left_gripper",
-    "open": 0.04,
+    "open": 0.025,
     "closed": 0.0,
     "joints": [
      "left_finger_a",
      "left_finger_b"
     ],
-    "max_force_n": 70.0,
+    "max_force_n": 40.0,
     "pads": {
      "a": "left_pad_a",
      "b": "left_pad_b"
@@ -87,7 +87,13 @@
     "finger_bodies": [
      "left_finger_a",
      "left_finger_b"
-    ]
+    ],
+    "tcp_from_flange_m": 0.136,
+    "fingertip_from_tcp_m": 0.012,
+    "pad_half_height_m": 0.01,
+    "finger_thickness_m": 0.009000000000000001,
+    "tip_thickness_m": 0.008,
+    "body_radius_m": 0.032
    },
    "wrist_camera": "left_wrist_camera",
    "home": [
@@ -133,35 +139,35 @@
    ],
    "gains": {
     "kp": [
+     1500,
+     1500,
+     1500,
+     1500,
      600,
      600,
-     600,
-     600,
-     300,
-     300,
-     200
+     300
     ],
     "kd": [
-     50,
-     50,
-     50,
-     40,
-     20,
-     20,
-     10
+     80,
+     80,
+     70,
+     60,
+     25,
+     25,
+     12
     ]
    },
    "flange_site": "right_attachment_site",
    "tcp_site": "right_tcp",
    "gripper": {
     "actuator": "right_gripper",
-    "open": 0.04,
+    "open": 0.025,
     "closed": 0.0,
     "joints": [
      "right_finger_a",
      "right_finger_b"
     ],
-    "max_force_n": 70.0,
+    "max_force_n": 40.0,
     "pads": {
      "a": "right_pad_a",
      "b": "right_pad_b"
@@ -169,7 +175,13 @@
     "finger_bodies": [
      "right_finger_a",
      "right_finger_b"
-    ]
+    ],
+    "tcp_from_flange_m": 0.136,
+    "fingertip_from_tcp_m": 0.012,
+    "pad_half_height_m": 0.01,
+    "finger_thickness_m": 0.009000000000000001,
+    "tip_thickness_m": 0.008,
+    "body_radius_m": 0.032
    },
    "wrist_camera": "right_wrist_camera",
    "home": [
@@ -201,5 +213,5 @@
   "glass": 30.0,
   "instrument_door": 40.0
  },
- "mass_kg": 117.31097010871149
+ "mass_kg": 116.8549701087115
 }

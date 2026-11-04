@@ -99,9 +99,12 @@ def grasp_frames(model, data, interface, max_width, angles=12, depth=0.010, back
             along = (points - centre) @ y
             # Geometry reaching the edge of the sampled cube continues beyond it: no finger fits there.
             reaches_edge = np.max(np.abs(along)) >= 0.04 - 0.006
-            widths.append((np.inf if reaches_edge else float(np.ptp(along)), y))
-        for width, y in sorted(widths, key=lambda w: w[0])[:2]:
+            middle = 0.5 * (float(np.max(along)) + float(np.min(along)))
+            widths.append((np.inf if reaches_edge else float(np.ptp(along)), y, middle))
+        for width, y, middle in sorted(widths, key=lambda w: w[0])[:2]:
             if width <= max_width:
+                # Centre the part between the pads: the site is often on its surface, not its middle.
+                centred = centre + y * middle
                 x = np.cross(y, z)
                 along = (points - centre) @ x
                 # An elongated part (a handle, a rod) can be held anywhere along its length.
@@ -110,7 +113,7 @@ def grasp_frames(model, data, interface, max_width, angles=12, depth=0.010, back
                 for sign in (1, -1):
                     for back in backoffs:          # shallower grasps keep the fingertips off a support below
                         for shift in shifts:
-                            out.append(Frame(centre - z * back + x * shift, _frame(z, sign * y), width, rank,
+                            out.append(Frame(centred - z * back + x * shift, _frame(z, sign * y), width, rank,
                                              int(back > 0) + int(shift != 0)))
     return out
 

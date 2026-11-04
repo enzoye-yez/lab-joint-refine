@@ -6,6 +6,8 @@ from pathlib import Path
 import mujoco
 import numpy as np
 
+from ..geometry import body_geoms, subtree_bodies
+
 ROOT = Path(__file__).resolve().parents[3]
 PROFILE = ROOT / "data/robot/profile.json"
 
@@ -49,19 +51,8 @@ class Robot:
                                   model.site(name(a["tcp_site"])).id, model.actuator(name(g["actuator"])).id,
                                   g["open"], tuple(model.geom(name(x)).id for x in g["pads"].values()),
                                   tuple(model.body(name(x)).id for x in g["finger_bodies"]), np.array(a["home"], float))
-        self.bodies = self.subtree(self.root)
-        self.geoms = np.flatnonzero(np.isin(model.geom_bodyid, list(self.bodies)))
-
-    def subtree(self, body):
-        m = self.model
-        return {b for b in range(m.nbody) if self._ancestor(body, b)}
-
-    def _ancestor(self, root, body):
-        while body > 0:
-            if body == root:
-                return True
-            body = self.model.body_parentid[body]
-        return root == 0
+        self.bodies = subtree_bodies(model, self.root)
+        self.geoms = body_geoms(model, self.bodies)
 
 
 def load_robot():

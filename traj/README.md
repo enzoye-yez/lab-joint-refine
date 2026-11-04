@@ -6,7 +6,7 @@ The plan and the review of the previous package are in `/home/coder/np002_traj_r
 ```bash
 uv venv -p 3.11 .venv && uv pip install -p .venv/bin/python -r requirements.txt
 .venv/bin/python scripts/build_robot.py          # data/robot/model.xml + profile.json
-PYTHONPATH=src .venv/bin/python -m unittest discover -s tests -v
+source scripts/env.sh && PYTHONPATH=src:tests $PYTHON -m unittest discover -s tests -v
 source scripts/env.sh && $PYTHON scripts/render_robot.py   # runs/robot_views.png
 ```
 

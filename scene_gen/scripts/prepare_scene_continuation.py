@@ -213,7 +213,7 @@ def prepare(project, source_name, target_name, before_file=None, kind="stage_rev
                 images = [file_hash(safe_path(source, path)) for path in job.get("preview_paths", [])]
                 dependencies = {k: scene["jobs"].get(k, {}).get("assembly_readiness") for k in plan_job["depends_on"]}
                 job["review_key"] = review_key(plan_job, job["assembly_readiness"], None, dependencies, numerical, images)
-        elif kind in {"tool_draft", "collision_depth"}:
+        elif kind in {"tool_draft", "collision_depth", "partial_revert"}:
             # The end-effector is accepted on its static checks and repaired in the operation stage;
             # the implementation digest re-audits every asset, and unchanged reviews stand.
             scene.pop("scene_review_resume", None)

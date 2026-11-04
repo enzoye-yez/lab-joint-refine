@@ -39,10 +39,11 @@ class Interface:
     extra: dict = field(default_factory=dict)
 
 
-def attached(model, bodies):
+def attached(model, bodies, active=None):
     """Whether an active weld/connect equality ties these bodies to something outside them."""
+    active = model.eq_active0 if active is None else active
     for e in range(model.neq):
-        if model.eq_type[e] not in (mujoco.mjtEq.mjEQ_WELD, mujoco.mjtEq.mjEQ_CONNECT) or not model.eq_active0[e]:
+        if model.eq_type[e] not in (mujoco.mjtEq.mjEQ_WELD, mujoco.mjtEq.mjEQ_CONNECT) or not active[e]:
             continue
         a, b = int(model.eq_obj1id[e]), int(model.eq_obj2id[e])
         if (a in bodies) != (b in bodies):
@@ -50,7 +51,7 @@ def attached(model, bodies):
     return False
 
 
-def mechanism(model, body):
+def mechanism(model, body, active=None):
     b = body
     while b > 0:
         for j in range(model.body_jntadr[b], model.body_jntadr[b] + model.body_jntnum[b]):
@@ -59,7 +60,7 @@ def mechanism(model, body):
                 bodies = subtree_bodies(model, b)
                 mass = float(sum(model.body_mass[x] for x in bodies))
                 # A loose object held in place by an equality (a clip, a mount) needs a release event first.
-                return Mechanism("attached" if attached(model, bodies) else "free", j, b, None, mass)
+                return Mechanism("attached" if attached(model, bodies, active) else "free", j, b, None, mass)
             if kind in (SLIDE, HINGE):
                 rng = tuple(model.jnt_range[j]) if model.jnt_limited[j] else None
                 return Mechanism("slide" if kind == SLIDE else "hinge", j, b, rng)
@@ -67,7 +68,7 @@ def mechanism(model, body):
     return Mechanism("fixed")
 
 
-def load(model, source):
+def load(model, source, data=None):
     meta = json.loads((Path(source) / "interfaces.json").read_text(encoding="utf-8"))
     buttons = {b["joint"]: b for b in meta.get("buttons", [])}
     result, missing = [], []
@@ -77,7 +78,7 @@ def load(model, source):
         if body < 0:
             missing.append(row["id"])            # e.g. interfaces of the removed robot tool
             continue
-        mech = mechanism(model, body)
+        mech = mechanism(model, body, None if data is None else data.eq_active)
         button = buttons.get(model.joint(mech.joint).name) if mech.joint >= 0 else None
         approach = np.asarray(row["approach_axis"], float) if "approach_axis" in row else None
         result.append(Interface(row["id"], row["kind"], body, site, approach, row["body"].split("__")[0], mech, button,

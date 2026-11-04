@@ -36,14 +36,18 @@ def _note(ctx, step, **detail):
 def _approach(ctx, interface, frames, allowed):
     s = ctx.session
     own = subtree_bodies(s.model, interface.mechanism.body if interface.mechanism.body >= 0 else interface.body)
-    blocker = enclosure(s.model, s.data, interface, own | subtree_bodies(s.model, interface.body))
+    from ..scene.interfaces import mechanism
+    movable = lambda g: mechanism(s.model, int(s.model.geom_bodyid[g])).kind in ("slide", "hinge")
+    blocker = enclosure(s.model, s.data, interface, own | subtree_bodies(s.model, interface.body), movable=movable)
     if blocker is not None:
-        from ..scene.interfaces import mechanism
-        body = int(s.model.geom_bodyid[blocker])
-        raise Abort("enclosed", geom=s.model.geom(blocker).name, movable=mechanism(s.model, body).kind)
+        mech = mechanism(s.model, int(s.model.geom_bodyid[blocker]))
+        raise Abort("enclosed", geom=s.model.geom(blocker).name, movable=mech.kind,
+                    joint=s.model.joint(mech.joint).name if mech.joint >= 0 else None)
     dock, search = find_dock(s, ctx.kinematics, ctx.occupancy, frames, PRE_DISTANCE, allowed)
     if dock is None:
-        search["reasons"].pop("_closest", None) if not ctx.keep_closest else None
+        closest = search["reasons"].pop("_closest", None)
+        if ctx.keep_closest and closest:
+            search["closest"] = {k: v for k, v in closest.items() if k != "q"}
         raise Abort("no_dock", frames=len(frames), **search)
     search["reasons"].pop("_closest", None)
     _note(ctx, "dock", base=dock.base.round(3).tolist(), side=dock.side, lift=round(dock.lift, 3), **search)
@@ -166,16 +170,70 @@ def actuate(ctx, interface, task):
     now = s.data.qpos[m.jnt_qposadr[joint]]
     far = high if high - now >= now - low else low
     target = now + (far - now) * min(1.0, task.parameters.get("travel", 0.8) + 0.1)
-    tcp_pos, tcp_rot = s.data.site_xpos[arm.tcp].copy(), s.data.site_xmat[arm.tcp].reshape(3, 3).copy()
-    steps = max(4, int(abs(target - now) / (0.01 if interface.mechanism.kind == "slide" else 0.05)))
-    poses = mechanism_poses(m, s.data, interface, joint, target, tcp_pos, tcp_rot, steps)
     done = lambda: s.monitor.evaluate(task.goal, "goal") is True
-    reached = motion.follow(s, dock.side, poses, speed=0.05, until=done)
-    _note(ctx, "drive_mechanism", reached=reached, detail=s.monitor.details.get("goal"))
+    hinge = interface.mechanism.kind == "hinge"
+    address = m.jnt_qposadr[joint]
+    reached = False
+    for cycle in range(MAX_REGRASPS + 1):
+        now = s.data.qpos[address]
+        stroke = target - now
+        if hinge:                                    # one wrist turn at a time, then regrasp
+            stroke = np.sign(stroke) * min(abs(stroke), TURN_PER_GRASP)
+        tcp_pos, tcp_rot = s.data.site_xpos[arm.tcp].copy(), s.data.site_xmat[arm.tcp].reshape(3, 3).copy()
+        steps = max(4, int(abs(stroke) / (0.05 if hinge else 0.01)))
+        poses = mechanism_poses(m, s.data, interface, joint, now + stroke, tcp_pos, tcp_rot, steps)
+        reached = motion.follow(s, dock.side, poses, speed=0.05, until=done)
+        _note(ctx, "drive_mechanism", cycle=cycle, reached=reached, detail=s.monitor.details.get("goal"))
+        if reached or not hinge or abs(target - s.data.qpos[address]) < 0.05:
+            break
+        _regrasp(ctx, dock, interface, moving, width)
     if not reached:
         s.wait(1.0, done)
     motion.gripper(s, dock.side, arm.gripper_open, seconds=0.8)
     _retreat(ctx, dock)
+
+
+MAX_REGRASPS, TURN_PER_GRASP = 6, 2.0        # rad of mechanism rotation per grasp (FR3 wrist: +-2.9 rad)
+
+
+def _regrasp(ctx, dock, interface, allowed, width):
+    """Release, back off and grasp the part again where it now is, with the wrist wound back."""
+    from ..planning.ik import IKFailure, Target
+    from .dock import FREE_MARGIN, GOAL_MARGIN
+    s, kin, arm = ctx.session, ctx.kinematics, ctx.session.robot.arms[dock.side]
+    motion.gripper(s, dock.side, arm.gripper_open, seconds=0.6)
+    rotation = s.data.site_xmat[arm.tcp].reshape(3, 3).copy()
+    motion.move_tcp(s, dock.side, s.data.site_xpos[arm.tcp] - rotation[:, 2] * 0.03, rotation, speed=0.05)
+    base = s.robot.base_pose(s.data.qpos)
+    q_base = kin.qpos(kin.robot.base_joint_values(base), float(s.data.qpos[s.robot.lift_qpos]), {})
+    world = motion.arm_world(s, dock.side, margin=FREE_MARGIN)
+    low, high = s.model.jnt_range[arm.joints[-1]]
+    best = None
+    for frame in grasp_frames(s.model, s.data, interface, width):
+        try:
+            world.allow(())
+            world.margin = FREE_MARGIN
+            pre = frame.offset(0.03)
+            q_pre = kin.ik[dock.side].solve(q_base, Target(pre.position, pre.rotation), seed=s.data.qpos[arm.qpos],
+                                            valid=world.valid, restarts=1).q
+            world.allow(allowed)
+            world.margin = GOAL_MARGIN
+            q_goal = kin.ik[dock.side].solve(q_base, Target(frame.position, frame.rotation, position_tolerance=5e-4),
+                                             seed=q_pre, valid=world.valid, restarts=0).q
+        except IKFailure:
+            continue
+        room = min(q_goal[-1] - low, high - q_goal[-1])        # wrist travel left on the tighter side
+        if best is None or room > best[0]:
+            best = (room, frame, q_pre, q_goal)
+    if best is None:
+        raise Abort("regrasp_failed")
+    _, dock.frame, dock.q_pre, dock.q_goal = best
+    motion.move_arm(s, dock.side, dock.q_pre)
+    _final_approach(ctx, dock)
+    motion.gripper(s, dock.side, 0.0, force=40.0)
+    touching, forces = _pads_touch(ctx, dock.side, allowed)
+    if not touching:
+        raise Abort("regrasp_missed", pad_force_n=forces)
 
 
 def pick(ctx, interface, task):

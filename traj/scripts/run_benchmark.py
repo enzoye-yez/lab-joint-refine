@@ -45,12 +45,28 @@ def init():
     model = mujoco.MjModel.from_binary_path(str(directory / "scene.mjb"))
     enable_sleep(model)
     robot = Robot(model, prefix=CONFIG["robot_prefix"])
-    interfaces, _ = load(model, CONFIG["scene_source"])
     data = mujoco.MjData(model)
     mujoco.mj_resetDataKeyframe(model, data, model.key("assembled").id)
     mujoco.mj_forward(model, data)
+    interfaces, _ = load(model, CONFIG["scene_source"], data)
     STATE.update(model=model, robot=robot, interfaces={i.id: i for i in interfaces}, kinematics=Kinematics(),
                  occupancy=OccupancyMap(model, data, robot), roots=instance_roots(model, robot), directory=directory)
+
+
+MAX_PREREQUISITES = 2
+
+
+def prerequisite(abort, model, payload):
+    """The interface (and its task) that opens the movable part an enclosure abort names, if any."""
+    if abort.reason != "enclosed" or not abort.detail.get("joint"):
+        return None
+    joint = model.joint(abort.detail["joint"]).id
+    for candidate in STATE["interfaces"].values():
+        if candidate.kind == "grasp" and candidate.mechanism.joint == joint:
+            task = task_for(candidate, model, payload)
+            if not task.excluded:
+                return candidate, task
+    return None
 
 
 def run_task(task_id):
@@ -69,12 +85,31 @@ def run_task(task_id):
     while b > 0:
         own.add(b)
         b = model.body_parentid[b]
-    ctx = Context(session, STATE["kinematics"], STATE["occupancy"], [])
+    ctx = Context(session, STATE["kinematics"], STATE["occupancy"], [], keep_closest=True)
     started = time.time()
     result = {"task": task_id, "skill": task.skill, "kind": interface.kind, "mechanism": interface.mechanism.kind,
               "instance": interface.instance}
+    result["prerequisites"] = []
     try:
-        SKILLS[task.skill](ctx, interface, task)
+        for attempt in range(MAX_PREREQUISITES + 1):
+            try:
+                SKILLS[task.skill](ctx, interface, task)
+                break
+            except Abort as exc:
+                opener = prerequisite(exc, model, payload) if attempt < MAX_PREREQUISITES else None
+                if opener is None:
+                    raise
+                # Something movable is in the way (a lid, a door): open it with its own interface first.
+                step = {"interface": opener[0].id, "for": exc.detail.get("geom")}
+                session.monitor.evaluate(opener[1].goal, "pre:" + opener[0].id)      # anchor its start
+                try:
+                    SKILLS[opener[1].skill](ctx, opener[0], opener[1])
+                    step["opened"] = session.monitor.evaluate(opener[1].goal, "pre:" + opener[0].id)
+                except Abort as inner:
+                    step["failed"] = inner.reason
+                    result["prerequisites"].append(step)
+                    raise Abort("prerequisite_failed", step=step, original=exc.reason)
+                result["prerequisites"].append(step)
         session.wait(0.5)
         result["reason"] = None
     except Abort as exc:

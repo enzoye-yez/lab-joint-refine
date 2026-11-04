@@ -95,7 +95,7 @@ def grasp_frames(model, data, interface, max_width, angles=12, depth=0.010, back
     return out
 
 
-def enclosure(model, data, interface, own_bodies, reach=0.30, step=0.01, hand_radius=0.035):
+def enclosure(model, data, interface, own_bodies, reach=0.30, step=0.01, hand_radius=0.035, movable=None):
     """The first foreign collision geometry on every straight way out from the site, or None if one is free.
 
     Checks the declared approach and the fallback sides; a site behind a closed lid or door is
@@ -125,6 +125,9 @@ def enclosure(model, data, interface, own_bodies, reach=0.30, step=0.01, hand_ra
                 break
         if blocker is None:
             return None
+        # Prefer a way out that is blocked only by something that can be moved (a lid, a door).
+        if movable is not None and movable(blocker) and (first is None or not movable(first)):
+            first = blocker
         first = blocker if first is None else first
     return first
 

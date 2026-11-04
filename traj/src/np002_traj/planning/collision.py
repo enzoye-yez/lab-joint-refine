@@ -100,7 +100,8 @@ class CollisionWorld:
         if len(getattr(self, "allowed", ())):
             pairs = pairs[~np.isin(pairs[:, 1], self.allowed)]
         obstacle, pair = self._closest(pairs, self.margin * 4)
-        own, _ = self._closest(self.self_pairs, self.self_margin * 4)
+        own, self_pair = self._closest(self.self_pairs, self.self_margin * 4)
+        self.last_self_pair = self_pair
         return obstacle, own, pair
 
     def valid(self, q):
@@ -112,8 +113,9 @@ class CollisionWorld:
         obstacle, own, pair = self.clearance(q)
         if obstacle >= self.margin and own >= self.self_margin:
             return None
-        if pair is None:
-            return {"kind": "self", "distance_m": float(own)}
+        if own < self.self_margin and (obstacle >= self.margin or own - self.self_margin < obstacle - self.margin):
+            names = [self.model.geom(g).name for g in self.last_self_pair] if self.last_self_pair else ["self", "self"]
+            return {"kind": "self", "geoms": names, "distance_m": float(own)}
         return {"kind": "obstacle", "geoms": [self.model.geom(g).name for g in pair], "distance_m": float(obstacle)}
 
     def _motion(self, qa, qb):

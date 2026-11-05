@@ -96,7 +96,7 @@ if __name__ == "__main__":
     parser.add_argument("--target",required=True)
     parser.add_argument("--before-sources",type=Path,required=True)
     parser.add_argument('--resume-preparation',action='store_true')
-    parser.add_argument("--kind",choices=("evidence_recovery","transport_recovery","evidence_pipeline","agent_context","review_contract","asset_checks","phase_budget","budget_limits","repair_loop","tool_draft","collision_depth","repair_schedule","partial_revert","repair_feedback","discovered_defects","checker_failure","environment_retry"),default="evidence_recovery")
+    parser.add_argument("--kind",choices=("evidence_recovery","transport_recovery","evidence_pipeline","agent_context","review_contract","asset_checks","phase_budget","budget_limits","repair_loop","tool_draft","collision_depth","repair_schedule","partial_revert","repair_feedback","discovered_defects","checker_failure","environment_retry","relocation"),default="evidence_recovery")
     args=parser.parse_args()
     print(json.dumps(prepare_batch(Path(__file__).resolve().parents[1],args.source,args.target,args.before_sources,args.kind,
                                   resume_preparation=args.resume_preparation),ensure_ascii=False))

@@ -167,6 +167,8 @@ def prepare(project, source_name, target_name, before_file=None, kind="stage_rev
                    "checker_failure":{"src/scene_generation/inspection.py", "src/scene_generation/pipeline.py"},
                    # a local check died of the machine (timeout under CPU contention); nothing in the source changed
                    "environment_retry":{"src/scene_generation/scene_first.py"},
+                   # the project directory moved; only the interpreter path the backend recorded changes
+                   "relocation":set(),
                    "asset_checks":{"src/asset_generation/probes.py", "src/asset_generation/motion.py",
                        "src/asset_generation/checks.py", "src/asset_generation/local.py"},
                    "transport_recovery":{"src/asset_generation/contracts.py", "src/asset_generation/model.py",
@@ -185,12 +187,12 @@ def prepare(project, source_name, target_name, before_file=None, kind="stage_rev
                        "src/scene_generation/cli.py", "src/scene_generation/preview.py"}}
         require(kind in options, "invalid upgrade kind")
         allowed = options[kind]
-        # Raising the limits or rerunning a check the machine killed needs no source change.
-        require(archive_only or kind in {"budget_limits", "environment_retry"} and not changed
+        # Raising the limits, rerunning a check the machine killed or moving the project needs no source change.
+        require(archive_only or kind in {"budget_limits", "environment_retry", "relocation"} and not changed
                 or changed and {p.replace("\\", "/") for p in changed} <= allowed,
                 "source changes outside stage review exist; this upgrade is not supported")
         scene = state["scene"]
-        require(not scene.get("pending") or kind in {"evidence_recovery", "transport_recovery", "evidence_pipeline", "agent_context", "review_contract", "phase_budget", "budget_limits", "repair_loop", "tool_draft", "collision_depth", "repair_schedule", "partial_revert", "repair_feedback", "discovered_defects", "checker_failure"}, "an unarchived workspace exists")
+        require(not scene.get("pending") or kind in {"evidence_recovery", "transport_recovery", "evidence_pipeline", "agent_context", "review_contract", "phase_budget", "budget_limits", "repair_loop", "tool_draft", "collision_depth", "repair_schedule", "partial_revert", "repair_feedback", "discovered_defects", "checker_failure", "relocation"}, "an unarchived workspace exists")
         if kind in {'main_check_recovery', 'implementation_binding', 'archive_revalidation', 'evidence_pipeline'}:
             require(state['identity']['limits']['validation_mode']=='static'
                     and scene['status'] in {'needs_check_support','needs_environment','needs_review','paused',
@@ -270,6 +272,13 @@ def prepare(project, source_name, target_name, before_file=None, kind="stage_rev
             # Checker and repair-loop change: the implementation digest re-audits every asset, and
             # failed assets then go back to their authors within their own repair allowance.
             scene.pop("scene_review_resume", None)
+        elif kind == "relocation":
+            # Everything but the interpreter path must match, so the same packages run from the new place.
+            from asset_generation.local import LocalBackend
+            backend, current = state["identity"]["backend"], LocalBackend(None, project).preflight()
+            require({k: v for k, v in backend.items() if k != "python"} == {k: v for k, v in current.items() if k != "python"},
+                    "the backend differs beyond its interpreter path; this is not a relocation")
+            state["identity"]["backend"] = current
         elif kind == "phase_budget":
             # Only the scene share changed; the ceiling is recomputed from the saved entry totals
             # and the run limits (the final ceiling), never from what has been spent since.
@@ -314,7 +323,7 @@ def prepare(project, source_name, target_name, before_file=None, kind="stage_rev
             require(all(j["status"] in {"candidate_ready", "assembly_ready"} and not j.get("dirty")
                         for j in scene["jobs"].values()), "a scene-capacity upgrade does not change any asset review result")
         unknown = any(c["status"] == "pending" for c in state["calls"])
-        require(not unknown or kind in {"evidence_recovery", "transport_recovery", "evidence_pipeline", "agent_context", "review_contract", "phase_budget", "budget_limits", "repair_loop", "tool_draft", "collision_depth", "repair_schedule", "partial_revert", "repair_feedback", "discovered_defects", "checker_failure"}, "requests with unknown outcome exist; reconcile the billing ledger first")
+        require(not unknown or kind in {"evidence_recovery", "transport_recovery", "evidence_pipeline", "agent_context", "review_contract", "phase_budget", "budget_limits", "repair_loop", "tool_draft", "collision_depth", "repair_schedule", "partial_revert", "repair_feedback", "discovered_defects", "checker_failure", "relocation"}, "requests with unknown outcome exist; reconcile the billing ledger first")
         for call in state["calls"]:
             if call["status"] == "done":
                 require(file_hash(safe_path(source, call["file"])) == call["sha256"], "call record digest mismatch")
@@ -329,7 +338,7 @@ def prepare(project, source_name, target_name, before_file=None, kind="stage_rev
                     'archive revalidation only accepts static runs whose assets are all archived and that have not passed full scene acceptance')
         recheck = []
         for key, job in scene["jobs"].items():
-            if kind in {"agent_context", "review_contract", "asset_checks", "phase_budget", "budget_limits", "repair_loop", "tool_draft", "collision_depth", "repair_schedule", "partial_revert", "repair_feedback", "discovered_defects", "checker_failure", "environment_retry"}:
+            if kind in {"agent_context", "review_contract", "asset_checks", "phase_budget", "budget_limits", "repair_loop", "tool_draft", "collision_depth", "repair_schedule", "partial_revert", "repair_feedback", "discovered_defects", "checker_failure", "environment_retry", "relocation"}:
                 break  # no job is marked; asset_checks re-audits through the implementation digest
             if kind=="evidence_pipeline":
                 owner=job.get("artifact_stage",job["stage"]).replace("\\", "/")
@@ -462,6 +471,8 @@ def prepare(project, source_name, target_name, before_file=None, kind="stage_rev
                              "same source, assets and ledger; the local check the machine killed (timeout under CPU contention) is run again; "
                              "its environment failure is not a verdict on the scene"
                              if kind == "environment_retry" else
+                             "same source, assets, ledger and state; the project directory moved, so only the recorded interpreter path changes"
+                             if kind == "relocation" else
                              "keep existing geometry and ledger; re-review after enabling read-only evidence supplementation; unknown requests stay pending and automatic resend is forbidden"
                              if kind == "evidence_recovery" else
                              "keep existing geometry and engineering checks; re-run per-stage review; old conclusions are not automatically upgraded to a pass"
@@ -489,7 +500,7 @@ def prepare(project, source_name, target_name, before_file=None, kind="stage_rev
         implementation.archive_sources(project, target, state['identity']['implementation'])
         state.setdefault("implementation_history", []).append(receipt)
         scene["status"] = "paused"
-        if kind not in {"stage_review", "transport_recovery", "agent_context", "review_contract", "phase_budget", "budget_limits", "repair_loop"}:
+        if kind not in {"stage_review", "transport_recovery", "agent_context", "review_contract", "phase_budget", "budget_limits", "repair_loop", "relocation"}:
             scene.update(repair_pending=False, repair_error=None)
             scene.pop("feedback", None)
         write_state(target / "state.json", state)
@@ -511,6 +522,6 @@ if __name__ == "__main__":
     parser.add_argument("--source", required=True)
     parser.add_argument("--target", required=True)
     parser.add_argument("--before-sources", type=Path)
-    parser.add_argument("--kind", choices=("evidence_pipeline", "archive_revalidation", "implementation_binding", "stage_review", "scene_capacity", "scene_repair", "static_preview", "evidence_recovery", "transport_recovery", "local_repair", "evidence_checks", "main_check_recovery", "agent_context", "review_contract", "asset_checks", "phase_budget", "budget_limits", "repair_loop", "tool_draft", "collision_depth", "repair_schedule", "partial_revert", "repair_feedback", "discovered_defects", "checker_failure", "environment_retry"), default="stage_review")
+    parser.add_argument("--kind", choices=("evidence_pipeline", "archive_revalidation", "implementation_binding", "stage_review", "scene_capacity", "scene_repair", "static_preview", "evidence_recovery", "transport_recovery", "local_repair", "evidence_checks", "main_check_recovery", "agent_context", "review_contract", "asset_checks", "phase_budget", "budget_limits", "repair_loop", "tool_draft", "collision_depth", "repair_schedule", "partial_revert", "repair_feedback", "discovered_defects", "checker_failure", "environment_retry", "relocation"), default="stage_review")
     args = parser.parse_args()
     print(json.dumps(prepare(PROJECT, args.source, args.target, args.before_sources, args.kind), ensure_ascii=False))

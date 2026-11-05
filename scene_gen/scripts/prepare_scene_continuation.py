@@ -183,7 +183,9 @@ def prepare(project, source_name, target_name, before_file=None, kind="stage_rev
                        "src/scene_generation/cli.py", "src/scene_generation/preview.py"}}
         require(kind in options, "invalid upgrade kind")
         allowed = options[kind]
-        require(archive_only or changed and {p.replace("\\", "/") for p in changed} <= allowed,
+        # Raising the limits alone needs no source change.
+        require(archive_only or kind == "budget_limits" and not changed
+                or changed and {p.replace("\\", "/") for p in changed} <= allowed,
                 "source changes outside stage review exist; this upgrade is not supported")
         scene = state["scene"]
         require(not scene.get("pending") or kind in {"evidence_recovery", "transport_recovery", "evidence_pipeline", "agent_context", "review_contract", "phase_budget", "budget_limits", "repair_loop", "tool_draft", "collision_depth", "repair_schedule", "partial_revert", "repair_feedback", "discovered_defects", "checker_failure"}, "an unarchived workspace exists")

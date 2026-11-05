@@ -165,6 +165,8 @@ def prepare(project, source_name, target_name, before_file=None, kind="stage_rev
                    # a measured mount contact passes beside unmeasured pairs; a checker crash leaves the round unjudged;
                    # unmeasured collision pairs are attributed to their assets
                    "checker_failure":{"src/scene_generation/inspection.py", "src/scene_generation/pipeline.py"},
+                   # a local check died of the machine (timeout under CPU contention); nothing in the source changed
+                   "environment_retry":set(),
                    "asset_checks":{"src/asset_generation/probes.py", "src/asset_generation/motion.py",
                        "src/asset_generation/checks.py", "src/asset_generation/local.py"},
                    "transport_recovery":{"src/asset_generation/contracts.py", "src/asset_generation/model.py",
@@ -183,8 +185,8 @@ def prepare(project, source_name, target_name, before_file=None, kind="stage_rev
                        "src/scene_generation/cli.py", "src/scene_generation/preview.py"}}
         require(kind in options, "invalid upgrade kind")
         allowed = options[kind]
-        # Raising the limits alone needs no source change.
-        require(archive_only or kind == "budget_limits" and not changed
+        # Raising the limits or rerunning a check the machine killed needs no source change.
+        require(archive_only or kind in {"budget_limits", "environment_retry"} and not changed
                 or changed and {p.replace("\\", "/") for p in changed} <= allowed,
                 "source changes outside stage review exist; this upgrade is not supported")
         scene = state["scene"]
@@ -275,8 +277,9 @@ def prepare(project, source_name, target_name, before_file=None, kind="stage_rev
             require(scene["status"] == "phase_budget_exhausted", "only runs that exhausted the scene budget are continued")
             allocation = state["phase_budget"]
             allocation["ceilings"] = ceilings(allocation["entry"], allocation["ceilings"]["final"])
-        elif kind == "asset_checks":
-            # Checker faults stopped the run; the new implementation digest re-audits every asset.
+        elif kind in {"asset_checks", "environment_retry"}:
+            # Checker faults stopped the run: asset_checks re-audits every asset through the new implementation
+            # digest; environment_retry reruns the same checks the machine killed.
             require(state["identity"]["limits"]["validation_mode"] == "static"
                     and scene["status"] in {"needs_environment", "paused"}, "only static runs stopped by a checker fault are continued")
             old_recovery = scene.pop("check_recovery", None)
@@ -318,7 +321,7 @@ def prepare(project, source_name, target_name, before_file=None, kind="stage_rev
                     'archive revalidation only accepts static runs whose assets are all archived and that have not passed full scene acceptance')
         recheck = []
         for key, job in scene["jobs"].items():
-            if kind in {"agent_context", "review_contract", "asset_checks", "phase_budget", "budget_limits", "repair_loop", "tool_draft", "collision_depth", "repair_schedule", "partial_revert", "repair_feedback", "discovered_defects", "checker_failure"}:
+            if kind in {"agent_context", "review_contract", "asset_checks", "phase_budget", "budget_limits", "repair_loop", "tool_draft", "collision_depth", "repair_schedule", "partial_revert", "repair_feedback", "discovered_defects", "checker_failure", "environment_retry"}:
                 break  # no job is marked; asset_checks re-audits through the implementation digest
             if kind=="evidence_pipeline":
                 owner=job.get("artifact_stage",job["stage"]).replace("\\", "/")
@@ -448,6 +451,9 @@ def prepare(project, source_name, target_name, before_file=None, kind="stage_rev
                              "and a round whose candidate the checker failed to assess is checked again instead of being rejected; "
                              "a collision check that lost coverage reverts the assets behind its unmeasured pairs"
                              if kind == "checker_failure" else
+                             "same source, assets and ledger; the local check the machine killed (timeout under CPU contention) is run again; "
+                             "its environment failure is not a verdict on the scene"
+                             if kind == "environment_retry" else
                              "keep existing geometry and ledger; re-review after enabling read-only evidence supplementation; unknown requests stay pending and automatic resend is forbidden"
                              if kind == "evidence_recovery" else
                              "keep existing geometry and engineering checks; re-run per-stage review; old conclusions are not automatically upgraded to a pass"
@@ -497,6 +503,6 @@ if __name__ == "__main__":
     parser.add_argument("--source", required=True)
     parser.add_argument("--target", required=True)
     parser.add_argument("--before-sources", type=Path)
-    parser.add_argument("--kind", choices=("evidence_pipeline", "archive_revalidation", "implementation_binding", "stage_review", "scene_capacity", "scene_repair", "static_preview", "evidence_recovery", "transport_recovery", "local_repair", "evidence_checks", "main_check_recovery", "agent_context", "review_contract", "asset_checks", "phase_budget", "budget_limits", "repair_loop", "tool_draft", "collision_depth", "repair_schedule", "partial_revert", "repair_feedback", "discovered_defects", "checker_failure"), default="stage_review")
+    parser.add_argument("--kind", choices=("evidence_pipeline", "archive_revalidation", "implementation_binding", "stage_review", "scene_capacity", "scene_repair", "static_preview", "evidence_recovery", "transport_recovery", "local_repair", "evidence_checks", "main_check_recovery", "agent_context", "review_contract", "asset_checks", "phase_budget", "budget_limits", "repair_loop", "tool_draft", "collision_depth", "repair_schedule", "partial_revert", "repair_feedback", "discovered_defects", "checker_failure", "environment_retry"), default="stage_review")
     args = parser.parse_args()
     print(json.dumps(prepare(PROJECT, args.source, args.target, args.before_sources, args.kind), ensure_ascii=False))

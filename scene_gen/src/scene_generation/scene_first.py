@@ -653,7 +653,12 @@ def assess_scene(run,published):
         return None,None
     artifact=safe_path(run.root,published["artifact"])
     measurements=run.state.setdefault("scene_measurements",{})
-    saved=measurements.get(published["assembly_key"]) or next((s for s in reversed(run.state["stages"])
+    # A continuation that reruns a check the machine killed asks for one fresh measurement of that assembly.
+    remeasure=published["assembly_key"] in run.state.get("remeasure",[])
+    if remeasure:
+        run.state["remeasure"].remove(published["assembly_key"])
+        measurements.pop(published["assembly_key"],None)
+    saved=None if remeasure else measurements.get(published["assembly_key"]) or next((s for s in reversed(run.state["stages"])
         if s["kind"] in {"scene_measurement", "scene_evidence"} and s.get("assembly_key")==published["assembly_key"]),None)
     if saved:
         report=deepcopy(saved["report"])

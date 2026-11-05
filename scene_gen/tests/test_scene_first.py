@@ -143,6 +143,21 @@ class SceneFirstTests(unittest.TestCase):
         self.assertNotIn('scene_check',b2.events)
         self.assertEqual(len(t2.requests),1)
 
+    def test_a_requested_remeasure_ignores_the_saved_scene_measurement_once(self):
+        b=Backend();r,t=self.make([plan(),ASSET,TOOL,ACCEPT],b)
+        reserve=r.store.reserve
+        def interrupt(*args,**kwargs):
+            if len(r.store.state['calls'])==4:raise BudgetExceeded('developer interruption before sending')
+            return reserve(*args,**kwargs)
+        with patch.object(r.store,'reserve',side_effect=interrupt):
+            with self.assertRaises(BudgetExceeded):r.run()
+        scene=r.store.state['scene']
+        scene['remeasure']=[scene['current_assessment']['assembly_key']];r.store.save()
+        b2=Backend();r2,t2=self.make([ACCEPT],b2,resume=True)
+        self.assertEqual(r2.run()['status'],'static_candidate_ready')
+        self.assertEqual(b2.events.count('scene_check'),1)
+        self.assertEqual(r2.store.state['scene']['remeasure'],[])
+
     def test_independent_job_runs_before_retry_and_partial_scene_is_labelled(self):
         from scene_fixtures import write_component
         class Broken(Backend):

@@ -166,7 +166,7 @@ def prepare(project, source_name, target_name, before_file=None, kind="stage_rev
                    # unmeasured collision pairs are attributed to their assets
                    "checker_failure":{"src/scene_generation/inspection.py", "src/scene_generation/pipeline.py"},
                    # a local check died of the machine (timeout under CPU contention); nothing in the source changed
-                   "environment_retry":set(),
+                   "environment_retry":{"src/scene_generation/scene_first.py"},
                    "asset_checks":{"src/asset_generation/probes.py", "src/asset_generation/motion.py",
                        "src/asset_generation/checks.py", "src/asset_generation/local.py"},
                    "transport_recovery":{"src/asset_generation/contracts.py", "src/asset_generation/model.py",
@@ -279,7 +279,8 @@ def prepare(project, source_name, target_name, before_file=None, kind="stage_rev
             allocation["ceilings"] = ceilings(allocation["entry"], allocation["ceilings"]["final"])
         elif kind in {"asset_checks", "environment_retry"}:
             # Checker faults stopped the run: asset_checks re-audits every asset through the new implementation
-            # digest; environment_retry reruns the same checks the machine killed.
+            # digest; environment_retry reruns the same checks the machine killed, measuring again every
+            # assembly whose saved measurement is such a retryable failure.
             require(state["identity"]["limits"]["validation_mode"] == "static"
                     and scene["status"] in {"needs_environment", "paused"}, "only static runs stopped by a checker fault are continued")
             old_recovery = scene.pop("check_recovery", None)
@@ -287,6 +288,13 @@ def prepare(project, source_name, target_name, before_file=None, kind="stage_rev
                 scene.setdefault("check_recovery_history", []).append(old_recovery)
             scene.pop("active_check_recovery", None)
             scene.pop("scene_review_resume", None)
+            if kind == "environment_retry":
+                retryable = lambda report: (report.get("execution_failure") or {}).get("retryable")
+                scene["remeasure"] = sorted({s["assembly_key"] for s in scene["stages"]
+                                             if s["kind"] in {"scene_measurement", "scene_evidence"} and s.get("assembly_key")
+                                             and retryable(s["report"])}
+                                            | {k for k, m in scene.get("scene_measurements", {}).items() if retryable(m["report"])})
+                require(scene["remeasure"], "no saved scene measurement failed for an environment reason")
         elif kind in {"agent_context", "review_contract"}:
             # Only how author requests reach the agent changed; every asset decision carries over.
             require(scene["status"] in {"generating_candidates", "reviewing_assets", "paused"}, "only runs interrupted during asset generation or asset review are continued")

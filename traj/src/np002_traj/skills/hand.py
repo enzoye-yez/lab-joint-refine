@@ -25,16 +25,23 @@ class HandProbe:
         self.is_pad = np.array([n in pads for n in self.names])
         pin = robot.profile["arms"][side]["gripper"].get("press_pin")
         self.is_pin = np.array([bool(pin) and n == pin["body"] for n in self.names])
+        blade = robot.profile["arms"][side]["gripper"].get("pry_blade")
+        self.is_blade = np.array([bool(blade) and n in blade["geoms"] for n in self.names])
+        cup = robot.profile["arms"][side]["gripper"].get("suction")
+        self.is_cup = np.array([bool(cup) and n == cup["geom"] for n in self.names])
+        self.tools = ~(self.is_pin | self.is_blade)          # the fingers, body and cup (always there)
         self.open = arm.gripper_open
-        self.pin_extended = arm.pin_extended
+        self.pin_extended, self.blade_extended = arm.pin_extended, arm.blade_extended
         fingers = [km.jnt_qposadr[km.joint(j).id] for j in robot.profile["arms"][side]["gripper"]["joints"]]
 
-        def relative(opening, pin_value):
+        def relative(opening, pin_value, blade_value=0.0):
             d = mujoco.MjData(km)
             mujoco.mj_resetDataKeyframe(km, d, 0)
             d.qpos[fingers] = opening
             if arm.pin_qpos >= 0:
                 d.qpos[arm.pin_qpos] = pin_value
+            if arm.blade_qpos >= 0:
+                d.qpos[arm.blade_qpos] = blade_value
             mujoco.mj_kinematics(km, d)
             rot = d.site_xmat[arm.tcp].reshape(3, 3)
             pos = d.site_xpos[arm.tcp]
@@ -46,11 +53,13 @@ class HandProbe:
         pos_pin, _ = relative(0.0, self.pin_extended)
         self.finger_motion = (pos_open - self.pos_closed) / self.open          # per metre of finger opening
         self.pin_motion = (pos_pin - self.pos_closed) / max(self.pin_extended, 1e-9)
+        pos_blade, _ = relative(0.0, 0.0, self.blade_extended)
+        self.blade_motion = (pos_blade - self.pos_closed) / max(self.blade_extended, 1e-9)
         self.rbound = scene_model.geom_rbound[self.geoms]
 
-    def place(self, data, position, rotation, opening, pin=0.0):
+    def place(self, data, position, rotation, opening, pin=0.0, blade=0.0):
         """Write the hand geometry into `data` (a scratch copy) at TCP pose (position, rotation)."""
-        rel = self.pos_closed + self.finger_motion * opening + self.pin_motion * pin
+        rel = self.pos_closed + self.finger_motion * opening + self.pin_motion * pin + self.blade_motion * blade
         data.geom_xpos[self.geoms] = position + rel @ rotation.T
         data.geom_xmat[self.geoms] = np.einsum("ij,njk->nik", rotation, self.mat).reshape(-1, 9)
 

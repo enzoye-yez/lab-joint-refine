@@ -14,7 +14,7 @@ from ..executor.session import Abort
 from ..geometry import body_geoms, subtree_bodies
 from . import motion
 from .dock import find_dock
-from .grasp import contact_frames, enclosure, grasp_frames, part_geoms
+from .grasp import contact_frames, enclosure, grasp_frames, part_geoms, suction_frames
 from .hand import HandProbe
 
 PRE_DISTANCE = 0.10        # m behind the grasp/contact frame
@@ -93,9 +93,10 @@ def no_frames(ctx, interface, reason, report):
     raise Abort(reason, **report)
 
 
-def _approach(ctx, interface, frames, allowed, hand_state=None, prepare=None):
+def _approach(ctx, interface, frames, allowed, hand_state=None, prepare=None, path=None):
     s = ctx.session
-    dock, search = find_dock(s, ctx.kinematics, ctx.occupancy, frames, PRE_DISTANCE, allowed, hand_state=hand_state)
+    dock, search = find_dock(s, ctx.kinematics, ctx.occupancy, frames, PRE_DISTANCE, allowed, hand_state=hand_state,
+                             path=path)
     if dock is None:
         closest = search["reasons"].pop("_closest", None)
         if ctx.keep_closest and closest:
@@ -223,8 +224,9 @@ def _retreat(ctx, dock):
     q_base = kin.qpos(kin.robot.base_joint_values(base), float(s.data.qpos[s.robot.lift_qpos]), {})
     world = motion.arm_world(s, dock.side, margin=0.003)
     world.allow(s.allowed_contact)                 # the part just released may still touch the pads
+    axis = rotation @ np.asarray(getattr(getattr(dock, "frame", None), "axis", (0.0, 0.0, 1.0)))
     for distance in (RETREAT, RETREAT / 2, 0.03):
-        back = s.data.site_xpos[arm.tcp] - rotation[:, 2] * distance
+        back = s.data.site_xpos[arm.tcp] - axis * distance
         try:
             q = kin.ik[dock.side].solve(q_base, Target(back, rotation, position_tolerance=2e-3), seed=here, restarts=0).q
         except IKFailure:
@@ -233,6 +235,19 @@ def _retreat(ctx, dock):
             motion.move_tcp(s, dock.side, back, rotation, speed=0.08)
             break
     s.use_joint(dock.side)
+
+
+def operation_path(ctx, interface, samples=10, limit=None):
+    """For the dock search: the TCP poses that stay rigid on the part while its joint goes to its goal."""
+    s, m = ctx.session, ctx.session.model
+    joint = interface.mechanism.joint
+    low, high = m.jnt_range[joint]
+    now = s.data.qpos[m.jnt_qposadr[joint]]
+    far = high if high - now >= now - low else low
+    target = now + (far - now) * DRIVE_FRACTION
+    if limit is not None:
+        target = now + np.sign(target - now) * min(abs(target - now), limit)
+    return lambda frame: mechanism_poses(m, s.data, interface, joint, target, frame.position, frame.rotation, samples)
 
 
 def mechanism_poses(model, data, interface, joint, target, tcp_position, tcp_rotation, steps):
@@ -271,7 +286,8 @@ def actuate(ctx, interface, task):
         no_frames(ctx, interface, "no_grasp", report)
     moving = set(part_geoms(m, s.data, interface, _site(s, interface)).tolist())
     s.allowed_contact = moving
-    dock = _approach(ctx, interface, frames, moving)
+    hinge = interface.mechanism.kind == "hinge"
+    dock = _approach(ctx, interface, frames, moving, path=operation_path(ctx, interface, limit=TURN_PER_GRASP if hinge else None))
     arm = s.robot.arms[dock.side]
     _final_approach(ctx, dock)
     motion.gripper(s, dock.side, 0.0, force=40.0)
@@ -363,18 +379,40 @@ def pick(ctx, interface, task):
     check_enclosure(ctx, interface)
     frames, report = grasp_frames(m, s.data, interface, ctx.probe(), s.robot.geoms)
     _note(ctx, "grasp_synthesis", **report)
+    suction = False
+    if not frames:
+        # Nothing to hold between the fingers (a flat cover, a plate): lift it by suction if it is light.
+        cup = s.robot.arms[next(iter(s.robot.arms))].suction
+        if cup is not None and interface.mechanism.mass_kg <= cup["max_mass_kg"]:
+            frames, suction_report = suction_frames(m, s.data, interface, ctx.probe(), s.robot.geoms, cup)
+            _note(ctx, "suction_synthesis", **suction_report)
+            report["suction"] = {k: v for k, v in suction_report.items() if k != "blocking"}
+            suction = bool(frames)
     if not frames:
         no_frames(ctx, interface, "no_grasp", report)
+    root = interface.mechanism.body
     part = set(part_geoms(m, s.data, interface, _site(s, interface)).tolist())
+    if suction:
+        part = set(body_geoms(m, subtree_bodies(m, root)).tolist())
     s.allowed_contact = part
-    dock = _approach(ctx, interface, frames, part)
+    hand = _closed_hand(s) if suction else None
+    dock = _approach(ctx, interface, frames, part, hand_state=hand,
+                     prepare=(lambda d: motion.gripper(s, d.side, 0.0, force=40.0, seconds=0.6)) if suction else None)
+    dock.suction = suction
     arm = s.robot.arms[dock.side]
     _final_approach(ctx, dock)
-    motion.gripper(s, dock.side, 0.0, force=30.0)
-    touching, forces = _pads_touch(ctx, dock.side, part)
-    _note(ctx, "grasp", pad_force_n=[round(f, 2) for f in forces])
-    if not touching:
-        raise Abort("grasp_missed", pad_force_n=forces)
+    if suction:
+        rotation = s.data.site_xmat[arm.tcp].reshape(3, 3).copy()
+        normal = rotation[:, 0]                                  # tool x = the face's outward normal
+        motion.move_tcp(s, dock.side, s.data.site_xpos[arm.tcp] - normal * 0.002, rotation, speed=0.01)
+        suction_on(s, dock.side, root)
+        _note(ctx, "suction_on", body=m.body(root).name)
+    else:
+        motion.gripper(s, dock.side, 0.0, force=30.0)
+        touching, forces = _pads_touch(ctx, dock.side, part)
+        _note(ctx, "grasp", pad_force_n=[round(f, 2) for f in forces])
+        if not touching:
+            raise Abort("grasp_missed", pad_force_n=forces)
     release_events(ctx, task, "grasped")                    # e.g. a retention clip lets go once the object is held
     s.monitor.evaluate(task.goal, task.key)                   # anchors the lift height at the grasp
     rotation = s.data.site_xmat[arm.tcp].reshape(3, 3).copy()
@@ -382,6 +420,32 @@ def pick(ctx, interface, task):
     motion.move_tcp(s, dock.side, up, rotation, speed=0.04)
     s.wait(1.0, lambda: s.monitor.evaluate(task.goal, task.key) is True)
     return dock
+
+
+def suction_on(s, side, body):
+    """Hold `body` on the suction cup: a weld from the cup to the body at their current relative pose."""
+    m, d, cup = s.model, s.data, s.robot.arms[side].suction
+    e, own = cup["equality"], cup["body"]
+    rotation = d.xmat[own].reshape(3, 3)
+    m.eq_obj2id[e] = body
+    m.eq_data[e, :3] = 0.0
+    m.eq_data[e, 3:6] = rotation.T @ (d.xpos[body] - d.xpos[own])
+    quat = np.zeros(4)
+    mujoco.mju_mat2Quat(quat, (rotation.T @ d.xmat[body].reshape(3, 3)).flatten())
+    m.eq_data[e, 6:10] = quat
+    m.eq_data[e, 10] = 1.0
+    d.eq_active[e] = 1
+
+
+def suction_off(s, side):
+    s.data.eq_active[s.robot.arms[side].suction["equality"]] = 0
+
+
+def _closed_hand(s):
+    def state(side, frame=None):
+        addresses, _ = _hand_joints(s, side)
+        return np.array(addresses), np.zeros(len(addresses))
+    return state
 
 
 def press(ctx, interface, task):
@@ -410,25 +474,33 @@ def press(ctx, interface, task):
     s.wait(0.5)
 
 
-def _pin_hand(s):
-    """Tool state while using the press pin: fingers closed beside it, pin extended."""
+def _element(arm, element):
+    return (arm.pin_qpos, arm.pin_actuator, arm.pin_extended) if element == "pin" else \
+        (arm.blade_qpos, arm.blade_actuator, arm.blade_extended)
+
+
+def _pin_hand(s, element="pin"):
+    """Tool state while using the press pin (or the pry blade): fingers closed beside it, it extended."""
     def state(side, frame=None):
-        arm = s.robot.arms[side]
+        qpos, _, extended = _element(s.robot.arms[side], element)
         addresses, _ = _hand_joints(s, side)
-        return np.array(addresses + [arm.pin_qpos]), np.array([0.0] * len(addresses) + [arm.pin_extended])
+        return np.array(addresses + [qpos]), np.array([0.0] * len(addresses) + [extended])
     return state
 
 
-def _pin_deploy(s):
+def _pin_deploy(s, element="pin"):
     def deploy(dock):
-        arm = s.robot.arms[dock.side]
+        qpos, actuator, extended = _element(s.robot.arms[dock.side], element)
         motion.gripper(s, dock.side, 0.0, force=40.0, seconds=0.6)
-        s.data.ctrl[arm.pin_actuator] = arm.pin_extended
-        s.wait(1.0, lambda: abs(s.data.qpos[arm.pin_qpos] - arm.pin_extended) < 5e-4)
+        s.data.ctrl[actuator] = extended
+        s.wait(1.0, lambda: abs(s.data.qpos[qpos] - extended) < 5e-4)
     return deploy
 
 
 PUSH_LEAD = 0.003           # m, the pin set-point runs this far ahead of the contact along the motion
+MAX_PUSH_STEPS = 80
+PUSH_INSERT = 0.0015        # m, along the tool's way in
+PUSH_STIFFNESS = 5000.0     # N/m: the contact overlap is a few millimetres
 
 
 def push(ctx, interface, task):
@@ -443,40 +515,74 @@ def push(ctx, interface, task):
     target = now + (far - now) * DRIVE_FRACTION
     site = _site(s, interface)
     first = mechanism_poses(m, s.data, interface, joint, now + (target - now) * 0.02, site, np.eye(3), 1)[0][0]
+    if np.linalg.norm(first - site) < 1e-6:
+        raise Abort("no_push_pose", reason="the site does not move with the joint")
     side0 = next(iter(s.robot.arms))
-    pin_tip = s.robot.arms[side0].pin_tip
-    frames, report = push_frames(m, s.data, interface, ctx.probe(), s.robot.geoms, pin_tip, first - site)
-    _note(ctx, "push_synthesis", **report)
-    if not frames:
+    report = {}
+    for element in ("pin", "blade"):
+        arm0 = s.robot.arms[side0]
+        tip = arm0.pin_tip if element == "pin" else arm0.blade_tip
+        if tip is None:
+            continue
+        # The blade goes only under an overhanging edge: try holding its front edge back from the site.
+        depths = (0.0,) if element == "pin" else (0.001, 0.002, 0.004)
+        frames, found = push_frames(m, s.data, interface, ctx.probe(), s.robot.geoms, tip, first - site,
+                                    element=element, depths=depths)
+        _note(ctx, "push_synthesis", element=element, **found)
+        report[element] = {k: v for k, v in found.items() if k != "blocking"}
+        report.setdefault("blocking", {}).update(found["blocking"])
+        if frames:
+            pin_tip = tip
+            break
+    else:
         raise Abort("no_push_pose", **report)
     part = set(part_geoms(m, s.data, interface, site, radius=0.015).tolist())
     s.allowed_contact = part
-    dock = _approach(ctx, interface, frames, part, hand_state=_pin_hand(s), prepare=_pin_deploy(s))
+    dock = _approach(ctx, interface, frames, part, hand_state=_pin_hand(s, element), prepare=_pin_deploy(s, element),
+                     path=operation_path(ctx, interface))
     _final_approach(ctx, dock)
     release_events(ctx, task, "grasped")          # the pin is at the part: its declared release (unlatch)
     arm = s.robot.arms[dock.side]
     rotation = s.data.site_xmat[arm.tcp].reshape(3, 3).copy()
     offset = rotation @ pin_tip
-    tip = s.data.site_xpos[arm.tcp] + offset
-    steps = max(8, int(abs(target - now) / (0.05 if interface.mechanism.kind == "hinge" else 0.01)))
-    path = [p for p, _ in mechanism_poses(m, s.data, interface, joint, target, tip, rotation, steps)]
-    poses, previous = [], tip
-    for point in path:
-        tangent = point - previous
-        tangent /= max(np.linalg.norm(tangent), 1e-9)
-        poses.append((point + tangent * PUSH_LEAD - offset, rotation))
-        previous = point
     done = lambda: s.monitor.evaluate(task.goal, task.key) is True
     s.monitor.evaluate(task.goal, task.key)
     cartesian = s.cartesian[dock.side]
-    cartesian.kp[:3] = FOLLOW_STIFFNESS
-    cartesian.kd[:3] = 2 * np.sqrt(FOLLOW_STIFFNESS * 3.0)
-    reached = motion.follow(s, dock.side, poses, speed=0.04, until=done)
+    cartesian.kp[:3] = PUSH_STIFFNESS
+    cartesian.kd[:3] = 2 * np.sqrt(PUSH_STIFFNESS * 3.0)
+    # Closed loop: from wherever the part is now, push the contact point a little further along the
+    # part's own motion at that point, so the tool stays on the part even when it lags or speeds up.
+    step = 0.05 if interface.mechanism.kind == "hinge" else 0.005
+    reached, stalled, best = False, 0, s.data.qpos[address]
+    for _ in range(MAX_PUSH_STEPS):
+        now = s.data.qpos[address]
+        if (target - now) * np.sign(target - best + 1e-12) <= 0:
+            break
+        # The tool keeps its pose relative to the part (it turns with a lid), pushing slightly ahead.
+        tcp_pos, tcp_rot = s.data.site_xpos[arm.tcp].copy(), s.data.site_xmat[arm.tcp].reshape(3, 3).copy()
+        tip = tcp_pos + tcp_rot @ pin_tip
+        ahead = now + np.sign(target - now) * min(step, abs(target - now))
+        (moved_tcp, moved_rot), = mechanism_poses(m, s.data, interface, joint, ahead, tcp_pos, tcp_rot, 1)
+        moved_tip = moved_tcp + moved_rot @ pin_tip
+        lead = (moved_tip - tip) / max(np.linalg.norm(moved_tip - tip), 1e-9) * PUSH_LEAD
+        # A little further in along the way in, so a blade stays under the edge it lifts.
+        motion.move_tcp(s, dock.side, moved_tcp + lead + moved_rot[:, 2] * PUSH_INSERT, moved_rot, speed=0.04,
+                        settle=0.0, until=done)
+        if done():
+            reached = True
+            break
+        progress = (s.data.qpos[address] - best) * np.sign(target - best + 1e-12)
+        if progress > 1e-3:
+            best, stalled = s.data.qpos[address], 0
+        else:
+            stalled += 1
+            if stalled >= 4:
+                break
     _note(ctx, "push", reached=reached, detail=s.monitor.details.get(task.key))
     if not reached:
         s.wait(1.0, done)
     _retreat(ctx, dock)
-    s.data.ctrl[arm.pin_actuator] = 0.0
+    s.data.ctrl[arm.pin_actuator if element == "pin" else arm.blade_actuator] = 0.0
     s.wait(0.5)
 
 
@@ -553,7 +659,11 @@ def set_aside(ctx, interface, task, distances=(0.15, 0.25), clearance=0.004):
     others = np.array(sorted(set(range(m.ngeom)) - exclude))
     touching = lambda: bool(len(s.monitor.contacts(own, others)))
     motion.move_tcp(s, side, above + [0, 0, lowered], rotation, speed=0.02, until=touching)
-    motion.gripper(s, side, arm.gripper_open, seconds=0.8)
+    if getattr(dock, "suction", False):
+        suction_off(s, side)
+        s.wait(0.5)
+    else:
+        motion.gripper(s, side, arm.gripper_open, seconds=0.8)
     if ctx.moved is None:
         ctx.moved = set()
     ctx.moved |= set(subtree_bodies(m, root))

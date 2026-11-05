@@ -16,6 +16,7 @@ import traceback
 import mujoco
 import numpy as np
 
+from np002_traj import guard
 from np002_traj.executor.session import Abort, Session
 from np002_traj.robot import ROOT, Robot
 from np002_traj.scene.interfaces import load
@@ -106,7 +107,17 @@ def unlock(ctx, session, task, model, payload, result):
         result["prerequisites"].append(step)
 
 
+WORKER_BYTES = guard.default_limits()["worker_bytes"]
+TASKS_PER_WORKER = 20          # workers are recycled so a slow leak cannot accumulate
+
+
 def run_task(task_id):
+    try:
+        guard.worker_check(WORKER_BYTES)
+    except MemoryError as exc:
+        return {"task": task_id, "skill": "", "kind": "", "mechanism": "", "instance": "", "reason": "worker_memory",
+                "detail": {"error": str(exc)}, "success": False, "achieved": False, "disturbed": {}, "log": [],
+                "prerequisites": [], "wall_s": 0.0}
     model, robot = STATE["model"], STATE["robot"]
     interface = STATE["interfaces"][task_id]
     payload = robot.profile["arms"]["left"]["payload_kg"]
@@ -203,9 +214,18 @@ def main():
                                                  "tasks": len(runnable), "excluded": collections.Counter(
                                                      t.excluded.split(" needs")[0] if t.excluded else "" for t in tasks.values() if t.excluded)},
                                                 indent=1), encoding="utf-8")
-    print(f"{len(runnable)} tasks, {args.workers} workers", flush=True)
+    limits = guard.default_limits()
+    workers = guard.safe_workers(args.workers, limits=limits)
+    if workers < args.workers:
+        print(f"workers capped from {args.workers} to {workers} by the resource guard", flush=True)
+    print(f"{len(runnable)} tasks, {workers} workers; guard: run memory <= {limits['tree_bytes'] / guard.GB:.0f} GB, "
+          f"machine available >= {limits['available_floor_bytes'] / guard.GB:.0f} GB, load <= {limits['load_limit']:.0f}",
+          flush=True)
+    watchdog = guard.Guard(out, limits)
     started = time.time()
-    with mp.get_context("fork").Pool(args.workers, initializer=init) as pool, (out / "results.jsonl").open("w") as sink:
+    with mp.get_context("fork").Pool(workers, initializer=init, maxtasksperchild=TASKS_PER_WORKER) as pool, \
+            (out / "results.jsonl").open("w") as sink:
+        watchdog.start(on_trip=pool.terminate)
         done = collections.Counter()
         for result in pool.imap_unordered(run_task, runnable):
             sink.write(json.dumps(result, default=float) + "\n")
@@ -213,7 +233,8 @@ def main():
             done[(result["skill"], result["success"])] += 1
             if sum(done.values()) % 10 == 0:
                 print(f"{sum(done.values())}/{len(runnable)} in {time.time()-started:.0f} s: {dict(done)}", flush=True)
-    print("finished", dict(done))
+    watchdog.stop()
+    print("finished", dict(done), f"peak run memory {watchdog.peak / guard.GB:.1f} GB")
 
 
 if __name__ == "__main__":

@@ -31,6 +31,11 @@ class Arm:
     pin_qpos: int = -1
     pin_extended: float = 0.0
     pin_tip: np.ndarray = None   # pin tip relative to the TCP when extended, tool frame
+    blade_actuator: int = -1     # retractable pry blade
+    blade_qpos: int = -1
+    blade_extended: float = 0.0
+    blade_tip: np.ndarray = None
+    suction: dict = None         # cup body/site/equality ids, face offset and normal in the tool frame
 
 
 class Robot:
@@ -61,6 +66,19 @@ class Robot:
                 arm.pin_actuator = model.actuator(name(pin["actuator"])).id
                 arm.pin_qpos = int(model.jnt_qposadr[model.joint(name(pin["joint"])).id])
                 arm.pin_extended, arm.pin_tip = pin["extended"], np.array(pin["tip_from_tcp_m"], float)
+            blade = g.get("pry_blade")
+            if blade:
+                arm = self.arms[side]
+                arm.blade_actuator = model.actuator(name(blade["actuator"])).id
+                arm.blade_qpos = int(model.jnt_qposadr[model.joint(name(blade["joint"])).id])
+                arm.blade_extended, arm.blade_tip = blade["extended"], np.array(blade["tip_from_tcp_m"], float)
+            cup = g.get("suction")
+            if cup:
+                self.arms[side].suction = {
+                    "body": model.body(name(cup["body"])).id, "geom": model.geom(name(cup["geom"])).id,
+                    "equality": model.equality(name(cup["equality"])).id, "max_mass_kg": cup["max_mass_kg"],
+                    "face": np.array(cup["face_from_tcp_m"], float), "normal": np.array(cup["normal"], float),
+                    "radius": cup["radius_m"]}
         self.bodies = subtree_bodies(model, self.root)
         self.geoms = body_geoms(model, self.bodies)
         self.base_qpos = model.jnt_qposadr[self.base_joints]

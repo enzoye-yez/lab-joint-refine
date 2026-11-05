@@ -87,10 +87,15 @@ def nearest_free(occupancy, target_xy, u, normal, lateral, phi, half, start=0.3,
 MAX_REPAIRS = 40          # whole-body repairs per dock search (each costs tens of distance sweeps)
 
 
-def find_dock(session, kinematics, occupancy, frames, pre_distance=0.10, allowed=(), extra=(0.0, 0.06, 0.15),
-              bearings=36, lift_offsets=(0.15, 0.0, 0.3), max_candidates=600, hand_state=None):
+COMFORT = 0.50            # m, shoulder-to-part horizontal distance where the arm works unfolded
+
+
+def find_dock(session, kinematics, occupancy, frames, pre_distance=0.10, allowed=(), extra=(0.0, 0.06, 0.15, 0.25, 0.35),
+              bearings=36, lift_offsets=(0.15, 0.0, 0.3), max_candidates=600, hand_state=None, path=None):
     """hand_state(side, frame) -> (qpos addresses, values) of the tool joints during the operation
-    (pre-shaped fingers, press pin). Default: the fingers at the frame's approach opening."""
+    (pre-shaped fingers, press pin). Default: the fingers at the frame's approach opening.
+    path(frame) -> TCP poses the operation will follow from the frame (a mechanism's motion): every
+    one must have an IK solution continuous from the grasp, with room left to the joint limits."""
     if hand_state is None:
         hand_state = lambda side, frame: _preshaped(session, side, frame)
     robot, m = session.robot, session.model
@@ -125,7 +130,8 @@ def find_dock(session, kinematics, occupancy, frames, pre_distance=0.10, allowed
                     continue
                 for dr in extra:
                     r = r0 + dr
-                    score = (r + (0.0 if preferred is None else 0.6 * (1 - np.cos(phi - preferred)))
+                    # Neither cramped (wrist folded against the shoulder) nor stretched.
+                    score = (abs(r - SHOULDER_FORWARD - COMFORT) + (0.0 if preferred is None else 0.6 * (1 - np.cos(phi - preferred)))
                              + RANK_PENALTY * frame.rank + VARIANT_PENALTY * frame.variant + 0.01 * index / len(frames))
                     options.append((score, index, r, phi, side, lateral))
     for _, index, r, phi, side, lateral in sorted(options, key=lambda o: o[0]):
@@ -147,6 +153,12 @@ def find_dock(session, kinematics, occupancy, frames, pre_distance=0.10, allowed
             for posture in ("travel", "stow"):
                 plan = _solve(session, kinematics, worlds, side, base, lift, frame, pre_distance, allowed, reasons, blocking,
                               posture, hand_state, repairs)
+                if plan is not None and path is not None and not _path_feasible(kinematics, side, base, plan, path(frame)):
+                    reasons["path"] = reasons.get("path", 0) + 1
+                    if reasons["path"] >= MAX_PATH_REJECTIONS:
+                        # Docks that reach the part but cannot follow its motion: more of them will not help.
+                        return None, {"tried": tried, "reasons": reasons, "blocking": _top(blocking)}
+                    break
                 if plan is not None:
                     q_pre, q_goal, lift_used, q_other, pre_used = plan
                     return Dock(base, lift_used, side, frame, q_pre, q_goal, tried, posture, q_other, pre_used), \
@@ -255,11 +267,32 @@ def _solve(session, kinematics, worlds, side, base, lift, frame, pre_distance, a
     return q_pre, q_goal, state["lift"], state["other"], pre_used
 
 
+MAX_PATH_REJECTIONS = 12
+JOINT_ROOM = 0.08          # rad, kept to every limit along an operation's path
+
+
+def _path_feasible(kinematics, side, base, plan, poses):
+    q_pre, q_goal, lift, _, _ = plan
+    ik = kinematics.ik[side]
+    q_base = kinematics.qpos(kinematics.robot.base_joint_values(base), lift, {})
+    limits = ik.limits
+    q = q_goal
+    for position, rotation in poses:
+        try:
+            q = ik.solve(q_base, Target(position, rotation, position_tolerance=2e-3, rotation_tolerance=0.03),
+                         seed=q, restarts=0).q
+        except IKFailure:
+            return False
+        if np.any(q - limits[:, 0] < JOINT_ROOM) or np.any(limits[:, 1] - q < JOINT_ROOM):
+            return False
+    return True
+
+
 def _preshaped(session, side, frame):
     robot, arm = session.robot, session.robot.arms[side]
     addresses, values = _open_hand(session, side)
     if frame.opening is not None:
-        values[:-1 if arm.pin_qpos >= 0 else None] = frame.opening
+        values[:len(robot.profile["arms"][side]["gripper"]["joints"])] = frame.opening
     return addresses, values
 
 
@@ -269,6 +302,7 @@ def _open_hand(session, side):
     fingers = [int(session.model.jnt_qposadr[session.model.joint(robot.prefix + j).id])
                for j in robot.profile["arms"][side]["gripper"]["joints"]]
     addresses, values = fingers, [arm.gripper_open] * len(fingers)
-    if arm.pin_qpos >= 0:
-        addresses, values = addresses + [arm.pin_qpos], values + [0.0]
-    return np.array(addresses), np.array(values)
+    for qpos in (arm.pin_qpos, arm.blade_qpos):
+        if qpos >= 0:
+            addresses, values = addresses + [qpos], values + [0.0]
+    return np.array(addresses), np.array(values, float)

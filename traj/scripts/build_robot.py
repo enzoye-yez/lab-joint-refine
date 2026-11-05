@@ -37,6 +37,13 @@ PAD_FRICTION = (0.9, 0.02, 0.001)   # TPU pads
 PIN_X, PIN_RADIUS, PIN_LENGTH = 0.0095, 0.0025, 0.10
 PIN_BEYOND_TIPS = 0.020                      # m, extended pin tip ahead of the fingertips
 PIN_FORCE = 40.0                             # N, pressing force limit
+# Retractable pry blade on the other side of the fingers: a 1.2 mm spatula that slides under a tab or a
+# lid edge the fingers cannot get around, then lifts it (used with the push skill).
+BLADE_X, BLADE_HALF = -0.0095, (0.0006, 0.006, 0.012)     # 1.2 x 12 x 24 mm
+BLADE_BEYOND_TIPS = 0.025
+# Suction cup on the side of the gripper body, facing -x of the hand: lifts flat parts (covers, plates).
+CUP_RADIUS, CUP_HALF_HEIGHT, CUP_Z = 0.010, 0.004, 0.045
+SUCTION_MAX_KG = 0.5                         # 20 mm cup at -60 kPa holds ~19 N; half of it for safety
 ARM_GAINS = {"kp": [1500, 1500, 1500, 1500, 600, 600, 300], "kd": [80, 80, 70, 60, 25, 25, 12]}
 
 
@@ -89,8 +96,29 @@ def gripper(spec, flange, side):
                                      trntype=mujoco.mjtTrn.mjTRN_JOINT, ctrlrange=[0, extended - retracted],
                                      forcerange=[-PIN_FORCE, PIN_FORCE], forcelimited=True, ctrllimited=True)
     pin_actuator.set_to_position(kp=3000, kv=60)
-    for name in ("a", "b"):                     # the pin runs in its own guide beside the fingers
-        spec.add_exclude(bodyname1=f"{side}_press_pin", bodyname2=f"{side}_finger_{name}")
+    blade_retracted = BODY_LENGTH + 0.004
+    blade_extended = tcp + FINGER_TIP[2] + BLADE_BEYOND_TIPS
+    blade = hand.add_body(name=f"{side}_pry_blade", pos=[BLADE_X, 0, blade_retracted])
+    blade.add_joint(name=f"{side}_pry_blade", type=mujoco.mjtJoint.mjJNT_SLIDE, axis=[0, 0, 1],
+                    range=[0, blade_extended - blade_retracted], armature=0.002, damping=2.0)
+    blade.add_geom(name=f"{side}_pry_blade", type=mujoco.mjtGeom.mjGEOM_BOX, size=list(BLADE_HALF),
+                   pos=[0, 0, -BLADE_HALF[2]], mass=0.006, friction=[0.4, 0.02, 0.001], rgba=[0.7, 0.7, 0.75, 1])
+    blade.add_geom(name=f"{side}_pry_stem", type=mujoco.mjtGeom.mjGEOM_BOX, size=[0.0015, 0.003, 0.045],
+                   pos=[0, 0, -2 * BLADE_HALF[2] - 0.045], mass=0.01, rgba=[0.5, 0.5, 0.55, 1])
+    blade_actuator = spec.add_actuator(name=f"{side}_pry_blade", target=f"{side}_pry_blade",
+                                       trntype=mujoco.mjtTrn.mjTRN_JOINT, ctrlrange=[0, blade_extended - blade_retracted],
+                                       forcerange=[-PIN_FORCE, PIN_FORCE], forcelimited=True, ctrllimited=True)
+    blade_actuator.set_to_position(kp=3000, kv=60)
+    cup = hand.add_body(name=f"{side}_suction_cup", pos=[-(BODY_RADIUS + CUP_HALF_HEIGHT), 0, CUP_Z],
+                        quat=[np.cos(np.pi / 4), 0, -np.sin(np.pi / 4), 0])          # cup axis along -x of the hand
+    cup.add_geom(name=f"{side}_suction_cup", type=mujoco.mjtGeom.mjGEOM_CYLINDER, size=[CUP_RADIUS, CUP_HALF_HEIGHT],
+                 mass=0.01, friction=[1.0, 0.02, 0.001], condim=4, rgba=[0.2, 0.2, 0.2, 1])
+    cup.add_site(name=f"{side}_suction_face", pos=[0, 0, CUP_HALF_HEIGHT], size=[0.003, 0, 0])
+    spec.add_equality(type=mujoco.mjtEq.mjEQ_WELD, name1=f"{side}_suction_cup", active=False,
+                      objtype=mujoco.mjtObj.mjOBJ_BODY, name=f"{side}_suction")
+    for element in ("press_pin", "pry_blade"):     # pin and blade run in their own guides beside the fingers
+        for name in ("a", "b"):
+            spec.add_exclude(bodyname1=f"{side}_{element}", bodyname2=f"{side}_finger_{name}")
     spec.add_equality(type=mujoco.mjtEq.mjEQ_JOINT, name1=f"{side}_finger_a", name2=f"{side}_finger_b",
                       data=[0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0], name=f"{side}_finger_coupling")
     actuator = spec.add_actuator(name=f"{side}_gripper", target=f"{side}_finger_a",
@@ -103,7 +131,17 @@ def gripper(spec, flange, side):
             "press_pin": {"joint": f"{side}_press_pin", "actuator": f"{side}_press_pin", "body": f"{side}_press_pin",
                           "extended": extended - retracted, "radius_m": PIN_RADIUS, "max_force_n": PIN_FORCE,
                           # pin tip (surface point) relative to the TCP when extended, in the tool frame
-                          "tip_from_tcp_m": [PIN_X, 0.0, extended + PIN_RADIUS - tcp]}}
+                          "tip_from_tcp_m": [PIN_X, 0.0, extended + PIN_RADIUS - tcp]},
+            "pry_blade": {"joint": f"{side}_pry_blade", "actuator": f"{side}_pry_blade", "body": f"{side}_pry_blade",
+                          "geoms": [f"{side}_pry_blade", f"{side}_pry_stem"], "extended": blade_extended - blade_retracted,
+                          "thickness_m": 2 * BLADE_HALF[0],
+                          # front edge centre of the blade when extended, in the tool frame
+                          "tip_from_tcp_m": [BLADE_X, 0.0, blade_extended - tcp]},
+            "suction": {"body": f"{side}_suction_cup", "geom": f"{side}_suction_cup", "site": f"{side}_suction_face",
+                        "equality": f"{side}_suction", "max_mass_kg": SUCTION_MAX_KG,
+                        # cup face centre and its outward normal, in the tool frame
+                        "face_from_tcp_m": [-(BODY_RADIUS + 2 * CUP_HALF_HEIGHT), 0.0, CUP_Z - tcp],
+                        "normal": [-1.0, 0.0, 0.0], "radius_m": CUP_RADIUS}}
 
 
 def home_key(model, arms, lift=0.3):
@@ -181,6 +219,7 @@ def build():
         geometry = gripper(spec, gripper_body, side)
         spec.add_exclude(bodyname1=prefix + "fr3_link7", bodyname2=f"{side}_hand")
         spec.add_exclude(bodyname1=prefix + "fr3_link7", bodyname2=f"{side}_press_pin")
+        spec.add_exclude(bodyname1=prefix + "fr3_link7", bodyname2=f"{side}_pry_blade")
         arms[side] = {"joints": joints, "actuators": [j + "_motor" for j in joints], "gains": ARM_GAINS,
                       "flange_site": prefix + "attachment_site", "tcp_site": f"{side}_tcp",
                       "gripper": {"actuator": f"{side}_gripper", "open": FINGER_STROKE, "closed": 0.0,

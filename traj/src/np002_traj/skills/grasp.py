@@ -20,11 +20,12 @@ class Frame:
     variant: int = 0           # 0: centred full-depth grasp; >0 shifted along the part or shallower
     quality: float = 1.0       # antipodal alignment of the contacts with the closing axis (cos)
     opening: float = None      # finger opening (each, m) for the approach; None: fully open
+    axis: tuple = (0.0, 0.0, 1.0)   # tool-frame direction the hand moves in along (the suction cup: -x)
 
     def offset(self, distance):
-        """The same frame moved `distance` back along the tool z axis (a pre-grasp)."""
-        return Frame(self.position - self.rotation[:, 2] * distance, self.rotation, self.width, self.rank, self.variant,
-                     self.quality, self.opening)
+        """The same frame moved `distance` back along its approach axis (a pre-grasp)."""
+        return Frame(self.position - self.rotation @ np.asarray(self.axis) * distance, self.rotation, self.width,
+                     self.rank, self.variant, self.quality, self.opening, self.axis)
 
 
 def _frame(z, y):
@@ -332,7 +333,11 @@ def contact_frames(model, data, interface, probe, robot_geoms, pin_tip, angles=8
     return out, report
 
 
-def push_frames(model, data, interface, probe, robot_geoms, pin_tip, direction, angles=8, shifts=(0.0, 0.008, -0.008)):
+PUSHER_MARGIN = 0.0007  # m, the pin or blade itself to neighbours (position-controlled, FR3 repeats to 0.1 mm)
+
+
+def push_frames(model, data, interface, probe, robot_geoms, pin_tip, direction, angles=8, shifts=(0.0, 0.008, -0.008),
+                element="pin", depths=(0.0,)):
     """Frames for moving a part by pushing it with the side of the extended press pin along `direction`.
 
     For articulations the hand cannot grasp (a tab flush with a wall, a lid edge): the pin goes in
@@ -348,6 +353,8 @@ def push_frames(model, data, interface, probe, robot_geoms, pin_tip, direction, 
     obstacles = nearby(model, world, centre, set(robot_geoms) | set(part.tolist()), 0.25)
     everything = np.concatenate([obstacles, part])
     t = direction / np.linalg.norm(direction)
+    pusher = probe.is_pin if element == "pin" else probe.is_blade
+    extend = {"pin": probe.pin_extended} if element == "pin" else {"blade": probe.blade_extended}
     out = []
     for normal in outward_normals(model, data, interface):
         if abs(normal @ t) > 0.5:
@@ -360,17 +367,18 @@ def push_frames(model, data, interface, probe, robot_geoms, pin_tip, direction, 
         u0 /= np.linalg.norm(u0)
         u1 = np.cross(z, u0)
         across = np.cross(z, t)                           # along the part's edge, beside a latch or a catch
-        for k, shift in ((k, shift) for shift in shifts for k in range(angles)):
+        for k, shift, depth in ((k, shift, depth) for depth in depths for shift in shifts for k in range(angles)):
             theta = 2 * np.pi * k / angles
             rotation = _frame(z, np.cos(theta) * u0 + np.sin(theta) * u1)
             report["candidates"] += 1
-            # Pin tip a little behind the part along -t, then slide it along t until its side touches.
-            tip = centre - t * 0.02 + across * shift
+            # Tip a little behind the part along -t, then slide it along t until its side touches.
+            # `depth` holds the tip back from the site along the way in (only an overhanging edge is free).
+            tip = centre - t * 0.02 + across * shift - z * depth
             contact = None
             for attempt in range(5):
                 position = tip - rotation @ pin_tip
-                probe.place(world, position, rotation, 0.0, probe.pin_extended)
-                hit = probe.distance(world, probe.is_pin, part, limit=0.04)
+                probe.place(world, position, rotation, 0.0, **extend)
+                hit = probe.distance(world, pusher, part, limit=0.04)
                 if not np.isfinite(hit[0]) or hit[0] < -0.0005:
                     break
                 direction_ = hit[3][3:] - hit[3][:3]
@@ -385,11 +393,11 @@ def push_frames(model, data, interface, probe, robot_geoms, pin_tip, direction, 
                 report["no_contact"] += 1
                 continue
             ok = True
-            for back, which, against in ((0.0, ~probe.is_pin, everything), (0.0, probe.is_pin, obstacles),
-                                         (0.04, np.ones(len(probe.geoms), bool), everything)):
-                probe.place(world, contact - z * back - t * 0.003, rotation, 0.0, probe.pin_extended)
+            for back, which, against, margin in ((0.0, ~pusher, everything, GOAL_MARGIN), (0.0, pusher, obstacles, PUSHER_MARGIN),
+                                                 (0.04, np.ones(len(probe.geoms), bool), everything, GOAL_MARGIN)):
+                probe.place(world, contact - z * back - t * 0.0015, rotation, 0.0, **extend)
                 hit = probe.distance(world, which, against, limit=0.01)
-                if hit[0] < GOAL_MARGIN:
+                if hit[0] < margin:
                     kind = "open_collision" if back == 0 else "corridor"
                     report[kind] += 1
                     name = model.geom(hit[2]).name
@@ -402,3 +410,94 @@ def push_frames(model, data, interface, probe, robot_geoms, pin_tip, direction, 
     report["kept"] = len(out)
     out.sort(key=lambda f: f.rank)
     return out, report
+
+
+def _ray_part(model, data, geoms, point, direction):
+    """Nearest hit of a ray on the given geoms: (distance, world normal, geom) or None."""
+    best = None
+    normal = np.zeros(3)
+    for g in geoms:
+        if model.geom_type[g] == mujoco.mjtGeom.mjGEOM_MESH:
+            x = mujoco.mj_rayMesh(model, data, int(g), point, direction, normal)
+        else:
+            x = mujoco.mju_rayGeom(data.geom_xpos[g], data.geom_xmat[g], model.geom_size[g], point, direction,
+                                   int(model.geom_type[g]), normal)
+        if x >= 0 and (best is None or x < best[0]):
+            best = (x, normal.copy(), int(g))
+    return best
+
+
+def suction_frames(model, data, interface, probe, robot_geoms, cup, spacing=0.012, flat=0.0008, angles=8):
+    """Frames that put the suction cup flat on a face of the part (a cover, a plate, a box lid).
+
+    Faces are found by casting rays onto the part from each approach direction; a spot is kept when
+    the centre and four rim points hit the part within `flat` of a plane facing the cup. The hand
+    must clear everything there and on the way in. Spots near the centre of mass come first.
+    """
+    root = interface.mechanism.body if interface.mechanism.body >= 0 else interface.body
+    bodies = subtree_bodies(model, root)
+    part = np.array([g for g in np.flatnonzero(np.isin(model.geom_bodyid, list(bodies)))
+                     if model.geom_contype[g] or model.geom_conaffinity[g]], int)
+    report = {"candidates": 0, "not_flat": 0, "open_collision": 0, "corridor": 0, "blocking": {}}
+    if not len(part):
+        return [], report
+    world = scratch(model, data)
+    from .dock import FREE_MARGIN  # noqa: F401  (same margins as the dock search)
+    mass_centre = sum(data.xipos[b] * model.body_mass[b] for b in bodies) / max(sum(model.body_mass[b] for b in bodies), 1e-9)
+    low = np.min(data.geom_xpos[part] - model.geom_rbound[part, None], axis=0)
+    high = np.max(data.geom_xpos[part] + model.geom_rbound[part, None], axis=0)
+    obstacles = nearby(model, world, mass_centre, set(robot_geoms) | set(part.tolist()), float(np.linalg.norm(high - low)) / 2 + 0.2)
+    everything = np.concatenate([obstacles, part])
+    out = []
+    for n in outward_normals(model, data, interface):
+        a = np.cross(n, np.eye(3)[np.argmin(np.abs(n))])
+        a /= np.linalg.norm(a)
+        b = np.cross(n, a)
+        span = np.abs(high - low)
+        ra, rb = float(np.abs(a) @ span) / 2, float(np.abs(b) @ span) / 2
+        centre = (low + high) / 2
+        start = centre + n * (float(np.abs(n) @ span) / 2 + 0.05)
+        for i in np.arange(-ra, ra + 1e-9, spacing):
+            for j in np.arange(-rb, rb + 1e-9, spacing):
+                origin = start + a * i + b * j
+                hit = _ray_part(model, world, part, origin, -n)
+                if hit is None or hit[1] @ n < 0.97:
+                    continue
+                report["candidates"] += 1
+                spot = origin - n * hit[0]
+                ok = True
+                for o in (a, -a, b, -b):
+                    rim = _ray_part(model, world, part, origin + o * cup["radius"], -n)
+                    if rim is None or abs(rim[0] - hit[0]) > flat:
+                        ok = False
+                        break
+                if not ok:
+                    report["not_flat"] += 1
+                    continue
+                for k in range(angles):
+                    theta = 2 * np.pi * k / angles
+                    z = np.cos(theta) * a + np.sin(theta) * b
+                    # Cup normal (tool -x) onto the face: tool x = n.
+                    rotation = np.column_stack([n, np.cross(z, n), z])
+                    position = spot + n * 0.0005 - rotation @ cup["face"]
+                    good = True
+                    for back, which, against in ((0.0, ~probe.is_cup, everything), (0.0, probe.is_cup, obstacles),
+                                                 (0.04, np.ones(len(probe.geoms), bool), everything)):
+                        probe.place(world, position + n * back, rotation, 0.0)
+                        h = probe.distance(world, which, against, limit=0.01)
+                        if h[0] < GOAL_MARGIN:
+                            kind = "open_collision" if back == 0 else "corridor"
+                            report[kind] += 1
+                            name = model.geom(h[2]).name
+                            report["blocking"][name] = report["blocking"].get(name, 0) + 1
+                            good = False
+                            break
+                    if good:
+                        rank = approach_rank(model, data, interface, n)
+                        f = Frame(position, rotation, 0.0, rank, axis=tuple(float(v) for v in cup["normal"]))  # the cup moves along its normal
+                        f.quality = -float(np.linalg.norm((spot - mass_centre) - n * ((spot - mass_centre) @ n)))
+                        out.append(f)
+    report["blocking"] = dict(sorted(report["blocking"].items(), key=lambda kv: -kv[1])[:5])
+    report["kept"] = len(out)
+    out.sort(key=lambda f: (f.rank, -f.quality))
+    return out[:MAX_FRAMES], report

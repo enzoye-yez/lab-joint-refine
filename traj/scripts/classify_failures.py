@@ -43,6 +43,7 @@ CATEGORIES = {
     "G6_no_antipodal_grasp": "Grasp: the part geometry offers no antipodal pair within the opening",
     "P4_unlock_failed": "Precondition: the interface that releases a declared lock failed",
     "X1_code_error": "Code error (not a task failure)",
+    "X3_worker_memory": "Run guard: the worker was above its memory cap and skipped the task",
     "X2_other": "Unclassified",
 }
 
@@ -56,6 +57,8 @@ def classify(r):
     goal = r.get("goal_detail") or {}
     if r["success"]:
         return None, {}
+    if reason == "worker_memory":
+        return "X3_worker_memory", detail
     if reason == "code_error":
         return "X1_code_error", {"error": detail.get("error", "")[:200]}
     if reason == "enclosed":

@@ -6,6 +6,12 @@ skill for its interface type and mechanism, and is judged by the mechanism-deriv
 
   source scripts/env.sh && $PYTHON scripts/run_benchmark.py --run bench_01 [--limit 40] [--workers 32]
 """
+import os
+
+# One BLAS thread per worker, set before numpy loads (each worker is its own process).
+for _var in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "NUMEXPR_NUM_THREADS"):
+    os.environ.setdefault(_var, "1")
+
 import argparse
 import collections
 import json

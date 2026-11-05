@@ -106,6 +106,40 @@
       0.0,
       0.0345
      ]
+    },
+    "pry_blade": {
+     "joint": "left_pry_blade",
+     "actuator": "left_pry_blade",
+     "body": "left_pry_blade",
+     "geoms": [
+      "left_pry_blade",
+      "left_pry_stem"
+     ],
+     "extended": 0.099,
+     "thickness_m": 0.0012,
+     "tip_from_tcp_m": [
+      -0.0095,
+      0.0,
+      0.037000000000000005
+     ]
+    },
+    "suction": {
+     "body": "left_suction_cup",
+     "geom": "left_suction_cup",
+     "site": "left_suction_face",
+     "equality": "left_suction",
+     "max_mass_kg": 0.5,
+     "face_from_tcp_m": [
+      -0.04,
+      0.0,
+      -0.09100000000000001
+     ],
+     "normal": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "radius_m": 0.01
     }
    },
    "wrist_camera": "left_wrist_camera",
@@ -216,6 +250,40 @@
       0.0,
       0.0345
      ]
+    },
+    "pry_blade": {
+     "joint": "right_pry_blade",
+     "actuator": "right_pry_blade",
+     "body": "right_pry_blade",
+     "geoms": [
+      "right_pry_blade",
+      "right_pry_stem"
+     ],
+     "extended": 0.099,
+     "thickness_m": 0.0012,
+     "tip_from_tcp_m": [
+      -0.0095,
+      0.0,
+      0.037000000000000005
+     ]
+    },
+    "suction": {
+     "body": "right_suction_cup",
+     "geom": "right_suction_cup",
+     "site": "right_suction_face",
+     "equality": "right_suction",
+     "max_mass_kg": 0.5,
+     "face_from_tcp_m": [
+      -0.04,
+      0.0,
+      -0.09100000000000001
+     ],
+     "normal": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "radius_m": 0.01
     }
    },
    "wrist_camera": "right_wrist_camera",
@@ -257,5 +325,5 @@
   "glass": 30.0,
   "instrument_door": 40.0
  },
- "mass_kg": 116.87497010871151
+ "mass_kg": 116.92697010871153
 }

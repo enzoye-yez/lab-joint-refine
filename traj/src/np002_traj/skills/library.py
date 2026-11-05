@@ -516,7 +516,7 @@ def push(ctx, interface, task):
     site = _site(s, interface)
     first = mechanism_poses(m, s.data, interface, joint, now + (target - now) * 0.02, site, np.eye(3), 1)[0][0]
     if np.linalg.norm(first - site) < 1e-6:
-        raise Abort("no_push_pose", reason="the site does not move with the joint")
+        raise Abort("no_push_pose", why="the site does not move with the joint")
     side0 = next(iter(s.robot.arms))
     report = {}
     for element in ("pin", "blade"):

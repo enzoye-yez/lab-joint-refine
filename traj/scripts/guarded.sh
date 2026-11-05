@@ -9,7 +9,7 @@
 set -euo pipefail
 total_kb=$(awk '/MemTotal/ {print $2}' /proc/meminfo)
 mem="$(( total_kb / 4 / 1024 / 1024 ))G"
-cpus=$(( $(nproc) / 2 ))
+cpus=$(( $(getconf _NPROCESSORS_ONLN) / 2 ))  # not nproc: it honours OMP_NUM_THREADS
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --mem) mem="$2"; shift 2 ;;
@@ -18,6 +18,9 @@ while [[ $# -gt 0 ]]; do
     *) break ;;
   esac
 done
+# One BLAS/OpenMP thread per process: multi-process jobs otherwise spawn cores x workers threads
+# (64 OpenBLAS threads per worker drove the load to 1700+ on 192 cores).
+export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 NUMEXPR_NUM_THREADS=1
 exec systemd-run --user --scope --quiet --collect \
   -p MemoryMax="$mem" -p MemorySwapMax=0 \
   -p CPUQuota="$(( cpus * 100 ))%" -p TasksMax=8192 \

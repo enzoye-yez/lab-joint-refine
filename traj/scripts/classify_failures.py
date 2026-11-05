@@ -26,6 +26,7 @@ CATEGORIES = {
     "F2_force_on_other": "Force: contact force limit against another object",
     "F3_latched": "Force: the part is held by a latch/lock that must be released first (mechanical event)",
     "M1_mechanism_partial": "Mechanism: moved but stopped short of the goal",
+    "M4_falls_back": "Mechanism: pushed part-way, went back when the tool let go (needs holding between stages)",
     "M2_mechanism_wrong_way": "Mechanism: moved the wrong way",
     "M3_mechanism_no_motion": "Mechanism: grasped but the joint did not move",
     "M4_rotation_beyond_wrist": "Mechanism: required rotation exceeds one wrist turn (needs regrasping)",
@@ -59,6 +60,8 @@ def classify(r):
         return None, {}
     if reason == "worker_memory":
         return "X3_worker_memory", detail
+    if reason == "falls_back":
+        return "M4_falls_back", detail
     if reason == "code_error":
         return "X1_code_error", {"error": detail.get("error", "")[:200]}
     if reason == "enclosed":

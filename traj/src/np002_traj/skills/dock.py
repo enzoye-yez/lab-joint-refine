@@ -91,9 +91,12 @@ COMFORT = 0.50            # m, shoulder-to-part horizontal distance where the ar
 
 
 def find_dock(session, kinematics, occupancy, frames, pre_distance=0.10, allowed=(), extra=(0.0, 0.06, 0.15, 0.25, 0.35),
-              bearings=36, lift_offsets=(0.15, 0.0, 0.3), max_candidates=600, hand_state=None, path=None):
+              bearings=36, lift_offsets=(0.15, 0.0, 0.3), max_candidates=600, hand_state=None, path=None,
+              tool=None):
     """hand_state(side, frame) -> (qpos addresses, values) of the tool joints during the operation
     (pre-shaped fingers, press pin). Default: the fingers at the frame's approach opening.
+    tool(side) -> (robot geoms, margin): the element that makes the contact, held at the grasp and on
+    the way in to the margin the frames were synthesised with instead of the hand's.
     path(frame) -> TCP poses the operation will follow from the frame (a mechanism's motion): every
     one must have an IK solution continuous from the grasp, with room left to the joint limits."""
     if hand_state is None:
@@ -152,7 +155,7 @@ def find_dock(session, kinematics, occupancy, frames, pre_distance=0.10, allowed
                 return None, {"tried": tried, "reasons": reasons, "blocking": _top(blocking)}
             for posture in ("travel", "stow"):
                 plan = _solve(session, kinematics, worlds, side, base, lift, frame, pre_distance, allowed, reasons, blocking,
-                              posture, hand_state, repairs)
+                              posture, hand_state, repairs, tool)
                 if plan is not None and path is not None and not _path_feasible(kinematics, side, base, plan, path(frame)):
                     reasons["path"] = reasons.get("path", 0) + 1
                     if reasons["path"] >= MAX_PATH_REJECTIONS:
@@ -173,7 +176,7 @@ def _top(counter, n=5):
 
 
 def _solve(session, kinematics, worlds, side, base, lift, frame, pre_distance, allowed, reasons, blocking,
-           posture="travel", hand_state=None, repairs=None):
+           posture="travel", hand_state=None, repairs=None, tool=None):
     robot, kin = session.robot, kinematics
     world = worlds.get(side)
     if world is None:
@@ -241,6 +244,8 @@ def _solve(session, kinematics, worlds, side, base, lift, frame, pre_distance, a
         return None
     world.allow(allowed)
     world.margin, margin = GOAL_MARGIN, world.margin
+    if tool is not None:
+        world.tool(*tool(side))
     q_goal = solve(Target(frame.position, frame.rotation, position_tolerance=1e-3), "goal", ("arm",), seed=q_pre, restarts=1)
     if q_goal is not None and np.isfinite(frame.width) and frame.width > 0:
         # The fingers also sweep inwards when they close: check them closed onto the part.
@@ -259,6 +264,7 @@ def _solve(session, kinematics, worlds, side, base, lift, frame, pre_distance, a
         reasons["approach"] += 1
         q_goal = None
     world.allow(())
+    world.tool()
     world.margin = margin
     if hand_state is not None:
         world.set_joints(*_open_hand(session, side))

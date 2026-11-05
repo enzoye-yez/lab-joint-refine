@@ -74,8 +74,14 @@ class CollisionWorld:
         self.data.qpos[self.joints] = q
         mujoco.mj_kinematics(self.model, self.data)
 
-    def _closest(self, pairs, limit):
-        """Smallest signed distance among pairs closer than `limit` (inf if none), with the pair."""
+    def tool(self, geoms=(), margin=None):
+        """Robot geoms held to their own (smaller) margin in the next queries: the tool element that
+        makes the contact (a pry blade, a press pin), checked to the margin it was synthesised with."""
+        self.tight = {int(g): float(margin) for g in geoms} if margin is not None else {}
+
+    def _closest(self, pairs, limit, credit=False):
+        """Smallest signed distance among pairs closer than `limit` (inf if none), with the pair.
+        A tool geom's distance is credited by how much smaller its own margin is than the world's."""
         if not len(pairs):
             return np.inf, None
         m, d = self.model, self.data
@@ -85,6 +91,9 @@ class CollisionWorld:
         best, pair = np.inf, None
         for i in np.flatnonzero((gap < limit) | plane):
             value = mujoco.mj_geomDistance(m, d, int(a[i]), int(b[i]), limit, None)
+            tight = getattr(self, "tight", None) if credit else None
+            if tight and int(a[i]) in tight:
+                value += max(self.margin - tight[int(a[i])], 0.0)
             if value < best:
                 best, pair = value, (int(a[i]), int(b[i]))
         return best, pair
@@ -99,7 +108,7 @@ class CollisionWorld:
         pairs = self.obstacle_pairs
         if len(getattr(self, "allowed", ())):
             pairs = pairs[~np.isin(pairs[:, 1], self.allowed)]
-        obstacle, pair = self._closest(pairs, self.margin * 4)
+        obstacle, pair = self._closest(pairs, self.margin * 4, credit=True)
         own, self_pair = self._closest(self.self_pairs, self.self_margin * 4)
         self.last_self_pair = self_pair
         return obstacle, own, pair

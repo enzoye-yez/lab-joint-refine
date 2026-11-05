@@ -26,12 +26,17 @@ FINGER_STROKE = 0.025               # m per finger, 0-50 mm total opening
 GRIP_FORCE = 40.0                   # N per finger, actuator force limit
 BODY_RADIUS, BODY_LENGTH = 0.032, 0.07       # m, gripper body: the FR3 flange diameter, 70 mm long
 FINGER_BEAM = (0.006, 0.003, 0.030)          # half sizes (width, thickness, length): 12 x 6 x 60 mm
-FINGER_TIP = (0.0035, 0.0025, 0.012)         # printed tip: 7 x 5 x 24 mm
-PAD = (0.0035, 0.0015, 0.010)                # TPU pad on the tip's inner face: 7 x 3 x 20 mm
+FINGER_TIP = (0.0035, 0.0015, 0.012)         # printed tip: 7 x 3 x 24 mm (5 mm with its pad: fits 6 mm gaps)
+PAD = (0.0035, 0.0010, 0.010)                # TPU pad on the tip's inner face: 7 x 2 x 20 mm
 TIP_OVERLAP = 0.003                          # tip overlaps the beam end by 6 mm
 # The fingers are light (about 20 g): with MuJoCo's default soft contact a 40 N squeeze sinks ~6 mm into the part.
 PAD_SOLREF, PAD_SOLIMP = (0.004, 1.0), (0.95, 0.99, 0.001, 0.5, 2)
 PAD_FRICTION = (0.9, 0.02, 0.001)   # TPU pads
+# Retractable press pin beside the fingers (outside their width, so it never meets them): for buttons in
+# narrow slots and recesses that the open or closed fingers do not fit into.
+PIN_X, PIN_RADIUS, PIN_LENGTH = 0.0095, 0.0025, 0.10
+PIN_BEYOND_TIPS = 0.020                      # m, extended pin tip ahead of the fingertips
+PIN_FORCE = 40.0                             # N, pressing force limit
 ARM_GAINS = {"kp": [1500, 1500, 1500, 1500, 600, 600, 300], "kd": [80, 80, 70, 60, 25, 25, 12]}
 
 
@@ -71,6 +76,21 @@ def gripper(spec, flange, side):
     spec.add_exclude(bodyname1=f"{side}_finger_a", bodyname2=f"{side}_finger_b")
     tcp = BODY_LENGTH + 2 * FINGER_BEAM[2] + FINGER_TIP[2] - 2 * TIP_OVERLAP
     hand.add_site(name=f"{side}_tcp", pos=[0, 0, tcp], size=[0.003, 0, 0])
+    # Press pin: body origin at the centre of its rounded tip; q=0 retracted just ahead of the housing.
+    retracted = BODY_LENGTH + 0.004
+    extended = tcp + FINGER_TIP[2] + PIN_BEYOND_TIPS
+    pin = hand.add_body(name=f"{side}_press_pin", pos=[PIN_X, 0, retracted])
+    pin.add_joint(name=f"{side}_press_pin", type=mujoco.mjtJoint.mjJNT_SLIDE, axis=[0, 0, 1],
+                  range=[0, extended - retracted], armature=0.002, damping=2.0)
+    pin.add_geom(name=f"{side}_press_pin", type=mujoco.mjtGeom.mjGEOM_CAPSULE, size=[PIN_RADIUS, 0, 0],
+                 fromto=[0, 0, -PIN_LENGTH, 0, 0, 0], mass=0.01, rgba=[0.8, 0.5, 0.1, 1])
+    pin.add_site(name=f"{side}_press_tip", pos=[0, 0, PIN_RADIUS], size=[0.002, 0, 0])
+    pin_actuator = spec.add_actuator(name=f"{side}_press_pin", target=f"{side}_press_pin",
+                                     trntype=mujoco.mjtTrn.mjTRN_JOINT, ctrlrange=[0, extended - retracted],
+                                     forcerange=[-PIN_FORCE, PIN_FORCE], forcelimited=True, ctrllimited=True)
+    pin_actuator.set_to_position(kp=3000, kv=60)
+    for name in ("a", "b"):                     # the pin runs in its own guide beside the fingers
+        spec.add_exclude(bodyname1=f"{side}_press_pin", bodyname2=f"{side}_finger_{name}")
     spec.add_equality(type=mujoco.mjtEq.mjEQ_JOINT, name1=f"{side}_finger_a", name2=f"{side}_finger_b",
                       data=[0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0], name=f"{side}_finger_coupling")
     actuator = spec.add_actuator(name=f"{side}_gripper", target=f"{side}_finger_a",
@@ -79,7 +99,11 @@ def gripper(spec, flange, side):
     actuator.set_to_position(kp=4000, kv=80)
     return {"tcp_from_flange_m": tcp, "fingertip_from_tcp_m": FINGER_TIP[2], "pad_half_height_m": PAD[2],
             "finger_thickness_m": 2 * (PAD[1] + FINGER_BEAM[1]), "tip_thickness_m": 2 * (PAD[1] + FINGER_TIP[1]),
-            "body_radius_m": BODY_RADIUS}
+            "body_radius_m": BODY_RADIUS,
+            "press_pin": {"joint": f"{side}_press_pin", "actuator": f"{side}_press_pin", "body": f"{side}_press_pin",
+                          "extended": extended - retracted, "radius_m": PIN_RADIUS, "max_force_n": PIN_FORCE,
+                          # pin tip (surface point) relative to the TCP when extended, in the tool frame
+                          "tip_from_tcp_m": [PIN_X, 0.0, extended + PIN_RADIUS - tcp]}}
 
 
 def home_key(model, arms, lift=0.3):
@@ -156,6 +180,7 @@ def build():
         gripper_body = flange.add_body(name=f"{side}_tool_mount", pos=list(site.pos), quat=list(site.quat))
         geometry = gripper(spec, gripper_body, side)
         spec.add_exclude(bodyname1=prefix + "fr3_link7", bodyname2=f"{side}_hand")
+        spec.add_exclude(bodyname1=prefix + "fr3_link7", bodyname2=f"{side}_press_pin")
         arms[side] = {"joints": joints, "actuators": [j + "_motor" for j in joints], "gains": ARM_GAINS,
                       "flange_site": prefix + "attachment_site", "tcp_site": f"{side}_tcp",
                       "gripper": {"actuator": f"{side}_gripper", "open": FINGER_STROKE, "closed": 0.0,

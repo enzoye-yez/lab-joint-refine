@@ -204,15 +204,20 @@
                               <camera name="left_wrist_camera" quat="0.12209 0.696487 0.696487 0.12209" pos="0.049 0 0.02"/>
                               <body name="left_finger_a" pos="0 0 0.07">
                                 <joint name="left_finger_a" type="slide" range="0 0.025" armature="0.005" damping="3" axis="0 1 0"/>
-                                <geom name="left_finger_a_link" size="0.006 0.003 0.03" pos="0 0.006 0.03" type="box" rgba="0.6 0.6 0.62 1" mass="0.015"/>
-                                <geom name="left_finger_a_tip" size="0.0035 0.0025 0.012" pos="0 0.0055 0.066" type="box" rgba="0.85 0.85 0.8 1" mass="0.004"/>
-                                <geom name="left_pad_a" size="0.0035 0.0015 0.01" pos="0 0.0015 0.066" type="box" condim="4" friction="0.9 0.02 0.001" solref="0.004" solimp="0.95 0.99" rgba="0.15 0.4 0.8 1" mass="0.002"/>
+                                <geom name="left_finger_a_link" size="0.006 0.003 0.03" pos="0 0.005 0.03" type="box" rgba="0.6 0.6 0.62 1" mass="0.015"/>
+                                <geom name="left_finger_a_tip" size="0.0035 0.0015 0.012" pos="0 0.0035 0.066" type="box" rgba="0.85 0.85 0.8 1" mass="0.004"/>
+                                <geom name="left_pad_a" size="0.0035 0.001 0.01" pos="0 0.001 0.066" type="box" condim="4" friction="0.9 0.02 0.001" solref="0.004" solimp="0.95 0.99" rgba="0.15 0.4 0.8 1" mass="0.002"/>
                               </body>
                               <body name="left_finger_b" pos="0 0 0.07">
                                 <joint name="left_finger_b" type="slide" range="0 0.025" armature="0.005" damping="3" axis="0 -1 0"/>
-                                <geom name="left_finger_b_link" size="0.006 0.003 0.03" pos="0 -0.006 0.03" type="box" rgba="0.6 0.6 0.62 1" mass="0.015"/>
-                                <geom name="left_finger_b_tip" size="0.0035 0.0025 0.012" pos="0 -0.0055 0.066" type="box" rgba="0.85 0.85 0.8 1" mass="0.004"/>
-                                <geom name="left_pad_b" size="0.0035 0.0015 0.01" pos="0 -0.0015 0.066" type="box" condim="4" friction="0.9 0.02 0.001" solref="0.004" solimp="0.95 0.99" rgba="0.15 0.4 0.8 1" mass="0.002"/>
+                                <geom name="left_finger_b_link" size="0.006 0.003 0.03" pos="0 -0.005 0.03" type="box" rgba="0.6 0.6 0.62 1" mass="0.015"/>
+                                <geom name="left_finger_b_tip" size="0.0035 0.0015 0.012" pos="0 -0.0035 0.066" type="box" rgba="0.85 0.85 0.8 1" mass="0.004"/>
+                                <geom name="left_pad_b" size="0.0035 0.001 0.01" pos="0 -0.001 0.066" type="box" condim="4" friction="0.9 0.02 0.001" solref="0.004" solimp="0.95 0.99" rgba="0.15 0.4 0.8 1" mass="0.002"/>
+                              </body>
+                              <body name="left_press_pin" pos="0.0095 0 0.074">
+                                <joint name="left_press_pin" type="slide" range="0 0.094" armature="0.002" damping="2"/>
+                                <geom name="left_press_pin" size="0.0025 0.05" pos="0 0 -0.05" quat="0 1 0 0" type="capsule" rgba="0.8 0.5 0.1 1" mass="0.01"/>
+                                <site name="left_press_tip" size="0.002" pos="0 0 0.0025"/>
                               </body>
                             </body>
                           </body>
@@ -293,15 +298,20 @@
                               <camera name="right_wrist_camera" quat="0.12209 0.696487 0.696487 0.12209" pos="0.049 0 0.02"/>
                               <body name="right_finger_a" pos="0 0 0.07">
                                 <joint name="right_finger_a" type="slide" range="0 0.025" armature="0.005" damping="3" axis="0 1 0"/>
-                                <geom name="right_finger_a_link" size="0.006 0.003 0.03" pos="0 0.006 0.03" type="box" rgba="0.6 0.6 0.62 1" mass="0.015"/>
-                                <geom name="right_finger_a_tip" size="0.0035 0.0025 0.012" pos="0 0.0055 0.066" type="box" rgba="0.85 0.85 0.8 1" mass="0.004"/>
-                                <geom name="right_pad_a" size="0.0035 0.0015 0.01" pos="0 0.0015 0.066" type="box" condim="4" friction="0.9 0.02 0.001" solref="0.004" solimp="0.95 0.99" rgba="0.15 0.4 0.8 1" mass="0.002"/>
+                                <geom name="right_finger_a_link" size="0.006 0.003 0.03" pos="0 0.005 0.03" type="box" rgba="0.6 0.6 0.62 1" mass="0.015"/>
+                                <geom name="right_finger_a_tip" size="0.0035 0.0015 0.012" pos="0 0.0035 0.066" type="box" rgba="0.85 0.85 0.8 1" mass="0.004"/>
+                                <geom name="right_pad_a" size="0.0035 0.001 0.01" pos="0 0.001 0.066" type="box" condim="4" friction="0.9 0.02 0.001" solref="0.004" solimp="0.95 0.99" rgba="0.15 0.4 0.8 1" mass="0.002"/>
                               </body>
                               <body name="right_finger_b" pos="0 0 0.07">
                                 <joint name="right_finger_b" type="slide" range="0 0.025" armature="0.005" damping="3" axis="0 -1 0"/>
-                                <geom name="right_finger_b_link" size="0.006 0.003 0.03" pos="0 -0.006 0.03" type="box" rgba="0.6 0.6 0.62 1" mass="0.015"/>
-                                <geom name="right_finger_b_tip" size="0.0035 0.0025 0.012" pos="0 -0.0055 0.066" type="box" rgba="0.85 0.85 0.8 1" mass="0.004"/>
-                                <geom name="right_pad_b" size="0.0035 0.0015 0.01" pos="0 -0.0015 0.066" type="box" condim="4" friction="0.9 0.02 0.001" solref="0.004" solimp="0.95 0.99" rgba="0.15 0.4 0.8 1" mass="0.002"/>
+                                <geom name="right_finger_b_link" size="0.006 0.003 0.03" pos="0 -0.005 0.03" type="box" rgba="0.6 0.6 0.62 1" mass="0.015"/>
+                                <geom name="right_finger_b_tip" size="0.0035 0.0015 0.012" pos="0 -0.0035 0.066" type="box" rgba="0.85 0.85 0.8 1" mass="0.004"/>
+                                <geom name="right_pad_b" size="0.0035 0.001 0.01" pos="0 -0.001 0.066" type="box" condim="4" friction="0.9 0.02 0.001" solref="0.004" solimp="0.95 0.99" rgba="0.15 0.4 0.8 1" mass="0.002"/>
+                              </body>
+                              <body name="right_press_pin" pos="0.0095 0 0.074">
+                                <joint name="right_press_pin" type="slide" range="0 0.094" armature="0.002" damping="2"/>
+                                <geom name="right_press_pin" size="0.0025 0.05" pos="0 0 -0.05" quat="0 1 0 0" type="capsule" rgba="0.8 0.5 0.1 1" mass="0.01"/>
+                                <site name="right_press_tip" size="0.002" pos="0 0 0.0025"/>
                               </body>
                             </body>
                           </body>
@@ -326,10 +336,16 @@
     <exclude body1="lift_platform" body2="right_fr3_link1"/>
     <exclude body1="left_fr3_link0" body2="left_fr3_link1"/>
     <exclude body1="left_fr3_link7" body2="left_hand"/>
+    <exclude body1="left_fr3_link7" body2="left_press_pin"/>
     <exclude body1="left_finger_a" body2="left_finger_b"/>
+    <exclude body1="left_finger_a" body2="left_press_pin"/>
+    <exclude body1="left_finger_b" body2="left_press_pin"/>
     <exclude body1="right_fr3_link0" body2="right_fr3_link1"/>
     <exclude body1="right_fr3_link7" body2="right_hand"/>
+    <exclude body1="right_fr3_link7" body2="right_press_pin"/>
     <exclude body1="right_finger_a" body2="right_finger_b"/>
+    <exclude body1="right_finger_a" body2="right_press_pin"/>
+    <exclude body1="right_finger_b" body2="right_press_pin"/>
   </contact>
 
   <equality>
@@ -349,6 +365,7 @@
     <general name="left_fr3_joint5_motor" joint="left_fr3_joint5" ctrlrange="-12 12" ctrllimited="true"/>
     <general name="left_fr3_joint6_motor" joint="left_fr3_joint6" ctrlrange="-12 12" ctrllimited="true"/>
     <general name="left_fr3_joint7_motor" joint="left_fr3_joint7" ctrlrange="-12 12" ctrllimited="true"/>
+    <general name="left_press_pin" joint="left_press_pin" ctrlrange="0 0.094" ctrllimited="true" forcelimited="true" forcerange="-40 40" biastype="affine" gainprm="3000" biasprm="0 -3000 -60"/>
     <general name="left_gripper" joint="left_finger_a" ctrlrange="0 0.025" ctrllimited="true" forcelimited="true" forcerange="-40 40" biastype="affine" gainprm="4000" biasprm="0 -4000 -80"/>
     <general name="right_fr3_joint1_motor" joint="right_fr3_joint1" ctrlrange="-87 87" ctrllimited="true"/>
     <general name="right_fr3_joint2_motor" joint="right_fr3_joint2" ctrlrange="-87 87" ctrllimited="true"/>
@@ -357,10 +374,11 @@
     <general name="right_fr3_joint5_motor" joint="right_fr3_joint5" ctrlrange="-12 12" ctrllimited="true"/>
     <general name="right_fr3_joint6_motor" joint="right_fr3_joint6" ctrlrange="-12 12" ctrllimited="true"/>
     <general name="right_fr3_joint7_motor" joint="right_fr3_joint7" ctrlrange="-12 12" ctrllimited="true"/>
+    <general name="right_press_pin" joint="right_press_pin" ctrlrange="0 0.094" ctrllimited="true" forcelimited="true" forcerange="-40 40" biastype="affine" gainprm="3000" biasprm="0 -3000 -60"/>
     <general name="right_gripper" joint="right_finger_a" ctrlrange="0 0.025" ctrllimited="true" forcelimited="true" forcerange="-40 40" biastype="affine" gainprm="4000" biasprm="0 -4000 -80"/>
   </actuator>
 
   <keyframe>
-    <key name="home" qpos="0 0 0 0.3 0 -0.6 0 -2.2 0 1.6 -0.785 0.025 0.025 0 -0.6 0 -2.2 0 1.6 -0.785 0.025 0.025" ctrl="0 0 0 0.3 0 0 0 0 0 0 0 0.025 0 0 0 0 0 0 0 0.025"/>
+    <key name="home" qpos="0 0 0 0.3 0 -0.6 0 -2.2 0 1.6 -0.785 0.025 0.025 0 0 -0.6 0 -2.2 0 1.6 -0.785 0.025 0.025 0" ctrl="0 0 0 0.3 0 0 0 0 0 0 0 0 0.025 0 0 0 0 0 0 0 0 0.025"/>
   </keyframe>
 </mujoco>

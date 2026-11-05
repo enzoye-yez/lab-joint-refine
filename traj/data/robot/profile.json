@@ -91,9 +91,22 @@
     "tcp_from_flange_m": 0.136,
     "fingertip_from_tcp_m": 0.012,
     "pad_half_height_m": 0.01,
-    "finger_thickness_m": 0.009000000000000001,
-    "tip_thickness_m": 0.008,
-    "body_radius_m": 0.032
+    "finger_thickness_m": 0.008,
+    "tip_thickness_m": 0.005,
+    "body_radius_m": 0.032,
+    "press_pin": {
+     "joint": "left_press_pin",
+     "actuator": "left_press_pin",
+     "body": "left_press_pin",
+     "extended": 0.094,
+     "radius_m": 0.0025,
+     "max_force_n": 40.0,
+     "tip_from_tcp_m": [
+      0.0095,
+      0.0,
+      0.0345
+     ]
+    }
    },
    "wrist_camera": "left_wrist_camera",
    "home": [
@@ -188,9 +201,22 @@
     "tcp_from_flange_m": 0.136,
     "fingertip_from_tcp_m": 0.012,
     "pad_half_height_m": 0.01,
-    "finger_thickness_m": 0.009000000000000001,
-    "tip_thickness_m": 0.008,
-    "body_radius_m": 0.032
+    "finger_thickness_m": 0.008,
+    "tip_thickness_m": 0.005,
+    "body_radius_m": 0.032,
+    "press_pin": {
+     "joint": "right_press_pin",
+     "actuator": "right_press_pin",
+     "body": "right_press_pin",
+     "extended": 0.094,
+     "radius_m": 0.0025,
+     "max_force_n": 40.0,
+     "tip_from_tcp_m": [
+      0.0095,
+      0.0,
+      0.0345
+     ]
+    }
    },
    "wrist_camera": "right_wrist_camera",
    "home": [
@@ -231,5 +257,5 @@
   "glass": 30.0,
   "instrument_door": 40.0
  },
- "mass_kg": 116.8549701087115
+ "mass_kg": 116.87497010871151
 }

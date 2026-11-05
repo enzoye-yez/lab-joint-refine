@@ -27,6 +27,10 @@ class Arm:
     pads: tuple              # geom ids
     fingers: tuple           # body ids
     home: np.ndarray
+    pin_actuator: int = -1   # retractable press pin (if the tool has one)
+    pin_qpos: int = -1
+    pin_extended: float = 0.0
+    pin_tip: np.ndarray = None   # pin tip relative to the TCP when extended, tool frame
 
 
 class Robot:
@@ -51,6 +55,12 @@ class Robot:
                                   model.site(name(a["tcp_site"])).id, model.actuator(name(g["actuator"])).id,
                                   g["open"], tuple(model.geom(name(x)).id for x in g["pads"].values()),
                                   tuple(model.body(name(x)).id for x in g["finger_bodies"]), np.array(a["home"], float))
+            pin = g.get("press_pin")
+            if pin:
+                arm = self.arms[side]
+                arm.pin_actuator = model.actuator(name(pin["actuator"])).id
+                arm.pin_qpos = int(model.jnt_qposadr[model.joint(name(pin["joint"])).id])
+                arm.pin_extended, arm.pin_tip = pin["extended"], np.array(pin["tip_from_tcp_m"], float)
         self.bodies = subtree_bodies(model, self.root)
         self.geoms = body_geoms(model, self.bodies)
         self.base_qpos = model.jnt_qposadr[self.base_joints]

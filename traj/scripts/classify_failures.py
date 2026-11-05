@@ -38,6 +38,10 @@ CATEGORIES = {
     "P3_prerequisite_failed": "Precondition: opening the blocking lid/door with its own interface failed",
     "G5_regrasp_failed": "Mechanism: a regrasp between wrist turns failed",
     "L1_layout_beyond_reach": "Layout: the part is beyond arm reach from every free floor position (scene feedback)",
+    "T1_tool_does_not_fit": "Tool: no antipodal grasp where the fingers clear the neighbours (tool design feedback)",
+    "T2_pin_does_not_fit": "Tool: the press pin cannot reach the button without the hand touching something",
+    "G6_no_antipodal_grasp": "Grasp: the part geometry offers no antipodal pair within the opening",
+    "P4_unlock_failed": "Precondition: the interface that releases a declared lock failed",
     "X1_code_error": "Code error (not a task failure)",
     "X2_other": "Unclassified",
 }
@@ -74,6 +78,15 @@ def classify(r):
         if closest["stage"] == "goal" or any(k in robot_geom for k in ("finger", "pad", "hand")):
             return "C2_fingers_collide_at_grasp" if closest["stage"] == "goal" else "C1_arm_collides_pre", evidence
         return "C1_arm_collides_pre", evidence
+    if reason == "no_grasp":
+        fit = sum(detail.get(k, 0) for k in ("open_collision", "closed_collision", "corridor"))
+        geometry = sum(detail.get(k, 0) for k in ("no_part_between", "not_antipodal"))
+        evidence = {"blocking": detail.get("blocking", {}), "fit": fit, "geometry": geometry}
+        return ("T1_tool_does_not_fit" if fit >= geometry else "G6_no_antipodal_grasp"), evidence
+    if reason == "no_press_pose":
+        return "T2_pin_does_not_fit", {"blocking": detail.get("blocking", {})}
+    if reason == "unlock_failed":
+        return "P4_unlock_failed", detail.get("step", {})
     if reason == "prerequisite_failed":
         return "P3_prerequisite_failed", detail.get("step", {})
     if reason in ("regrasp_failed", "regrasp_missed"):
@@ -137,6 +150,9 @@ def main(directory):
         evidence = collections.Counter()
         for i in group:
             e = i["evidence"]
+            if isinstance(e.get("blocking"), dict) and e["blocking"]:
+                evidence[instrument(next(iter(e["blocking"])))] += 1
+                continue
             key = e.get("robot", "") + " vs " + instrument(e.get("other", "")) if "robot" in e else \
                 instrument(e.get("by", "") or e.get("geom", "") or "") or ",".join(map(instrument, e.get("touching", []))) or ""
             if key:

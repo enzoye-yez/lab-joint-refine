@@ -24,6 +24,7 @@ from np002_traj.skills.dock import Kinematics
 from np002_traj.skills.library import SKILLS, Context
 from np002_traj.planning.base import OccupancyMap
 from np002_traj.tasks.benchmark import task_for
+from np002_traj.tasks.semantics import Semantics
 
 CONFIG = json.loads((ROOT / "config/np002.json").read_text())
 STATE = {}
@@ -49,6 +50,7 @@ def init():
     mujoco.mj_resetDataKeyframe(model, data, model.key("assembled").id)
     mujoco.mj_forward(model, data)
     interfaces, _ = load(model, CONFIG["scene_source"], data)
+    STATE.update(semantics=Semantics(model, CONFIG["scene_source"]), active=data.eq_active.copy())
     STATE.update(model=model, robot=robot, interfaces={i.id: i for i in interfaces}, kinematics=Kinematics(),
                  occupancy=OccupancyMap(model, data, robot), roots=instance_roots(model, robot), directory=directory)
 
@@ -61,19 +63,54 @@ def prerequisite(abort, model, payload):
     if abort.reason != "enclosed" or not abort.detail.get("joint"):
         return None
     joint = model.joint(abort.detail["joint"]).id
+    if abort.detail.get("movable") == "free":
+        # A loose part lies in the way: pick it by its own grasp interface and put it down aside.
+        for candidate in STATE["interfaces"].values():
+            if candidate.kind == "grasp" and candidate.mechanism.joint == joint:
+                task = make_task(candidate, model, payload)
+                if not task.excluded and task.skill == "pick":
+                    task.skill = "set_aside"
+                    return candidate, task
+        return None
     for candidate in STATE["interfaces"].values():
         if candidate.kind == "grasp" and candidate.mechanism.joint == joint:
-            task = task_for(candidate, model, payload)
+            task = make_task(candidate, model, payload)
             if not task.excluded:
                 return candidate, task
     return None
+
+
+def make_task(interface, model, payload):
+    return task_for(interface, model, payload, semantics=STATE["semantics"], active=STATE["active"])
+
+
+def unlock(ctx, session, task, model, payload, result):
+    """Release the locks the asset declares for this part, each with its own interface's skill first."""
+    for lock in task.unlock:
+        opener = STATE["interfaces"].get(lock["interface"])
+        step = {"interface": lock["interface"], "for": lock["connection"], "unlock": True}
+        opener_task = make_task(opener, model, payload) if opener else None
+        if opener_task is None or opener_task.excluded or not opener_task.skill:
+            step["failed"] = "release interface has no runnable task"
+            result["prerequisites"].append(step)
+            raise Abort("unlock_failed", step=step)
+        opener_task.key = "pre:" + opener.id
+        try:
+            session.monitor.evaluate(opener_task.goal, opener_task.key)
+            SKILLS[opener_task.skill](ctx, opener, opener_task)
+        except Abort as inner:
+            step["failed"] = inner.reason
+            result["prerequisites"].append(step)
+            raise Abort("unlock_failed", step=step)
+        session.data.eq_active[lock["equality"]] = 0          # the release event of that interface
+        result["prerequisites"].append(step)
 
 
 def run_task(task_id):
     model, robot = STATE["model"], STATE["robot"]
     interface = STATE["interfaces"][task_id]
     payload = robot.profile["arms"]["left"]["payload_kg"]
-    task = task_for(interface, model, payload)
+    task = make_task(interface, model, payload)
     data = mujoco.MjData(model)
     mujoco.mj_resetDataKeyframe(model, data, model.key("assembled").id)
     mujoco.mj_forward(model, data)
@@ -91,6 +128,7 @@ def run_task(task_id):
               "instance": interface.instance}
     result["prerequisites"] = []
     try:
+        unlock(ctx, session, task, model, payload, result)
         for attempt in range(MAX_PREREQUISITES + 1):
             try:
                 SKILLS[task.skill](ctx, interface, task)
@@ -101,10 +139,13 @@ def run_task(task_id):
                     raise
                 # Something movable is in the way (a lid, a door): open it with its own interface first.
                 step = {"interface": opener[0].id, "for": exc.detail.get("geom")}
+                opener[1].key = "pre:" + opener[0].id
                 session.monitor.evaluate(opener[1].goal, "pre:" + opener[0].id)      # anchor its start
                 try:
                     SKILLS[opener[1].skill](ctx, opener[0], opener[1])
                     step["opened"] = session.monitor.evaluate(opener[1].goal, "pre:" + opener[0].id)
+                    if opener[1].skill != "set_aside":         # even part-way: let the exact checks decide
+                        ctx.opened = (ctx.opened or set()) | {opener[0].mechanism.joint}
                 except Abort as inner:
                     step["failed"] = inner.reason
                     result["prerequisites"].append(step)
@@ -116,6 +157,7 @@ def run_task(task_id):
         result["reason"], result["detail"] = exc.reason, exc.detail
     except Exception as exc:                                         # a code bug, never fed to a model
         result["reason"], result["detail"] = "code_error", {"error": repr(exc), "trace": traceback.format_exc()[-1500:]}
+    own |= ctx.moved or set()                                       # set aside on purpose by a prerequisite
     moved = {model.body(b).name: float(np.linalg.norm(data.xpos[b] - p)) for b, p in start.items() if b not in own}
     disturbed = {k: v for k, v in moved.items() if v > 0.005}
     goal = session.monitor.evaluate(task.goal, "goal")
@@ -139,7 +181,7 @@ def main():
     init()
     model, robot = STATE["model"], STATE["robot"]
     payload = robot.profile["arms"]["left"]["payload_kg"]
-    tasks = {i: task_for(f, model, payload) for i, f in STATE["interfaces"].items()}
+    tasks = {i: make_task(f, model, payload) for i, f in STATE["interfaces"].items()}
     runnable = sorted(i for i, t in tasks.items() if not t.excluded)
     if args.only:
         runnable = [i for i in runnable if i in set(args.only)]

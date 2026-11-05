@@ -104,6 +104,35 @@ class CollisionWorld:
         self.last_self_pair = self_pair
         return obstacle, own, pair
 
+    def close_pairs(self, q, limit):
+        """Every robot-obstacle and robot-robot pair closer than `limit` at posture q:
+        (signed distance, robot geom, other geom, point on robot, unit direction robot -> other, self pair)."""
+        self._pose(q)
+        m, d = self.model, self.data
+        out = []
+        pairs = self.obstacle_pairs
+        if len(getattr(self, "allowed", ())):
+            pairs = pairs[~np.isin(pairs[:, 1], self.allowed)]
+        fromto = np.zeros(6)
+        for group, own in ((pairs, False), (self.self_pairs, True)):
+            if not len(group):
+                continue
+            a, b = group[:, 0], group[:, 1]
+            gap = np.linalg.norm(d.geom_xpos[a] - d.geom_xpos[b], axis=1) - m.geom_rbound[a] - m.geom_rbound[b]
+            plane = np.isin(m.geom_type[a], PLANES) | np.isin(m.geom_type[b], PLANES)
+            for i in np.flatnonzero((gap < limit) | plane):
+                value = mujoco.mj_geomDistance(m, d, int(a[i]), int(b[i]), limit, fromto)
+                if value >= limit:
+                    continue
+                direction = fromto[3:] - fromto[:3]
+                norm = np.linalg.norm(direction)
+                if norm < 1e-9:
+                    direction, norm = d.geom_xpos[b[i]] - d.geom_xpos[a[i]], 1.0
+                    norm = np.linalg.norm(direction) or 1.0
+                direction = direction / norm * (1.0 if value >= 0 else -1.0)
+                out.append((float(value), int(a[i]), int(b[i]), fromto[:3].copy(), direction, own))
+        return out
+
     def valid(self, q):
         obstacle, own, _ = self.clearance(q)
         return obstacle >= self.margin and own >= self.self_margin

@@ -22,8 +22,9 @@ from asset_prep.storage import atomic_json, run_lock, safe_path
 from scene_generation.contracts import SceneConfig, environment
 from scene_generation.gallery import export as export_assets
 
-# Per-run limits: twice the original 800 calls / 240M tokens, pending measured runs.
-BUDGET = {"max_model_calls": 1600, "max_reserved_tokens": 480000000}
+# Per-run limits: NP-002 with gpt-6.1-sol used 411M tokens over 400 calls before its repair
+# rounds converged (about 25M tokens a round), so tokens get room for about ten more rounds.
+BUDGET = {"max_model_calls": 1600, "max_reserved_tokens": 720000000}
 
 
 READY = {"static_preview_ready", "static_candidate_ready"}

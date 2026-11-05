@@ -270,6 +270,15 @@ class QualityLoopTests(unittest.TestCase):
         self.assertTrue(SceneRun.select_repair_candidate(run))
         self.assertEqual((entry['selection'],run.state.get('restored')),('baseline_preserved',True))
 
+    def test_a_collision_row_that_lost_coverage_belongs_to_its_unmeasured_pairs(self):
+        from scene_generation.pipeline import SceneRun
+        run,entry=self.salvage_run({'outcome':'coverage_lost','adopt':False,'resolved_checks':['support_fit:b1'],
+            'new_defects':[],'coverage_lost':['scene_collisions']})
+        run.state['latest']['report']['checks'].append({'id':'scene_collisions','status':'partial','instances':['a1','b1'],
+            'coverage_gaps':[{'instances':['b1','c1'],'outcome':'unknown'}]})
+        self.assertTrue(SceneRun.select_repair_candidate(run))
+        self.assertEqual((entry['status'],entry['reverted_jobs']),('applied',['b','c']))
+
     def test_an_unattributed_or_gainless_regression_is_not_salvaged(self):
         from scene_generation.pipeline import SceneRun
         for comparison in ({'outcome':'mixed','adopt':False,'resolved_checks':['x'],

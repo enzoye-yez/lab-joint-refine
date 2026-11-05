@@ -739,8 +739,10 @@ class SceneRun:
             row=next((r for report in reports for r in report.get("checks",[]) if r.get("id")==check),{})
             instances=set(row.get("instances",[]))
             if head=="scene_collisions":
-                # A whole-scene collision row: only the pairs that were added count.
-                instances={n.split("__",1)[0] for unit in added or [] for n in unit.removeprefix("pair:").split("|")}
+                # A whole-scene collision row: only the pairs that were added count; a row that lost
+                # coverage belongs to the pairs it could not measure.
+                instances=({n.split("__",1)[0] for unit in added for n in unit.removeprefix("pair:").split("|")} if added
+                           else {i for gap in row.get("coverage_gaps",[]) for i in gap.get("instances",[])})
         jobs={items[i] for i in instances if i in items}
         return jobs or None
 

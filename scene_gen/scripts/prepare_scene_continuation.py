@@ -162,7 +162,8 @@ def prepare(project, source_name, target_name, before_file=None, kind="stage_rev
                    # pre-existing defects a re-review finds on unchanged assets are repair work, not a regression
                    "discovered_defects":{"src/scene_generation/progress.py", "src/scene_generation/pipeline.py",
                        "src/scene_generation/prompts.py"},
-                   # a measured mount contact passes beside unmeasured pairs; a checker crash leaves the round unjudged
+                   # a measured mount contact passes beside unmeasured pairs; a checker crash leaves the round unjudged;
+                   # unmeasured collision pairs are attributed to their assets
                    "checker_failure":{"src/scene_generation/inspection.py", "src/scene_generation/pipeline.py"},
                    "asset_checks":{"src/asset_generation/probes.py", "src/asset_generation/motion.py",
                        "src/asset_generation/checks.py", "src/asset_generation/local.py"},
@@ -442,7 +443,8 @@ def prepare(project, source_name, target_name, before_file=None, kind="stage_rev
                              "is new repair work and no longer rejects the round"
                              if kind == "discovered_defects" else
                              "keep assets, reviews and call ledger; the right-arm mount check no longer crashes the scene checker, "
-                             "and a round whose candidate the checker failed to assess is checked again instead of being rejected"
+                             "and a round whose candidate the checker failed to assess is checked again instead of being rejected; "
+                             "a collision check that lost coverage reverts the assets behind its unmeasured pairs"
                              if kind == "checker_failure" else
                              "keep existing geometry and ledger; re-review after enabling read-only evidence supplementation; unknown requests stay pending and automatic resend is forbidden"
                              if kind == "evidence_recovery" else

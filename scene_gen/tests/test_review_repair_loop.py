@@ -43,6 +43,19 @@ class ReviewRepairContractTests(unittest.TestCase):
         correction=seen[1]["review_format_correction"]
         self.assertEqual(correction["item_feedback"]["missing_ids"],["b"])
         self.assertEqual(correction["item_feedback"]["retained_ids"],["a"])
+    def test_format_retry_resends_the_contract_but_not_the_evidence_or_images(self):
+        seen=[];images=[]
+        class Model:
+            def ask(inner,instruction,context,shown,phase):
+                seen.append(deepcopy(context));images.append(len(shown))
+                return ({"verdict":"accept"} if len(seen)==1 else ACCEPT),{"source":"developer_fixture"}
+        context={"checks":{"rows":"x"*100000},"review_scope":"scene","deferred_checks":[]}
+        ask_review(Model(),"fixture",context,[{"path":"a.png"}],"test",self.root,validator=lambda v:scoped_review(v,"asset"))
+        self.assertEqual(images,[1,0])
+        self.assertNotIn("checks",seen[1])
+        self.assertEqual(seen[1]["evidence_not_resent"],["checks"])
+        self.assertEqual(seen[1]["review_scope"],"scene")
+        self.assertIn("error",seen[1]["review_format_correction"])
     def test_duplicate_conflict_is_not_preserved_and_unknown_is_explicit(self):
         good,errors=resolution_feedback([answer("a"),answer("a","unresolved"),answer("b"),answer("evil")],{"a","b"})
         self.assertEqual(set(good),{"b"})

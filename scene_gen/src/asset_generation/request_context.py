@@ -41,7 +41,7 @@ PINNED = {
     "allowed_jobs", "allowed_instances", "review_scope", "scope",
     "deferred_checks", "unresolved_checks", "questions", "capabilities",
     "review_format_correction", "authoring_capabilities", "task_recovery",
-    "layout_review_targets",
+    "layout_review_targets", "evidence_not_resent",
 }
 MATERIAL = {"input", "source", "protocol", "source_requirements"}
 FACTS = {

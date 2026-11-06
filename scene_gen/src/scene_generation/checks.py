@@ -179,8 +179,61 @@ def _support_evidence(model, data, item, tolerance, collision_tolerance, geometr
                      "No nearby support geometry found" if not examined else "Nearby geometry has no support contact satisfying the gap and upward-direction criteria"}
 
 
+def operating_azimuth(model, data, prefix):
+    """Free-camera azimuth (degrees) that looks at an instance's operating face, its root body's local -y."""
+    roots = [b for b in range(1,model.nbody) if owner_of_body(model,b) == prefix and owner_of_body(model,int(model.body_parentid[b])) != prefix]
+    if not roots:
+        return 45.0
+    face = -data.xmat[roots[0]].reshape(3,3)[:,1]
+    if np.hypot(face[0],face[1]) < 1e-6:
+        return 45.0
+    # The camera sits on the face side, a quarter turn off square so depth stays readable.
+    return float(np.degrees(np.arctan2(-face[1],-face[0]))) + 25.0
+
+
+def owner_of_body(model, body):
+    while body:
+        name = model.body(int(body)).name
+        if name and "__" in name:
+            return name.split("__",1)[0]
+        body = int(model.body_parentid[body])
+    return "unassigned"
+
+
+def segment_hits_box(start, end, lo, hi):
+    """Slab test: does the segment start->end pass through the axis-aligned box [lo, hi]?"""
+    direction = end - start
+    near, far = 0.0, 1.0
+    for axis in range(3):
+        if abs(direction[axis]) < 1e-12:
+            if not lo[axis] <= start[axis] <= hi[axis]:
+                return False
+            continue
+        a, b = sorted(((lo[axis]-start[axis])/direction[axis], (hi[axis]-start[axis])/direction[axis]))
+        near, far = max(near,a), min(far,b)
+        if near > far:
+            return False
+    return True
+
+
+def fade_occluders(model, data, scene, prefix, eye, lo, hi, alpha=.12):
+    """Make other instances' and the room's geometry between the camera and the target nearly transparent."""
+    from .geometry import owner, bounds
+    center = (lo+hi)/2
+    targets = [center] + [center + .5*(np.array(c)-center) for c in np.stack(np.meshgrid(*zip(lo,hi)),-1).reshape(-1,3)]
+    for g in range(scene.ngeom):
+        geom = scene.geoms[g]
+        if geom.objtype != mujoco.mjtObj.mjOBJ_GEOM or owner(model,geom.objid) == prefix \
+                or model.geom_type[geom.objid] == mujoco.mjtGeom.mjGEOM_PLANE:
+            continue
+        box = bounds(model,data,geom.objid)
+        if any(segment_hits_box(eye,t,box[0],box[1]) for t in targets):
+            geom.rgba[3] = min(geom.rgba[3],alpha)
+
+
 def render_details(model, home, plan, output):
-    """Close-up of an instance in the current whole scene; does not change pose or advance physics time."""
+    """Close-up of an instance in the current whole scene, seen from its operating face with occluding geometry faded;
+    does not change pose or advance physics time."""
     from PIL import Image
     output = Path(output)
     data = mujoco.MjData(model)
@@ -200,8 +253,11 @@ def render_details(model, home, plan, output):
             mujoco.mjv_defaultFreeCamera(model,camera)
             camera.lookat[:] = (lo+hi)/2
             camera.distance = max(.15,float(np.linalg.norm(hi-lo))*1.8)
-            camera.azimuth, camera.elevation = 45,-35
+            camera.azimuth, camera.elevation = operating_azimuth(model,data,item["id"]),-30
             renderer.update_scene(data,camera)
+            az, el = np.radians(camera.azimuth), np.radians(camera.elevation)
+            forward = np.array([np.cos(el)*np.cos(az),np.cos(el)*np.sin(az),np.sin(el)])
+            fade_occluders(model,data,renderer.scene,item["id"],camera.lookat-camera.distance*forward,lo,hi)
             name = "detail_"+item["id"]+".png"
             Image.fromarray(renderer.render()).save(output/name)
             paths.append(name)

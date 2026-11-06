@@ -572,9 +572,9 @@ def push(ctx, interface, task, stage=0):
     """Drive a 1-DoF mechanism by pushing it with the side of the press pin along its own motion.
 
     A long motion (a lid opening through 90 degrees) goes in stages: each dock only has to follow
-    the next stage of the motion; then the tool backs off, and the next push is synthesised and
-    docked from where the part is now."""
-    from .grasp import push_frames
+    the next stage of the motion. Between stages the other arm takes over from the same base while
+    the first still holds the part (a lid that would fall back stays up); without a relay the tool
+    backs off and the next push is synthesised and docked from where the part is now."""
     s, m = ctx.session, ctx.session.model
     joint = interface.mechanism.joint
     address = m.jnt_qposadr[joint]
@@ -583,40 +583,93 @@ def push(ctx, interface, task, stage=0):
     far = high if high - now >= now - low else low
     target = now + (far - now) * DRIVE_FRACTION
     site = _site(s, interface)
-    first = mechanism_poses(m, s.data, interface, joint, now + (target - now) * 0.02, site, np.eye(3), 1)[0][0]
-    if np.linalg.norm(first - site) < 1e-6:
-        raise Abort("no_push_pose", why="the site does not move with the joint")
     side0 = next(iter(s.robot.arms))
-    report = {}
-    for element in ("pin", "blade"):
-        arm0 = s.robot.arms[side0]
-        tip = arm0.pin_tip if element == "pin" else arm0.blade_tip
-        if tip is None:
-            continue
-        # The blade goes only under an overhanging edge: try holding its front edge back from the site.
-        depths = (0.0,) if element == "pin" else (0.001, 0.002, 0.004)
-        frames, found = push_frames(m, s.data, interface, ctx.probe(), s.robot.geoms, tip, first - site,
-                                    element=element, depths=depths)
-        _note(ctx, "push_synthesis", element=element, **found)
-        report[element] = {k: v for k, v in found.items() if k != "blocking"}
-        report.setdefault("blocking", {}).update(found["blocking"])
-        if frames:
-            pin_tip = tip
-            break
-    else:
+    frames, element, report = _push_synthesis(ctx, interface, side0, target)
+    if not frames:
         raise Abort("no_push_pose", **report)
     part = set(part_geoms(m, s.data, interface, site, radius=0.015).tolist())
     s.allowed_contact = part
     dock = _approach(ctx, interface, frames, part, hand_state=_pin_hand(s, element), prepare=_pin_deploy(s, element),
                      path=operation_path(ctx, interface, limit=PUSH_STAGE.get(interface.mechanism.kind)),
                      tool=_element_geoms(s, element))
+    dock.element = element
     _final_approach(ctx, dock)
     release_events(ctx, task, "grasped")          # the pin is at the part: its declared release (unlatch)
-    arm = s.robot.arms[dock.side]
-    rotation = s.data.site_xmat[arm.tcp].reshape(3, 3).copy()
-    offset = rotation @ pin_tip
     done = lambda: s.monitor.evaluate(task.goal, task.key) is True
     s.monitor.evaluate(task.goal, task.key)
+    begin = s.data.qpos[address]
+    for relay in range(MAX_PUSH_STAGES):
+        reached, handover = _drive(ctx, interface, task, dock, target, relay)
+        if reached or done():
+            break
+        if handover is None:
+            handover = _relay(ctx, interface, dock, target)
+        if handover is None:
+            break
+        # The other arm is on the part: only now does this one let go.
+        _retreat(ctx, dock)
+        _stow_element(s, dock)
+        dock = handover
+    pushed = abs(s.data.qpos[address] - begin)
+    if not done():
+        s.wait(1.0, done)
+    _retreat(ctx, dock)
+    _stow_element(s, dock)
+    s.wait(0.5)
+    progress = abs(s.data.qpos[address] - begin)
+    if pushed > 0.05 and progress < 0.5 * pushed:
+        # The part goes back when let go (a lid below its balance point) and no relay was possible.
+        raise Abort("falls_back", pushed=round(float(pushed), 3), kept=round(float(progress), 3), stage=stage)
+    if not done() and stage + 1 < MAX_PUSH_STAGES and progress > 0.1 * PUSH_STAGE.get(interface.mechanism.kind, np.inf):
+        push(ctx, interface, task, stage + 1)
+
+
+RELAY_PRE = 0.03            # m: the other arm comes in short, beside the holding wrist
+RELAY_SHIFTS = (0.0, 0.008, -0.008, 0.02, -0.02, 0.035, -0.035)   # m along the edge, clear of the first tool
+
+
+def _push_synthesis(ctx, interface, side, target, relay=False):
+    """Push frames for `side` at the part's current state: the pin first, then the pry blade.
+    For a relay the second tool goes on the same edge but beside the first one."""
+    from .grasp import push_frames
+    s, m = ctx.session, ctx.session.model
+    joint = interface.mechanism.joint
+    now = s.data.qpos[m.jnt_qposadr[joint]]
+    site = _site(s, interface)
+    first = mechanism_poses(m, s.data, interface, joint, now + (target - now) * 0.02, site, np.eye(3), 1)[0][0]
+    if np.linalg.norm(first - site) < 1e-6:
+        raise Abort("no_push_pose", why="the site does not move with the joint")
+    arm = s.robot.arms[side]
+    report = {}
+    for element in ("pin", "blade"):
+        tip = arm.pin_tip if element == "pin" else arm.blade_tip
+        if tip is None:
+            continue
+        # The blade goes only under an overhanging edge: try holding its front edge back from the site.
+        depths = (0.0,) if element == "pin" else (0.001, 0.002, 0.004)
+        extra = {"shifts": RELAY_SHIFTS, "part_radius": 0.06} if relay else {}
+        frames, found = push_frames(m, s.data, interface, ctx.probe(side), s.robot.geoms, tip, first - site,
+                                    element=element, depths=depths, **extra)
+        _note(ctx, "push_synthesis", side=side, element=element, **found)
+        report[element] = {k: v for k, v in found.items() if k != "blocking"}
+        report.setdefault("blocking", {}).update(found["blocking"])
+        if frames:
+            return frames, element, report
+    return [], None, report
+
+
+RELAY_CHECKS = (0.5, 0.75)     # fractions of a stage at which the other arm tries to take over
+
+
+def _drive(ctx, interface, task, dock, target, relay):
+    """Closed-loop push with the docked tool through at most one stage of the motion.
+    (goal reached, the other arm's dock if it took over part-way)."""
+    s, m = ctx.session, ctx.session.model
+    joint = interface.mechanism.joint
+    address = m.jnt_qposadr[joint]
+    arm = s.robot.arms[dock.side]
+    tool_tip = arm.pin_tip if dock.element == "pin" else arm.blade_tip
+    done = lambda: s.monitor.evaluate(task.goal, task.key) is True
     cartesian = s.cartesian[dock.side]
     cartesian.kp[:3] = PUSH_STIFFNESS
     cartesian.kd[:3] = 2 * np.sqrt(PUSH_STIFFNESS * 3.0)
@@ -625,17 +678,25 @@ def push(ctx, interface, task, stage=0):
     step = 0.05 if interface.mechanism.kind == "hinge" else 0.005
     reached, stalled, best = False, 0, s.data.qpos[address]
     begin = best
+    # The tool's pose on the part at contact: every set-point is taken from where the part is now, so
+    # the tool follows the part back if it slips and never runs off along the arc on its own.
+    body = interface.body
+    rot_b = s.data.xmat[body].reshape(3, 3)
+    local_pos = rot_b.T @ (s.data.site_xpos[arm.tcp] - s.data.xpos[body])
+    local_rot = rot_b.T @ s.data.site_xmat[arm.tcp].reshape(3, 3)
     stage_end = begin + np.sign(target - begin) * min(abs(target - begin), PUSH_STAGE.get(interface.mechanism.kind, np.inf))
+    checks = list(RELAY_CHECKS) if abs(target - begin) > abs(stage_end - begin) + 1e-6 else []
     for _ in range(MAX_PUSH_STEPS):
         now = s.data.qpos[address]
         if (target - now) * np.sign(target - best + 1e-12) <= 0 or (stage_end - now) * np.sign(target - begin + 1e-12) <= 0:
             break
         # The tool keeps its pose relative to the part (it turns with a lid), pushing slightly ahead.
-        tcp_pos, tcp_rot = s.data.site_xpos[arm.tcp].copy(), s.data.site_xmat[arm.tcp].reshape(3, 3).copy()
-        tip = tcp_pos + tcp_rot @ pin_tip
+        rot_b = s.data.xmat[body].reshape(3, 3)
+        tcp_pos, tcp_rot = s.data.xpos[body] + rot_b @ local_pos, rot_b @ local_rot
+        tip = tcp_pos + tcp_rot @ tool_tip
         ahead = now + np.sign(target - now) * min(step, abs(target - now))
         (moved_tcp, moved_rot), = mechanism_poses(m, s.data, interface, joint, ahead, tcp_pos, tcp_rot, 1)
-        moved_tip = moved_tcp + moved_rot @ pin_tip
+        moved_tip = moved_tcp + moved_rot @ tool_tip
         lead = (moved_tip - tip) / max(np.linalg.norm(moved_tip - tip), 1e-9) * PUSH_LEAD
         # A little further in along the way in, so a blade stays under the edge it lifts.
         motion.move_tcp(s, dock.side, moved_tcp + lead + moved_rot[:, 2] * PUSH_INSERT, moved_rot, speed=0.04,
@@ -650,19 +711,57 @@ def push(ctx, interface, task, stage=0):
             stalled += 1
             if stalled >= 4:
                 break
-    _note(ctx, "push", reached=reached, stage=stage, detail=s.monitor.details.get(task.key))
-    if not reached:
-        s.wait(1.0, done)
-    pushed = abs(s.data.qpos[address] - begin)
-    _retreat(ctx, dock)
-    s.data.ctrl[arm.pin_actuator if element == "pin" else arm.blade_actuator] = 0.0
-    s.wait(0.5)
-    progress = abs(s.data.qpos[address] - begin)
-    if pushed > 0.05 and progress < 0.5 * pushed:
-        # The part goes back when let go (a lid below its balance point): it must be held between stages.
-        raise Abort("falls_back", pushed=round(float(pushed), 3), kept=round(float(progress), 3), stage=stage)
-    if not done() and stage + 1 < MAX_PUSH_STAGES and progress > 0.1 * PUSH_STAGE.get(interface.mechanism.kind, np.inf):
-        push(ctx, interface, task, stage + 1)
+        # A hand-over can fit at one arm posture and not at another: try it at a few points of the stage.
+        covered = abs(s.data.qpos[address] - begin) / max(abs(stage_end - begin), 1e-9)
+        while checks and covered >= checks[0]:
+            checks.pop(0)
+            handover = _relay(ctx, interface, dock, target)
+            if handover is not None:
+                _note(ctx, "push", side=dock.side, relay=relay, reached=False, detail=s.monitor.details.get(task.key))
+                return False, handover
+    _note(ctx, "push", side=dock.side, relay=relay, reached=reached, detail=s.monitor.details.get(task.key))
+    return reached, None
+
+
+def _relay(ctx, interface, dock, target):
+    """The other arm docked on the part from where the robot stands, with the first arm still holding
+    it; None when it cannot take over (then the first arm lets go as usual)."""
+    from .dock import relay_dock
+    s, m = ctx.session, ctx.session.model
+    other = [o for o in s.robot.arms if o != dock.side]
+    if not other:
+        return None
+    side = other[0]
+    try:
+        frames, element, report = _push_synthesis(ctx, interface, side, target, relay=True)
+    except Abort:
+        return None
+    if not frames:
+        _note(ctx, "relay", side=side, found=False, why="no_push_pose")
+        return None
+    part = set(part_geoms(m, s.data, interface, _site(s, interface), radius=0.06).tolist())
+    relay, search = relay_dock(s, ctx.kinematics, frames, side, part, pre_distance=RELAY_PRE, hand_state=_pin_hand(s, element),
+                               tool=_element_geoms(s, element),
+                               path=operation_path(ctx, interface, limit=PUSH_STAGE.get(interface.mechanism.kind)))
+    _note(ctx, "relay", side=side, found=relay is not None, **search)
+    if relay is None:
+        return None
+    relay.element = element
+    world = motion.arm_world(s, side)
+    world.hold([g for g in s.robot.geoms if m.geom(g).name.startswith(s.robot.prefix + dock.side + "_")])
+    try:
+        motion.move_arm(s, side, relay.q_pre, world=world)
+    except Abort as exc:
+        _note(ctx, "relay", side=side, found=False, why=exc.reason)
+        return None
+    _pin_deploy(s, element)(relay)
+    _final_approach(ctx, relay)
+    return relay
+
+
+def _stow_element(s, dock):
+    arm = s.robot.arms[dock.side]
+    s.data.ctrl[arm.pin_actuator if getattr(dock, "element", "pin") == "pin" else arm.blade_actuator] = 0.0
 
 
 def _hand_joints(s, side):

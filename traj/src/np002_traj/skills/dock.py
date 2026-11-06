@@ -171,12 +171,45 @@ def find_dock(session, kinematics, occupancy, frames, pre_distance=0.10, allowed
     return None, {"tried": tried, "reasons": reasons, "blocking": _top(blocking)}
 
 
+MAX_RELAY_FRAMES = 96
+
+
+def relay_dock(session, kinematics, frames, side, allowed=(), pre_distance=0.10, hand_state=None, tool=None, path=None):
+    """A dock for `side` from where the robot stands now, the other arm left exactly where it is
+    (holding the part); the base and lift do not move. (Dock or None, search summary)."""
+    robot = session.robot
+    if hand_state is None:
+        hand_state = lambda side_, frame: _preshaped(session, side_, frame)
+    base = robot.base_pose(session.data.qpos)
+    lift = float(session.data.qpos[robot.lift_qpos])
+    other = [o for o in robot.arms if o != side][0]
+    q_other = session.data.qpos[robot.arms[other].qpos].copy()
+    worlds, blocking, tried = {}, {}, 0
+    reasons = {"pre_ik": 0, "pre_collision": 0, "goal_ik": 0, "goal_collision": 0, "approach": 0}
+    for frame in frames[:MAX_RELAY_FRAMES]:
+        tried += 1
+        plan = _solve(session, kinematics, worlds, side, base, lift, frame, pre_distance, allowed, reasons, blocking,
+                      hand_state=hand_state, repairs=None, tool=tool, q_other=q_other)
+        reasons.pop("_other_arm", None)
+        reasons.pop("_closest", None)
+        if plan is None:
+            continue
+        if path is not None and not _path_feasible(kinematics, side, base, plan, path(frame)):
+            reasons["path"] = reasons.get("path", 0) + 1
+            continue
+        q_pre, q_goal, _, _, pre_used = plan
+        return Dock(base, lift, side, frame, q_pre, q_goal, tried, "held", q_other, pre_used), \
+            {"tried": tried, "reasons": reasons}
+    return None, {"tried": tried, "reasons": reasons, "blocking": _top(blocking)}
+
+
 def _top(counter, n=5):
     return dict(sorted(counter.items(), key=lambda kv: -kv[1][0])[:n])
 
 
 def _solve(session, kinematics, worlds, side, base, lift, frame, pre_distance, allowed, reasons, blocking,
-           posture="travel", hand_state=None, repairs=None, tool=None):
+           posture="travel", hand_state=None, repairs=None, tool=None, q_other=None):
+    """q_other: the other arm stays exactly there (it holds the part); nothing but this arm moves."""
     robot, kin = session.robot, kinematics
     world = worlds.get(side)
     if world is None:
@@ -185,12 +218,15 @@ def _solve(session, kinematics, worlds, side, base, lift, frame, pre_distance, a
         worlds[side + ":body"] = WholeBody(kin, world, robot, side)
     body = worlds[side + ":body"]
     other = [o for o in robot.arms if o != side][0]
-    state = {"lift": lift, "other": np.array(robot.profile["arms"][other][posture], float)}
+    state = {"lift": lift, "other": np.array(robot.profile["arms"][other][posture], float) if q_other is None
+             else np.array(q_other, float)}
     addresses = np.concatenate([robot.base_qpos, [robot.lift_qpos], robot.arms[other].qpos])
     world.set_joints(addresses, np.concatenate([robot.base_joint_values(base), [lift], state["other"]]))
     if hand_state is not None:
         world.set_joints(*hand_state(side, frame))
     world.select()
+    held = [g for g in robot.geoms if session.model.geom(g).name.startswith(robot.prefix + other + "_")]
+    world.hold(held if q_other is not None else ())
     pre = frame.offset(pre_distance)
     ik = kin.ik[side]
     other_prefix = other + "_"
@@ -265,6 +301,7 @@ def _solve(session, kinematics, worlds, side, base, lift, frame, pre_distance, a
         q_goal = None
     world.allow(())
     world.tool()
+    world.hold()
     world.margin = margin
     if hand_state is not None:
         world.set_joints(*_open_hand(session, side))

@@ -337,7 +337,7 @@ PUSHER_MARGIN = 0.0007  # m, the pin or blade itself to neighbours (position-con
 
 
 def push_frames(model, data, interface, probe, robot_geoms, pin_tip, direction, angles=8, shifts=(0.0, 0.008, -0.008),
-                element="pin", depths=(0.0,)):
+                element="pin", depths=(0.0,), part_radius=0.015):
     """Frames for moving a part by pushing it with the side of the extended press pin along `direction`.
 
     For articulations the hand cannot grasp (a tab flush with a wall, a lid edge): the pin goes in
@@ -345,7 +345,7 @@ def push_frames(model, data, interface, probe, robot_geoms, pin_tip, direction, 
     pushed along its own motion. Returns (frames, report); frame.position is the TCP.
     """
     centre = data.site_xpos[interface.site].copy() if interface.site >= 0 else data.xpos[interface.body].copy()
-    part = part_geoms(model, data, interface, centre, radius=0.015)
+    part = part_geoms(model, data, interface, centre, radius=part_radius)
     report = {"candidates": 0, "no_contact": 0, "open_collision": 0, "corridor": 0, "blocking": {}}
     if not len(part):
         return [], report

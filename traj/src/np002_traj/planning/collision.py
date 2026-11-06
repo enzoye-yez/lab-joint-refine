@@ -74,6 +74,11 @@ class CollisionWorld:
         self.data.qpos[self.joints] = q
         mujoco.mj_kinematics(self.model, self.data)
 
+    def hold(self, geoms=()):
+        """Robot geoms that stay where they are, holding the part, during the next queries: only their
+        clearance to the moving arm (self pairs) is checked, not their contact with the world."""
+        self.held = np.asarray(sorted(int(g) for g in geoms), int)
+
     def tool(self, geoms=(), margin=None):
         """Robot geoms held to their own (smaller) margin in the next queries: the tool element that
         makes the contact (a pry blade, a press pin), checked to the margin it was synthesised with."""
@@ -108,6 +113,8 @@ class CollisionWorld:
         pairs = self.obstacle_pairs
         if len(getattr(self, "allowed", ())):
             pairs = pairs[~np.isin(pairs[:, 1], self.allowed)]
+        if len(getattr(self, "held", ())):
+            pairs = pairs[~np.isin(pairs[:, 0], self.held)]
         obstacle, pair = self._closest(pairs, self.margin * 4, credit=True)
         own, self_pair = self._closest(self.self_pairs, self.self_margin * 4)
         self.last_self_pair = self_pair

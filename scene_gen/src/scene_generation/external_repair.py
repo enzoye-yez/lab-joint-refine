@@ -124,7 +124,9 @@ def start(project, source, root, feedback, max_calls, max_tokens, config_dir=Non
     atomic_json(root/KIND/"feedback.json", feedback)
     run = build_run(project, root, inputs, budget, resume=False)
     identity = run.store.state["identity"]
-    changed = [k for k in FIXED_IDENTITY if identity.get(k) != source_identity.get(k)]
+    # Worktrees reach the same environment through their own .venv link (see the relocation continuation).
+    same = lambda k, v: {f: x for f, x in v.items() if f != "python"} if k == "backend" else v
+    changed = [k for k in FIXED_IDENTITY if same(k, identity.get(k)) != same(k, source_identity.get(k))]
     require(not changed, "Repair inputs differ from the source run: "+", ".join(changed))
     run.store.state[KIND] = {"version": 1, "phase": "seeding", "source_run": str(source), "source_state_sha256": source_state_sha256,
         "source_implementation": source_identity["implementation"], "implementation": identity["implementation"],

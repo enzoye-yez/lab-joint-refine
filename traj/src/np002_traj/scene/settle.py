@@ -15,7 +15,12 @@ SLEEP = int(mujoco.mjtEnableBit.mjENBL_SLEEP)
 
 
 def enable_sleep(model):
+    """Let resting trees sleep, unless a tendon equality couples joints (MuJoCo cannot sleep with those)."""
+    if any(model.eq_type[i] == mujoco.mjtEq.mjEQ_TENDON for i in range(model.neq)):
+        model.opt.enableflags &= ~SLEEP
+        return False
     model.opt.enableflags |= SLEEP
+    return True
 
 
 def body_speeds(model, data, bodies):
@@ -28,7 +33,7 @@ def body_speeds(model, data, bodies):
 
 def settle(model, robot, max_seconds=3.0, linear=1e-3, angular=0.01, key="assembled"):
     """Run with the robot holding its pose until every other tree sleeps or is slower than the limits."""
-    enable_sleep(model)
+    sleeping = enable_sleep(model)
     data = mujoco.MjData(model)
     mujoco.mj_resetDataKeyframe(model, data, model.key(key).id)
     hold = [JointPD(model, arm) for arm in robot.arms.values()]
@@ -53,5 +58,5 @@ def settle(model, robot, max_seconds=3.0, linear=1e-3, angular=0.01, key="assemb
                         for b, (lin, ang) in speeds.items() if lin > linear or ang > angular),
                        key=lambda r: -r["linear_mps"])
     report = {"seconds": float(data.time), "trees": len(roots), "awake_trees": int(data.ntree_awake),
-              "unsettled": unsettled}
+              "sleep": sleeping, "unsettled": unsettled}
     return data, report

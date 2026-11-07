@@ -15,7 +15,7 @@ import time
 import traceback
 from pathlib import Path
 
-from . import diagnose, feedback, judge, repair, trajectory
+from . import diagnose, feedback, judge, quota, repair, trajectory
 from .common import CORES, ROOT, SCENE_GEN, TRAJ, Ledger, git_identity, now, read, write
 
 MIN_GAIN = 0.01        # stop when a round fixes fewer than 1% of the tasks ...
@@ -72,6 +72,21 @@ def manifest(exp, args):
         "machine": {"cores": CORES, "host": platform.node(), "python": sys.version.split()[0]}})
 
 
+def quota_ok(exp, k):
+    """Model steps run only while at least quota.STOP_BELOW percent of the Codex quota is left."""
+    if quota.STOP_FILE.exists():
+        exp.log(f"round {k}: {quota.STOP_FILE} exists (quota stop); not starting model steps")
+        return False
+    try:
+        percent = quota.require()
+    except quota.QuotaLow as exc:
+        exp.ledger.event(round=k, step="quota", status="stopped", error=str(exc))
+        exp.log(str(exc))
+        return False
+    exp.ledger.event(round=k, step="quota", status="ok", remaining_percent=percent)
+    return True
+
+
 def run(args):
     exp = Experiment(args.exp)
     if not (exp.dir / "manifest.json").exists():
@@ -108,8 +123,12 @@ def run(args):
         if not diag["scene_findings"]:
             exp.log("no scene findings left to send")
             break
+        if not quota_ok(exp, k):
+            break
         exp.step(k, "feedback", lambda: {"failures": len(feedback.write_feedback(rdir, artifact, scene_sha)["failures"])})
         if args.until == "feedback":
+            break
+        if not quota_ok(exp, k):
             break
         result = exp.step(k, "scene_repair", lambda: repair.repair(rdir, source_run, f"{exp.name}_r{k + 1}", exp.log))
         if result.get("status") in STOP_STATUSES:

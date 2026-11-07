@@ -46,7 +46,7 @@ def git_identity(directory):
     def run(*args):
         return subprocess.run(["git", "-C", str(directory), *args], capture_output=True, text=True).stdout.strip()
     return {"path": str(directory), "commit": run("rev-parse", "HEAD"), "branch": run("rev-parse", "--abbrev-ref", "HEAD"),
-            "dirty": bool(run("status", "--porcelain", "--untracked-files=no"))}
+            "dirty": bool(run("status", "--porcelain", "--untracked-files=no", "--", ".", ":!MUJOCO_LOG.TXT"))}
 
 
 class Ledger:

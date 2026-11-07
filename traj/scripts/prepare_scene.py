@@ -2,6 +2,7 @@
 
 Run once per scene/robot change (the source XML takes about two minutes to parse):
   source scripts/env.sh && $PYTHON scripts/prepare_scene.py
+Set NP002_SCENE_SOURCE=<scene artifact dir> to assemble another scene than config/np002.json names.
 """
 import json
 import time
@@ -10,12 +11,15 @@ import mujoco
 import numpy as np
 
 from np002_traj.robot import ROOT, Robot
-from np002_traj.scene.assemble import assemble
+from np002_traj.scene.assemble import assemble, config as scene_config
 from np002_traj.scene.settle import settle
 
-config = json.loads((ROOT / "config/np002.json").read_text())
+config = scene_config()
 started = time.time()
 out = assemble(config["scene_source"], prefix=config["robot_prefix"])
+if (out / "scene.mjb").exists():
+    print(f"already prepared: {out}")
+    raise SystemExit(0)
 print(f"assembled {out} in {time.time() - started:.0f} s", flush=True)
 model = mujoco.MjModel.from_binary_path(str(out / "model.mjb"))
 robot = Robot(model, prefix=config["robot_prefix"])

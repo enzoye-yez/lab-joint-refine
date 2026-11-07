@@ -14,6 +14,22 @@ import numpy as np
 from ..robot import PROFILE, ROOT
 
 OLD_ROBOT = "robot__"
+SCENE_ENV = "NP002_SCENE_SOURCE"
+
+
+def config():
+    """config/np002.json, with the scene source overridable per run by $NP002_SCENE_SOURCE."""
+    import os
+    value = json.loads((ROOT / "config/np002.json").read_text())
+    value["scene_source"] = os.environ.get(SCENE_ENV) or value["scene_source"]
+    return value
+
+
+def cache_for(source, out_root=None):
+    """The cache directory of a scene source assembled with the current robot."""
+    source = Path(source)
+    key = digest([source / "model.xml", source / "scene.json", ROOT / "data/robot/model.xml", PROFILE])
+    return Path(out_root or ROOT / "runs/scene_cache") / key
 
 
 def digest(paths):
@@ -67,8 +83,8 @@ def assemble(source, out_root=None, prefix="robot__"):
     source = Path(source)
     meta = json.loads((source / "scene.json").read_text(encoding="utf-8"))
     robot_xml = ROOT / "data/robot/model.xml"
-    key = digest([source / "model.xml", source / "scene.json", robot_xml, PROFILE])
-    out = Path(out_root or ROOT / "runs/scene_cache") / key
+    out = cache_for(source, out_root)
+    key = out.name
     if (out / "model.mjb").exists():
         return out
     out.mkdir(parents=True, exist_ok=True)

@@ -25,6 +25,7 @@ import numpy as np
 from np002_traj import guard
 from np002_traj.executor.session import Abort, Session
 from np002_traj.robot import ROOT, Robot
+from np002_traj.scene.assemble import cache_for, config as scene_config
 from np002_traj.scene.interfaces import load
 from np002_traj.scene.settle import enable_sleep
 from np002_traj.skills.dock import Kinematics
@@ -33,13 +34,15 @@ from np002_traj.planning.base import OccupancyMap
 from np002_traj.tasks.benchmark import task_for
 from np002_traj.tasks.semantics import Semantics
 
-CONFIG = json.loads((ROOT / "config/np002.json").read_text())
+CONFIG = scene_config()
 STATE = {}
 
 
 def scene_directory():
-    caches = sorted((ROOT / "runs/scene_cache").glob("*/scene.mjb"), key=lambda p: p.stat().st_mtime)
-    return caches[-1].parent
+    directory = cache_for(CONFIG["scene_source"])
+    if not (directory / "scene.mjb").exists():
+        raise SystemExit(f"scene not prepared: run scripts/prepare_scene.py for {CONFIG['scene_source']}")
+    return directory
 
 
 def instance_roots(model, robot):
@@ -216,7 +219,7 @@ def main():
             depth += 1
         runnable = sorted(order[:args.limit])
     from np002_traj.record.run import code_identity
-    (out / "config.json").write_text(json.dumps({"scene": str(STATE["directory"]), "code": code_identity(),
+    (out / "config.json").write_text(json.dumps({"scene": str(STATE["directory"]), "scene_source": CONFIG["scene_source"], "code": code_identity(),
                                                  "tasks": len(runnable), "excluded": collections.Counter(
                                                      t.excluded.split(" needs")[0] if t.excluded else "" for t in tasks.values() if t.excluded)},
                                                 indent=1), encoding="utf-8")

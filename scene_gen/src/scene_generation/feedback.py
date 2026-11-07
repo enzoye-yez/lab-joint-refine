@@ -18,3 +18,16 @@ def planning_feedback(value, scene_hash, plan):
         require(all(isinstance(failure[k],str) and 0 < len(failure[k]) <= 12000 for k in ("detail","evidence")), "Feedback must provide a bounded failure detail and evidence")
         rows.append({"id":"planner:"+failure["kind"]+':'+str(number),"status":"fail",**failure})
     return {"status":"fail","checks":rows,"coverage":["external planner feedback, not re-certified by the framework"],"feedback_sha256":digest(value)}
+
+
+PLANNER_POLICY = ("Rows whose id starts with planner: come from measured physics simulation of a real robot: a holonomic "
+    "mobile base with a vertical lift and two Franka FR3 arms, each with a parallel gripper of 50 mm opening, plus pin and "
+    "blade tools. Every numeric requirement in such a row is a hard constraint: satisfy it exactly, never approximate, "
+    "weaken or reinterpret it. Change only the assets the rows name; do not touch any other asset unless the required "
+    "layout change makes it unavoidable.")
+
+
+def planner_policy(report):
+    """The paragraph that binds planner rows; empty for every other report."""
+    rows = (report or {}).get("checks", [])
+    return "\n" + PLANNER_POLICY if any(str(r.get("id", "")).startswith("planner:") for r in rows) else ""

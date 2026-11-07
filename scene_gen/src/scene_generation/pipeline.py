@@ -13,7 +13,7 @@ from asset_prep.storage import Store, atomic_json, digest, file_hash, safe_path
 from asset_prep import implementation
 from asset_prep.errors import PrepError, StaleEvidence, UncertainRequest, ValidationError, ProviderError, ContextLimitError
 from .contracts import validate_plan, repair_action
-from .feedback import planning_feedback
+from .feedback import planning_feedback, planner_policy
 from .inputs import task_bundle
 from .prompts import PLAN, REPAIR, SCENE_REVIEW, for_environment
 from .layout import revision as layout_revision, validate_layout, table_policy
@@ -804,7 +804,7 @@ class SceneRun:
     def deferred_checks(self):
         return [item for job in self.state["jobs"].values() for item in job.get("deferred_checks",[])]
 
-    def route_repair(self):
+    def route_repair(self, use_review=True):
         self.check_pause()
         # Failed assembly never reaches an assessed scene round. Its applied
         # repair still consumes the cumulative allocation, including on resume.
@@ -821,7 +821,8 @@ class SceneRun:
         from .progress import repair_tasks
         editable=repairable_rows(report)
         affected = {i for row in editable for i in row.get("instances",[])}
-        review = self.state.get("latest",{}).get("review")
+        # External feedback repairs only the rows it names; the last visual verdict stays out of scope.
+        review = self.state.get("latest",{}).get("review") if use_review else None
         if review and review["verdict"] == "repair" and not any(f["status"]=="open" for f in report.get("recovery_failures",[])):
             affected.update(review.get("affected_instances",[]))
         items = {i["id"]:i for i in self.state["plan"]["instances"]}
@@ -909,7 +910,7 @@ class SceneRun:
                     "recovery_history":self.state.get("repair_history",[])[-8:]}
                 value,call=None,None
                 try:
-                    value,call=self.model.ask(for_environment(REPAIR,self.env),context,images,"scene_repair")
+                    value,call=self.model.ask(for_environment(REPAIR,self.env)+planner_policy(report),context,images,"scene_repair")
                     if isinstance(value,dict) and set(value)=={"blocked"}:
                         blocked=value["blocked"]
                         require(isinstance(blocked,dict) and set(blocked)=={"kind","detail"}

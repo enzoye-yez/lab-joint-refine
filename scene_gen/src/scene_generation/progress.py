@@ -115,6 +115,9 @@ def repair_tasks(report, review, plan, input_key):
                 "truncated":len(row[k])>32,"source":"feedback.checks[id="+source+"]."+k}
                 for k in ("unsupported_components","disconnected_components","surface_mismatches","collisions") if row.get(k)},
             "verification":{"checks":[check],"required":"re-check the original issue, affected dependencies and the full scene; missing rows, skipped or unknown do not count as resolved"}})
+        if check.startswith("planner:"):
+            from .feedback import PLANNER_POLICY
+            tasks[-1]["external_feedback"]={"kind":row["kind"],"detail":row["detail"],"evidence":row["evidence"],"policy":PLANNER_POLICY}
     if review and review.get("verdict")=="repair":
         tasks.append({"id":"scene_visual","input_key":input_key,"instances":review.get("affected_instances",[]),
             "layout_targets":review.get("affected_layout",[]),

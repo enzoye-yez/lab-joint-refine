@@ -1,0 +1,2 @@
+__pycache__/
+experiments/*/round_*/trajectory/results.jsonl

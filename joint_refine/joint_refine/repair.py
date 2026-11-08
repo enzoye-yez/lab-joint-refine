@@ -8,7 +8,7 @@ from .common import SCENE_GEN, git_identity, guarded, read, wait_for_load, write
 
 PYTHON = SCENE_GEN / ".venv/bin/python"
 REPAIR_CPUS, REPAIR_MEM = 32, "128G"
-MAX_CALLS, MAX_TOKENS = 160, 80_000_000
+MAX_CALLS, MAX_TOKENS = 240, 120_000_000      # 80M ran out in the static review of round 0
 
 
 def source_scene(run_dir):

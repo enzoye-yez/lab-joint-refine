@@ -53,7 +53,9 @@ def judge(previous_dir, current_dir):
     for f in sent:
         existing = [t for t in f["blocked_tasks"] if t in after]
         succeeded = [t for t in existing if after[t]["success"]]
-        if not existing:
+        if not f["blocked_tasks"]:          # scene-only finding (e.g. parts not at rest): present or not
+            outcome = "persisting" if f["id"] in now_ids else "resolved"
+        elif not existing:
             outcome = "vanished"
         elif len(succeeded) == len(existing):
             outcome = "resolved"

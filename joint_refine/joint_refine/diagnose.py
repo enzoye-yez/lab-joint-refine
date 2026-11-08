@@ -26,6 +26,7 @@ GRIP_OPENING_MM = (5.0, 45.0)   # parallel faces must be 5-45 mm apart (50 mm st
 PRESS_CLEAR_DIAMETER_MM, PRESS_CLEAR_HEIGHT_MM = 70.0, 35.0
 REACH_M = 0.80                  # interface to shoulder from a dockable floor pose
 HOLD_OPEN_RAD = np.radians(45)
+SETTLE_LINEAR_MPS, SETTLE_ANGULAR_RADPS = 1e-3, 0.01    # rest limits of the settle step (prepare_scene)
 
 CATEGORY = {
     # category prefix -> (attribution, feedback kind)
@@ -34,7 +35,7 @@ CATEGORY = {
     "T1": ("asset", "grasp"), "G6": ("asset", "grasp"), "T2": ("asset", "fit"),
     "M4_falls_back": ("asset", "mechanism"), "F3": ("asset", "mechanism"), "P4": ("asset", "mechanism"),
     "M2": ("asset", "mechanism"), "M3": ("asset", "mechanism"),
-    "P2": ("asset", "collision"),
+    "P2": ("asset", "collision"), "S1": ("asset", "support"),
 }
 
 
@@ -137,6 +138,20 @@ class Measure:
         return row
 
 
+def _read(path):
+    return json.loads(Path(path).read_text()) if Path(path).exists() else None
+
+
+def _opener(result, measure):
+    """An interface that drives the joint of an enclosing part (the method should have used it)."""
+    joint = ((result or {}).get("detail") or {}).get("joint")
+    if measure is None or not joint or (result.get("detail") or {}).get("movable") == "free":
+        return None
+    j = measure.model.joint(joint).id
+    openers = sorted(i for i, f in measure.interfaces.items() if f.mechanism.joint == j)
+    return openers[0] if openers else None
+
+
 def _task_interface(task):
     return task  # task ids are interface ids in the single-skill benchmark
 
@@ -158,7 +173,7 @@ def diagnose(round_dir, measure=None):
         category = issue["category"]
         if category.startswith("P3") or category.startswith("P1"):
             step = issue.get("evidence") or {}
-            blocker = step.get("interface")
+            blocker = step.get("interface") or _opener(results[task], measure)
             if blocker:
                 charged[blocker].append(task)
                 continue
@@ -195,6 +210,15 @@ def diagnose(round_dir, measure=None):
         g["interfaces"].add(blocker)
         g["evidence"].append({"task": blocker, "category": f"{prefix}_blocker_{state}", "blocks": len(tasks)})
 
+    # Parts still moving when the settle step ended (they never come to rest on their support).
+    for row in (_read(round_dir / "scene/settle.json") or {}).get("unsettled", []):
+        instance = instance_of(row["body"])
+        if instance and instance != "robot":
+            g = groups[("asset", "support", "S1", instance)]
+            g["evidence"].append({"category": "S1_not_at_rest_after_settle", "body": row["body"],
+                                  "linear_mm_s": round(row["linear_mps"] * 1e3, 2),
+                                  "angular_rad_s": round(row["angular_radps"], 3)})
+
     # Tasks excluded before running: interface metadata that does not match the mechanism.
     excluded = config.get("excluded", {})
     for reason, count in excluded.items():
@@ -212,7 +236,12 @@ def diagnose(round_dir, measure=None):
                    "instance": instance, "interfaces": interfaces, "blocked_tasks": sorted(set(g["tasks"])),
                    "categories": dict(collections.Counter(e.get("category", "excluded") for e in g["evidence"])),
                    "evidence": g["evidence"][:12], "measured": {}, "requirement": {}}
-        if measure is not None and attr != "method":
+        if prefix == "S1":
+            bodies = [e for e in g["evidence"]]
+            finding["evidence"] = sorted(bodies, key=lambda e: -e["linear_mm_s"])[:12]
+            finding["measured"] = {"moving_bodies": len(bodies), "settle_s": (_read(round_dir / "scene/settle.json") or {}).get("seconds")}
+            finding["requirement"] = {"max_linear_mm_s": SETTLE_LINEAR_MPS * 1e3, "max_angular_rad_s": SETTLE_ANGULAR_RADPS}
+        elif measure is not None and attr != "method":
             _measure(finding, measure, reach)
         findings.append(finding)
     out = round_dir / "diagnosis"

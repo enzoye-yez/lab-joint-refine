@@ -13,6 +13,7 @@ for _var in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "NUME
     os.environ.setdefault(_var, "1")
 
 import argparse
+import signal
 import collections
 import json
 import multiprocessing as mp
@@ -27,6 +28,7 @@ from np002_traj.executor.session import Abort, Session
 from np002_traj.robot import ROOT, Robot
 from np002_traj.scene.assemble import cache_for, config as scene_config
 from np002_traj.scene.interfaces import load
+from np002_traj.scene.locality import Locality
 from np002_traj.scene.settle import enable_sleep
 from np002_traj.skills.dock import Kinematics
 from np002_traj.skills.library import SKILLS, Context
@@ -62,10 +64,22 @@ def init():
     interfaces, _ = load(model, CONFIG["scene_source"], data)
     STATE.update(semantics=Semantics(model, CONFIG["scene_source"]), active=data.eq_active.copy())
     STATE.update(model=model, robot=robot, interfaces={i.id: i for i in interfaces}, kinematics=Kinematics(),
-                 occupancy=OccupancyMap(model, data, robot), roots=instance_roots(model, robot), directory=directory)
+                 occupancy=OccupancyMap(model, data, robot), roots=instance_roots(model, robot), directory=directory,
+                 locality=Locality(model, data), site_xpos=data.site_xpos.copy())
 
 
 MAX_PREREQUISITES = 2
+TASK_WALL_S = 3600             # a task still running after this is recorded as task_timeout
+
+
+class TaskTimeout(Exception):
+    pass
+
+
+def _timeout(signum, frame):
+    raise TaskTimeout()
+OPENING_SKILLS = ("actuate", "rotate")
+OPEN_TRAVEL = 0.8             # fraction of the joint range an opener prerequisite drives to
 
 
 def prerequisite(abort, model, payload):
@@ -82,12 +96,16 @@ def prerequisite(abort, model, payload):
                     task.skill = "set_aside"
                     return candidate, task
         return None
+    # Any interface that drives that joint can open it: a handle (actuate) first, then a rotate grip.
+    openers = []
     for candidate in STATE["interfaces"].values():
-        if candidate.kind == "grasp" and candidate.mechanism.joint == joint:
+        if candidate.mechanism.joint == joint:
             task = make_task(candidate, model, payload)
-            if not task.excluded:
-                return candidate, task
-    return None
+            if not task.excluded and task.skill in OPENING_SKILLS:
+                if "travel" in task.parameters:         # open it far enough to clear the part behind it
+                    task.parameters["travel"] = task.goal["travel"] = max(task.parameters["travel"], OPEN_TRAVEL)
+                openers.append((OPENING_SKILLS.index(task.skill), candidate.id, candidate, task))
+    return min(openers, key=lambda o: o[:2])[2:] if openers else None
 
 
 def make_task(interface, model, payload):
@@ -107,13 +125,39 @@ def unlock(ctx, session, task, model, payload, result):
         opener_task.key = "pre:" + opener.id
         try:
             session.monitor.evaluate(opener_task.goal, opener_task.key)
-            SKILLS[opener_task.skill](ctx, opener, opener_task)
+            attempt(ctx, session, opener, opener_task, model, payload, result)      # it may be enclosed too
         except Abort as inner:
             step["failed"] = inner.reason
             result["prerequisites"].append(step)
             raise Abort("unlock_failed", step=step)
         session.data.eq_active[lock["equality"]] = 0          # the release event of that interface
         result["prerequisites"].append(step)
+
+
+def attempt(ctx, session, interface, task, model, payload, result):
+    """Run the task's skill; when a movable part encloses the target, open it first and retry."""
+    for tries in range(MAX_PREREQUISITES + 1):
+        try:
+            SKILLS[task.skill](ctx, interface, task)
+            return
+        except Abort as exc:
+            opener = prerequisite(exc, model, payload) if tries < MAX_PREREQUISITES else None
+            if opener is None:
+                raise
+            # Something movable is in the way (a lid, a door): open it with its own interface first.
+            step = {"interface": opener[0].id, "for": exc.detail.get("geom")}
+            opener[1].key = "pre:" + opener[0].id
+            session.monitor.evaluate(opener[1].goal, "pre:" + opener[0].id)      # anchor its start
+            try:
+                SKILLS[opener[1].skill](ctx, opener[0], opener[1])
+                step["opened"] = session.monitor.evaluate(opener[1].goal, "pre:" + opener[0].id)
+                if opener[1].skill != "set_aside":         # even part-way: let the exact checks decide
+                    ctx.opened = (ctx.opened or set()) | {opener[0].mechanism.joint}
+            except Abort as inner:
+                step["failed"] = inner.reason
+                result["prerequisites"].append(step)
+                raise Abort("prerequisite_failed", step=step, original=exc.reason)
+            result["prerequisites"].append(step)
 
 
 WORKER_BYTES = guard.default_limits()["worker_bytes"]
@@ -131,6 +175,26 @@ def run_task(task_id):
     interface = STATE["interfaces"][task_id]
     payload = robot.profile["arms"]["left"]["payload_kg"]
     task = make_task(interface, model, payload)
+    keep = {interface.instance} | {STATE["interfaces"][u["interface"]].instance for u in task.unlock
+                                   if u["interface"] in STATE["interfaces"]}
+    saved, local = STATE["locality"].apply(STATE["site_xpos"][interface.site], keep)
+    try:
+        signal.signal(signal.SIGALRM, _timeout)
+        signal.alarm(TASK_WALL_S)
+        result = _run_task(task_id, interface, task, model, robot, payload)
+    except TaskTimeout:                 # fired outside the skill (goal checks after it)
+        result = {"task": task_id, "skill": task.skill, "kind": interface.kind, "mechanism": interface.mechanism.kind,
+                  "instance": interface.instance, "prerequisites": [], "reason": "task_timeout",
+                  "detail": {"wall_limit_s": TASK_WALL_S}, "goal": False, "disturbed": {}, "log": [],
+                  "wall_s": float(TASK_WALL_S), "achieved": False, "success": False}
+    finally:
+        signal.alarm(0)
+        STATE["locality"].restore(saved)
+    result["locality"] = local
+    return result
+
+
+def _run_task(task_id, interface, task, model, robot, payload):
     data = mujoco.MjData(model)
     mujoco.mj_resetDataKeyframe(model, data, model.key("assembled").id)
     mujoco.mj_forward(model, data)
@@ -149,32 +213,13 @@ def run_task(task_id):
     result["prerequisites"] = []
     try:
         unlock(ctx, session, task, model, payload, result)
-        for attempt in range(MAX_PREREQUISITES + 1):
-            try:
-                SKILLS[task.skill](ctx, interface, task)
-                break
-            except Abort as exc:
-                opener = prerequisite(exc, model, payload) if attempt < MAX_PREREQUISITES else None
-                if opener is None:
-                    raise
-                # Something movable is in the way (a lid, a door): open it with its own interface first.
-                step = {"interface": opener[0].id, "for": exc.detail.get("geom")}
-                opener[1].key = "pre:" + opener[0].id
-                session.monitor.evaluate(opener[1].goal, "pre:" + opener[0].id)      # anchor its start
-                try:
-                    SKILLS[opener[1].skill](ctx, opener[0], opener[1])
-                    step["opened"] = session.monitor.evaluate(opener[1].goal, "pre:" + opener[0].id)
-                    if opener[1].skill != "set_aside":         # even part-way: let the exact checks decide
-                        ctx.opened = (ctx.opened or set()) | {opener[0].mechanism.joint}
-                except Abort as inner:
-                    step["failed"] = inner.reason
-                    result["prerequisites"].append(step)
-                    raise Abort("prerequisite_failed", step=step, original=exc.reason)
-                result["prerequisites"].append(step)
+        attempt(ctx, session, interface, task, model, payload, result)
         session.wait(0.5)
         result["reason"] = None
     except Abort as exc:
         result["reason"], result["detail"] = exc.reason, exc.detail
+    except TaskTimeout:
+        result["reason"], result["detail"] = "task_timeout", {"wall_limit_s": TASK_WALL_S}
     except Exception as exc:                                         # a code bug, never fed to a model
         result["reason"], result["detail"] = "code_error", {"error": repr(exc), "trace": traceback.format_exc()[-1500:]}
     own |= ctx.moved or set()                                       # set aside on purpose by a prerequisite

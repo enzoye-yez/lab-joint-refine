@@ -45,6 +45,7 @@ CATEGORIES = {
     "P4_unlock_failed": "Precondition: the interface that releases a declared lock failed",
     "X1_code_error": "Code error (not a task failure)",
     "X3_worker_memory": "Run guard: the worker was above its memory cap and skipped the task",
+    "X4_task_timeout": "Run guard: the task exceeded the per-task wall-clock limit",
     "X2_other": "Unclassified",
 }
 
@@ -60,6 +61,8 @@ def classify(r):
         return None, {}
     if reason == "worker_memory":
         return "X3_worker_memory", detail
+    if reason == "task_timeout":
+        return "X4_task_timeout", detail
     if reason == "falls_back":
         return "M4_falls_back", detail
     if reason == "code_error":

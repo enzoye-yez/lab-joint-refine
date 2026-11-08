@@ -79,6 +79,13 @@ def load(model, source, data=None):
             missing.append(row["id"])            # e.g. interfaces of the removed robot tool
             continue
         mech = mechanism(model, body, None if data is None else data.eq_active)
+        declared = (row.get("operation") or {}).get("joint")
+        j = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, declared) if declared else -1
+        if j >= 0 and j != mech.joint and int(model.jnt_type[j]) in (SLIDE, HINGE):
+            # The interface names the joint it drives (e.g. the hinge of a cap whose body also has the
+            # coupled screw slide): use it instead of the body's first joint.
+            rng = tuple(model.jnt_range[j]) if model.jnt_limited[j] else None
+            mech = Mechanism("slide" if int(model.jnt_type[j]) == SLIDE else "hinge", j, int(model.jnt_bodyid[j]), rng)
         button = buttons.get(model.joint(mech.joint).name) if mech.joint >= 0 else None
         approach = np.asarray(row["approach_axis"], float) if "approach_axis" in row else None
         result.append(Interface(row["id"], row["kind"], body, site, approach, row["body"].split("__")[0], mech, button,

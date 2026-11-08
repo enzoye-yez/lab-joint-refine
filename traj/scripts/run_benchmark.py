@@ -53,6 +53,14 @@ def instance_roots(model, robot):
     return [b for b in range(1, model.nbody) if model.body_parentid[b] == 0 and b not in robot_bodies]
 
 
+def unsettled_bodies(model, directory):
+    """Bodies still moving at the end of settling: they move without the robot, so their motion is
+    not charged to a task (the scene side reports them as support findings)."""
+    report = directory / "settle.json"
+    names = [r["body"] for r in json.loads(report.read_text())["unsettled"]] if report.exists() else []
+    return {model.body(n).id for n in names}
+
+
 def init():
     directory = scene_directory()
     model = mujoco.MjModel.from_binary_path(str(directory / "scene.mjb"))
@@ -65,6 +73,7 @@ def init():
     STATE.update(semantics=Semantics(model, CONFIG["scene_source"]), active=data.eq_active.copy())
     STATE.update(model=model, robot=robot, interfaces={i.id: i for i in interfaces}, kinematics=Kinematics(),
                  occupancy=OccupancyMap(model, data, robot), roots=instance_roots(model, robot), directory=directory,
+                 unsettled=unsettled_bodies(model, directory),
                  locality=Locality(model, data), site_xpos=data.site_xpos.copy())
 
 
@@ -223,7 +232,8 @@ def _run_task(task_id, interface, task, model, robot, payload):
     except Exception as exc:                                         # a code bug, never fed to a model
         result["reason"], result["detail"] = "code_error", {"error": repr(exc), "trace": traceback.format_exc()[-1500:]}
     own |= ctx.moved or set()                                       # set aside on purpose by a prerequisite
-    moved = {model.body(b).name: float(np.linalg.norm(data.xpos[b] - p)) for b, p in start.items() if b not in own}
+    moved = {model.body(b).name: float(np.linalg.norm(data.xpos[b] - p)) for b, p in start.items()
+             if b not in own and b not in STATE["unsettled"]}
     disturbed = {k: v for k, v in moved.items() if v > 0.005}
     goal = session.monitor.evaluate(task.goal, "goal")
     result.update(goal=goal, goal_detail=session.monitor.details.get("goal"), disturbed=disturbed,
@@ -265,6 +275,7 @@ def main():
         runnable = sorted(order[:args.limit])
     from np002_traj.record.run import code_identity
     (out / "config.json").write_text(json.dumps({"scene": str(STATE["directory"]), "scene_source": CONFIG["scene_source"], "code": code_identity(),
+                                                 "unsettled_not_charged": sorted(model.body(b).name for b in STATE["unsettled"]),
                                                  "tasks": len(runnable), "excluded": collections.Counter(
                                                      t.excluded.split(" needs")[0] if t.excluded else "" for t in tasks.values() if t.excluded)},
                                                 indent=1), encoding="utf-8")

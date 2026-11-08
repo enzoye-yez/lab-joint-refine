@@ -43,9 +43,11 @@ def attached(model, bodies, active=None):
     """Whether an active weld/connect equality ties these bodies to something outside them."""
     active = model.eq_active0 if active is None else active
     for e in range(model.neq):
-        if model.eq_type[e] not in (mujoco.mjtEq.mjEQ_WELD, mujoco.mjtEq.mjEQ_CONNECT) or not active[e]:
+        if int(model.eq_type[e]) not in (int(mujoco.mjtEq.mjEQ_WELD), int(mujoco.mjtEq.mjEQ_CONNECT)) or not active[e]:
             continue
         a, b = int(model.eq_obj1id[e]), int(model.eq_obj2id[e])
+        if int(model.eq_objtype[e]) == int(mujoco.mjtObj.mjOBJ_SITE):
+            a, b = (int(model.site_bodyid[o]) if o >= 0 else 0 for o in (a, b))
         if (a in bodies) != (b in bodies):
             return True
     return False

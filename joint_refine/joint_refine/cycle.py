@@ -105,6 +105,22 @@ class Cycles:
         return True
 
 
+def attempted(cy, c):
+    """Findings sent to the scene generator in earlier cycles (ids), for feedback.select()."""
+    sent = set()
+    for k in range(c):
+        out = cy.eval_dir(k, k) if (cy.eval_dir(k, k) / "feedback").exists() else cy.eval_dir(k, max(k - 1, 0))
+        selection = read(out / "feedback/selection.json", None)
+        if selection:
+            sent |= set(selection["sent"])
+            continue
+        message = read(out / "feedback/feedback.json", None)
+        if message:                         # before selection.json existed: every finding on a named instance
+            named = {i for f in message["failures"] for i in f["instances"]}
+            sent |= {f["id"] for f in read(out / "diagnosis/findings.json")["findings"] if f["instance"] in named}
+    return sent
+
+
 def register_traj(cy, t, note):
     code = git_identity(TRAJ)
     if code["dirty"]:
@@ -133,7 +149,7 @@ def run_cycle(cy, c):
     if not cy.quota_ok(f"S{c}_T{c}"):
         return False
     scene = cy.state["scenes"][str(c)]
-    cy.step(f"S{c}_T{c}", "feedback", lambda: {"failures": len(feedback.write_feedback(out, scene["artifact"], scene["sha256"])["failures"])})
+    cy.step(f"S{c}_T{c}", "feedback", lambda: {"failures": len(feedback.write_feedback(out, scene["artifact"], scene["sha256"], attempted=attempted(cy, c))["failures"])})
     if not cy.quota_ok(f"S{c}_T{c}"):
         return False
     result = cy.step(f"S{c}_T{c}", "scene_repair", lambda: repair.repair(out, scene["run"], f"{cy.name}_S{c + 1}", cy.log))

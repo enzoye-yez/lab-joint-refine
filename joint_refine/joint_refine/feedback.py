@@ -13,6 +13,9 @@ from .common import read, write
 
 KINDS = {"collision", "unreachable", "grasp", "mechanism", "fit", "support"}
 MAX_FAILURES = 100
+MAX_JOBS = 4            # asset jobs one repair round is asked to touch (focus beats breadth: a round that
+                        # was sent 61 items rewrote 17 of 22 jobs, ran out of budget and fixed no task)
+MAX_FINDINGS = 30
 
 PROMPT = """You are the Feedback Writer in a joint-refinement loop between a robot-trajectory generator and a
 3D asset / lab scene generator. A robot (holonomic base + 0.6 m lift + two Franka FR3 arms, reach 0.855 m,
@@ -80,14 +83,40 @@ def validate(message, findings, instances):
     return errors
 
 
-def write_feedback(round_dir, scene_artifact, scene_sha256, max_rounds=3):
+def select(findings, instances, attempted=(), max_jobs=MAX_JOBS):
+    """Pick the findings to send this round: most blocked tasks first, within `max_jobs` asset jobs.
+
+    Findings already sent in an earlier round that persisted (`attempted`) go after all fresh ones,
+    so the generator is not asked to repeat a change that did not help while other problems wait.
+    Returns (selected, skipped) with the reason for each skip."""
+    job = {i["id"]: i["job"] for i in instances}
+    ranked = sorted(findings, key=lambda f: (f["id"] in attempted, -len(f["blocked_tasks"]), f["id"]))
+    jobs, selected, skipped = set(), [], []
+    for f in ranked:
+        need = {job[f["instance"]]} if f["instance"] in job else set()
+        if not need:
+            skipped.append({"finding": f["id"], "why": "instance not in the scene plan"})
+        elif len(jobs | need) > max_jobs:
+            skipped.append({"finding": f["id"], "why": f"outside the {max_jobs} jobs focused this round"})
+        elif len(selected) >= MAX_FINDINGS:
+            skipped.append({"finding": f["id"], "why": f"beyond {MAX_FINDINGS} findings this round"})
+        else:
+            jobs |= need
+            selected.append(f)
+    return selected, skipped, sorted(jobs)
+
+
+def write_feedback(round_dir, scene_artifact, scene_sha256, max_rounds=3, attempted=()):
     """Ask the LLM for the message, validate, let it correct up to `max_rounds` times; record all."""
     round_dir = Path(round_dir)
     out = round_dir / "feedback"
     diagnosis = read(round_dir / "diagnosis/findings.json")
-    sendable = [f for f in diagnosis["findings"] if f["attribution"] != "method"]
-    findings = {"findings": sendable, "tasks": diagnosis["tasks"], "success": diagnosis["success"]}
     instances = plan_instances(scene_artifact)
+    sendable, skipped, jobs = select([f for f in diagnosis["findings"] if f["attribution"] != "method"],
+                                     instances, set(attempted))
+    write(out / "selection.json", {"max_jobs": MAX_JOBS, "max_findings": MAX_FINDINGS, "jobs": jobs, "sent": [f["id"] for f in sendable],
+                                   "attempted_before": sorted(attempted), "skipped": skipped})
+    findings = {"findings": sendable, "tasks": diagnosis["tasks"], "success": diagnosis["success"]}
     files = {"findings.json": json.dumps(findings, indent=1, ensure_ascii=False, default=float),
              "instances.json": json.dumps(instances, indent=1)}
     prompt, usage_total, message, errors = PROMPT, [], None, []

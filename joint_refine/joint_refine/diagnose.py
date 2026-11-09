@@ -35,7 +35,7 @@ CATEGORY = {
     "T1": ("asset", "grasp"), "G6": ("asset", "grasp"), "T2": ("asset", "fit"),
     "M4_falls_back": ("asset", "mechanism"), "F3": ("asset", "mechanism"), "P4": ("asset", "mechanism"),
     "M2": ("asset", "mechanism"), "M3": ("asset", "mechanism"),
-    "P2": ("asset", "collision"), "S1": ("asset", "support"),
+    "P2": ("asset", "collision"), "S1": ("asset", "support"), "Q1": ("layout", "collision"),
 }
 
 
@@ -168,6 +168,7 @@ def diagnose(round_dir, measure=None):
 
     # Charge prerequisite failures to the blocker interface that could not be opened.
     charged = collections.defaultdict(list)
+    blocker_of = {}
     roots = {}
     for task, issue in issues.items():
         category = issue["category"]
@@ -176,12 +177,37 @@ def diagnose(round_dir, measure=None):
             blocker = step.get("interface") or _opener(results[task], measure)
             if blocker:
                 charged[blocker].append(task)
+                blocker_of[task] = blocker
                 continue
             roots[task] = ("metadata", "mechanism", "P5_blocker_without_interface", step)
             continue
         roots[task] = (*attribution(category), category, issue.get("evidence", {}))
 
+    # A blocker that failed because it was blocked in turn: follow the chain to the part whose own
+    # failure is the cause. A chain that comes back on itself is mutual enclosure (two caps or flaps
+    # that each block the other from opening): a spacing problem of the layout, not missing metadata.
+    resolved, cycles = collections.defaultdict(list), {}
+    for blocker, tasks in charged.items():
+        chain, b = [blocker], blocker
+        while b in blocker_of and b not in roots:
+            b = blocker_of[b]
+            if b in chain:
+                cycle = tuple(sorted(chain[chain.index(b):]))
+                cycles.setdefault(cycle, []).extend(tasks)
+                break
+            chain.append(b)
+        else:
+            resolved[b].extend(tasks)
+    charged = resolved
+
     groups = collections.defaultdict(lambda: {"tasks": [], "interfaces": set(), "evidence": []})
+    for cycle, tasks in cycles.items():
+        g = groups[("layout", "collision", "Q1", instance_of(cycle[0]) or "scene")]
+        g["tasks"] += tasks + list(cycle)
+        g["interfaces"] |= set(cycle)
+        g["evidence"].append({"category": "Q1_mutual_enclosure", "cycle": list(cycle),
+                              "blocking_parts": sorted({(issues.get(i, {}).get("evidence") or {}).get("for") or "" for i in cycle} - {""}),
+                              "blocks": len(set(tasks))})
     for task, (attr, kind, category, evidence) in roots.items():
         instance = results[task]["instance"]
         # A neighbour that blocks the hand turns an asset clearance finding into a layout one.
@@ -274,6 +300,9 @@ def _measure(finding, measure, reach):
     kind = finding["kind"]
     if kind == "unreachable":
         finding["requirement"] = {"max_shoulder_distance_m": REACH_M, "dock_footprint_m": [0.6, 0.5]}
+    elif finding["category"] == "Q1":
+        finding["requirement"] = {"each_movable_part_opens_with_neighbours_closed": True,
+                                  "finger_side_gap_mm": FINGER_SIDE_GAP_MM}
     elif kind in ("grasp", "collision"):
         finding["requirement"] = {"finger_side_gap_mm": FINGER_SIDE_GAP_MM, "grip_height_mm": GRIP_HEIGHT_MM,
                                   "parallel_face_spacing_mm": list(GRIP_OPENING_MM)}

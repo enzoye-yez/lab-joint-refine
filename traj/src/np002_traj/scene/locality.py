@@ -17,6 +17,7 @@ from .settle import SLEEP
 
 RADIUS_M = 2.5
 DAMPING_PER_KG = 1e6        # v = g / (damping / mass) ~ 1e-5 m/s
+AWAKE_RADIUS_M = 0.3        # instances this close to the task site never sleep (openers of nested prerequisites)
 FROZEN_BIT = 1 << 30        # collision bit shared only by frozen geoms (affinity) and simulated ones (type)
 
 
@@ -52,9 +53,9 @@ class Locality:
         self.tendon = np.array([model.eq_type[i] == mujoco.mjtEq.mjEQ_TENDON for i in range(model.neq)], bool)
         self.dof_mass = model.body_subtreemass[model.body_rootid[model.dof_bodyid]] + 1.0
 
-    def near(self, point, keep=()):
+    def near(self, point, keep=(), radius=RADIUS_M):
         distance = np.linalg.norm(self.geom_xy - np.asarray(point)[:2], axis=1) - self.model.geom_rbound
-        return set(self.geom_instance[distance < RADIUS_M]) | set(keep) | {self.robot}
+        return set(self.geom_instance[distance < radius]) | set(keep) | {self.robot}
 
     def apply(self, point, keep=()):
         """Freeze everything not near `point`; returns what restore() needs. Sleep is enabled when
@@ -78,7 +79,8 @@ class Locality:
         if not np.any(m.eq_active0.astype(bool) & self.tendon):
             m.opt.enableflags |= SLEEP
             # The parts the task acts on never sleep: a pushed hood fell asleep mid-stroke and stopped.
-            task_trees = np.unique(m.body_treeid[[b for b in range(1, m.nbody) if self.instance[b] in set(keep)
+            awake = self.near(point, keep, AWAKE_RADIUS_M)
+            task_trees = np.unique(m.body_treeid[[b for b in range(1, m.nbody) if self.instance[b] in awake
                                                   and m.body_treeid[b] >= 0]])
             m.tree_sleep_policy[task_trees] = mujoco.mjtSleepPolicy.mjSLEEP_NEVER
         return saved, {"near_instances": len(near), "frozen_instances": len(set(self.instance) - near),

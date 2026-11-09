@@ -1,4 +1,6 @@
 """Joint-space paths: RRT-Connect with shortcutting, then smooth time scaling under velocity and acceleration limits."""
+import time
+
 import numpy as np
 from scipy.interpolate import CubicSpline
 
@@ -7,7 +9,11 @@ class NoPath(Exception):
     pass
 
 
-def rrt_connect(start, goal, limits, edge_valid, rng, iterations=3000, step=0.25):
+RRT_SECONDS = 900.0      # wall budget: among dense geometry one edge check can take ~1 s, and 3000
+                         # iterations then ran a single arm move into the task's one-hour limit
+
+
+def rrt_connect(start, goal, limits, edge_valid, rng, iterations=3000, step=0.25, seconds=RRT_SECONDS):
     start, goal, limits = np.asarray(start, float), np.asarray(goal, float), np.asarray(limits, float)
     if edge_valid(start, goal):
         return [start, goal]
@@ -33,7 +39,10 @@ def rrt_connect(start, goal, limits, edge_valid, rng, iterations=3000, step=0.25
             i = parent[i]
         return out[::-1]
 
+    deadline = time.monotonic() + seconds
     for iteration in range(iterations):
+        if time.monotonic() > deadline:
+            raise NoPath(f"RRT-Connect found no path in {seconds:.0f} s ({iteration} iterations)")
         side = iteration % 2
         target = rng.uniform(limits[:, 0], limits[:, 1])
         a = extend(trees[side], parents[side], target)

@@ -7,15 +7,24 @@ the task site (horizontally, to the nearest geom bound) is frozen: its geoms sto
 other (they still touch simulated geoms, so a simulated part resting on a frozen one stays put), its dofs
 get a damping large enough that gravity moves it < 1 mm per simulated minute, and equalities that
 only involve frozen bodies are switched off. The robot, the task's own instance and the instances
-the task must unlock stay fully simulated. The robot's reach from any dock (dock distance <= 1.3 m
-plus 0.8 m arm) is inside RADIUS_M, so nothing it can touch is frozen.
+the task must unlock stay fully simulated. The arm works within ~0.8 m of the task site, so what it
+manipulates or brushes is inside RADIUS_M. A frozen instance still collides with the robot (base or
+shoulder near the dock) but cannot move: pushing it raises the contact force until the session's force
+guard aborts the task, so freezing can only turn a disturbance into a failure, never into a success.
+(RADIUS_M was 2.5 m, the reach from any dock; at that size near-but-idle assets such as a 109-body
+membrane kept steps at ~0.5 s and ran tasks into the wall limit.)
+
+MuJoCo cannot sleep while a tendon equality is active, and without sleep every near instance is
+integrated each step (tip racks alone hold ~5k resting contacts: 0.5 s per step). Tendon equalities
+(cable couplings) of instances the task does not act on are therefore switched off as well: they
+only matter when that instance's own mechanism is driven, which other tasks do not do.
 """
 import mujoco
 import numpy as np
 
 from .settle import SLEEP
 
-RADIUS_M = 2.5
+RADIUS_M = 1.0
 DAMPING_PER_KG = 1e6        # v = g / (damping / mass) ~ 1e-5 m/s
 AWAKE_RADIUS_M = 0.3        # instances this close to the task site never sleep (openers of nested prerequisites)
 FROZEN_BIT = 1 << 30        # collision bit shared only by frozen geoms (affinity) and simulated ones (type)
@@ -75,6 +84,9 @@ class Locality:
         m.dof_damping[far_dof] += DAMPING_PER_KG * self.dof_mass[far_dof]
         off = [i for i, bodies in enumerate(self.equalities)
                if bodies and -1 not in bodies and any(b > 0 for b in bodies) and all(b == 0 or far_body[b] for b in bodies)]
+        acted = set(keep) | {self.robot}
+        off += [i for i, bodies in enumerate(self.equalities) if self.tendon[i] and i not in off
+                and bodies and not any(self.instance[b] in acted for b in bodies if b > 0)]
         m.eq_active0[off] = 0
         if not np.any(m.eq_active0.astype(bool) & self.tendon):
             m.opt.enableflags |= SLEEP

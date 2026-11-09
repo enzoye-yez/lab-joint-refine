@@ -1,0 +1,167 @@
+diff --git a/scripts/run_benchmark.py b/scripts/run_benchmark.py
+index f8bae46..a7713a0 100644
+--- a/scripts/run_benchmark.py
++++ b/scripts/run_benchmark.py
+@@ -215,7 +215,7 @@ def _run_task(task_id, interface, task, model, robot, payload):
+     while b > 0:
+         own.add(b)
+         b = model.body_parentid[b]
+-    ctx = Context(session, STATE["kinematics"], STATE["occupancy"], [], keep_closest=True)
++    ctx = Context(session, STATE["kinematics"], STATE["occupancy"], [], keep_closest=True, interfaces=STATE["interfaces"])
+     started = time.time()
+     result = {"task": task_id, "skill": task.skill, "kind": interface.kind, "mechanism": interface.mechanism.kind,
+               "instance": interface.instance}
+diff --git a/src/np002_traj/skills/library.py b/src/np002_traj/skills/library.py
+index e5b577d..5ad6558 100644
+--- a/src/np002_traj/skills/library.py
++++ b/src/np002_traj/skills/library.py
+@@ -5,7 +5,7 @@ actuate: grasp a part of a 1-DoF mechanism and drive the joint; the TCP path is
+ pick:    grasp a loose object and lift it.
+ press:   push a part along its approach axis with the closed fingertips.
+ """
+-from dataclasses import dataclass
++from dataclasses import dataclass, replace
+ 
+ import mujoco
+ import numpy as np
+@@ -31,6 +31,8 @@ class Context:
+     probes: dict = None
+     opened: set = None        # joints a prerequisite already opened: no longer count as blockers
+     moved: set = None         # bodies a prerequisite moved on purpose (set aside)
++    interfaces: dict = None   # every interface of the scene by id (hold() looks for a handle)
++    holding: tuple = ()       # robot geoms of the hand holding the object: their contact with it is not a collision
+ 
+     def probe(self, side=None):
+         """Hand geometry for grasp synthesis (both hands are built alike)."""
+@@ -150,6 +152,7 @@ def _replan_at_measured_base(ctx, dock, allowed, hand_state=None):
+     lift = float(s.data.qpos[s.robot.lift_qpos])
+     q_base = kin.qpos(kin.robot.base_joint_values(base), lift, {})
+     world = motion.arm_world(s, dock.side, margin=FREE_MARGIN)
++    world.hold(ctx.holding)
+     from .dock import _preshaped
+     world.set_joints(*(hand_state or (lambda side, frame: _preshaped(s, side, frame)))(dock.side, dock.frame))
+     from ..planning.wholebody import WholeBody
+@@ -501,6 +504,80 @@ def _closed_hand(s):
+     return state
+ 
+ 
++HOLD_MAX_KG = 3.0          # loose objects up to this mass slide away under a press; the other hand holds them
++HOLD_FRAMES = 24           # grasp frames tried for the holding hand
++
++
++def _loose_root(model, interface):
++    """Root body of the interface's object if it lies loose (free joint) and is light enough to be pushed away."""
++    root = int(model.body_rootid[interface.body])
++    joint = int(model.body_jntadr[root])
++    if joint < 0 or int(model.jnt_type[joint]) != int(mujoco.mjtJoint.mjJNT_FREE):
++        return None
++    return root if model.body_subtreemass[root] <= HOLD_MAX_KG else None
++
++
++def hold(ctx, interface, dock):
++    """Hold a loose object with the arm `dock` does not use, from where the base already stands:
++    a press on a pipette's ejector otherwise pushes the pipette across the bench instead of the
++    button into it. Grasps one of the object's own grasp interfaces without lifting. Returns the
++    holding side, or None (no handle, or none reachable from this dock): the press then goes ahead alone."""
++    from ..planning.ik import IKFailure, Target
++    from .dock import FREE_MARGIN, GOAL_MARGIN, Dock, _preshaped
++    s, m, kin = ctx.session, ctx.session.model, ctx.kinematics
++    root = _loose_root(m, interface)
++    if root is None or not ctx.interfaces:
++        return None
++    handles = [h for h in ctx.interfaces.values() if h.id != interface.id and h.kind == "grasp"
++               and int(m.body_rootid[h.body]) == root]
++    side = next(o for o in s.robot.arms if o != dock.side)
++    base = s.robot.base_pose(s.data.qpos)
++    lift = float(s.data.qpos[s.robot.lift_qpos])
++    q_base = kin.qpos(kin.robot.base_joint_values(base), lift, {dock.side: s.data.qpos[s.robot.arms[dock.side].qpos]})
++    here = s.data.qpos[s.robot.arms[side].qpos].copy()
++    tried = 0
++    for handle in handles:
++        frames, _ = grasp_frames(m, s.data, handle, ctx.probe(side), s.robot.geoms)
++        part = set(part_geoms(m, s.data, handle, _site(s, handle)).tolist())
++        for frame in frames[:HOLD_FRAMES]:
++            tried += 1
++            world = motion.arm_world(s, side, margin=FREE_MARGIN)
++            world.set_joints(*_preshaped(s, side, frame))
++            pre = frame.offset(PRE_DISTANCE)
++            try:
++                q_pre = kin.ik[side].solve(q_base, Target(pre.position, pre.rotation), seed=here, valid=world.valid, restarts=2).q
++                world.allow(part)
++                world.margin = GOAL_MARGIN
++                q_goal = kin.ik[side].solve(q_base, Target(frame.position, frame.rotation, position_tolerance=5e-4),
++                                            seed=q_pre, valid=world.valid, restarts=1).q
++            except IKFailure:
++                continue
++            if not world.edge_valid(q_pre, q_goal):
++                continue
++            if frame.opening is not None:
++                motion.gripper(s, side, frame.opening, seconds=0.6)
++            try:
++                motion.move_arm(s, side, q_pre)
++            except Abort:
++                continue
++            holding = Dock(base, lift, side, frame, q_pre, q_goal, tried)
++            _final_approach(ctx, holding)
++            motion.gripper(s, side, 0.0, force=30.0)
++            touching, forces = _pads_touch(ctx, side, part)
++            _note(ctx, "hold", interface=handle.id, side=side, tried=tried, pad_force_n=[round(f, 2) for f in forces])
++            if touching:
++                s.allowed_contact = set(s.allowed_contact) | part
++                hand = int(m.body_parentid[s.robot.arms[side].fingers[0]])
++                ctx.holding = tuple(int(g) for g in body_geoms(m, subtree_bodies(m, hand)))
++                return holding
++            motion.gripper(s, side, 0.08, seconds=0.6)
++            _retreat(ctx, holding)
++            motion.move_arm(s, side, here)      # out of the way: the press goes ahead alone
++            return None
++    _note(ctx, "hold", interface=None, handles=len(handles), tried=tried)
++    return None
++
++
+ def press(ctx, interface, task):
+     """Push the part along its approach axis with the extended press pin (fingers closed beside it)."""
+     s, m = ctx.session, ctx.session.model
+@@ -516,6 +593,31 @@ def press(ctx, interface, task):
+ 
+     dock = _approach(ctx, interface, frames, part, hand_state=_pin_hand(s), prepare=_pin_deploy(s))
+     frame = dock.frame
++    root = int(m.body_rootid[interface.body])
++    x0, r0 = s.data.xpos[root].copy(), s.data.xmat[root].reshape(3, 3).copy()
++    holding = hold(ctx, interface, dock)
++    if holding is not None:
++        # Closing the holding hand shifts the object by millimetres: press where the part is now.
++        # First the planned frame carried along with the object's rigid motion, then fresh frames.
++        turn = s.data.xmat[root].reshape(3, 3) @ r0.T
++        planned = replace(frame, position=turn @ (frame.position - x0) + s.data.xpos[root], rotation=turn @ frame.rotation)
++        frames, _ = contact_frames(m, s.data, interface, probe, s.robot.geoms, s.robot.arms[dock.side].pin_tip)
++        solved, failures = None, []
++        for candidate in [planned] + sorted(frames, key=lambda f: np.linalg.norm(f.rotation - planned.rotation)
++                                            + np.linalg.norm(f.position - planned.position) * 10):
++            dock.frame = candidate
++            try:
++                _replan_at_measured_base(ctx, dock, part, _pin_hand(s))
++            except Abort as exc:
++                failures.append(exc.detail if hasattr(exc, "detail") else str(exc))
++                continue
++            solved = candidate
++            break
++        _note(ctx, "press_after_hold", frames=len(frames), solved=solved is not None, failures=[str(f)[:300] for f in failures[:3]])
++        if solved is None:
++            raise Abort("replan_at_dock", after="hold")
++        frame = solved
++        motion.move_arm(s, dock.side, dock.q_pre)
+     _final_approach(ctx, dock)
+     done = lambda: s.monitor.evaluate(task.goal, task.key) is True
+     s.monitor.evaluate(task.goal, task.key)                   # anchor the joint's starting position
+@@ -523,6 +625,10 @@ def press(ctx, interface, task):
+     motion.move_tcp(s, dock.side, frame.position + frame.rotation[:, 2] * depth, frame.rotation, speed=0.02, until=done)
+     _note(ctx, "press", reached=done(), detail=s.monitor.details.get(task.key))
+     _retreat(ctx, dock)
++    if holding is not None:
++        motion.gripper(s, holding.side, 0.08, seconds=0.6)
++        _retreat(ctx, holding)
++        ctx.holding = ()
+     s.data.ctrl[s.robot.arms[dock.side].pin_actuator] = 0.0
+     s.wait(0.5)
+ 

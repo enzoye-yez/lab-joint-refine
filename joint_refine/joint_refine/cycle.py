@@ -22,7 +22,8 @@ import traceback
 from . import diagnose, feedback, judge, quota, repair, trajectory
 from .common import ROOT, TRAJ, Ledger, git_identity, now, read, write
 
-STOP_STATUSES = ("deferred", "no_change")
+# The generator kept the source scene: nothing new to evaluate.
+STOP_STATUSES = ("deferred", "no_change", "rejected", "assembly_failed")
 
 
 class Cycles:
@@ -157,6 +158,9 @@ def run_cycle(cy, c):
         cy.log(f"cycle {c}: scene repair ended {result.get('status')}: {result.get('reason')}")
         return False
     artifact, sha = repair.source_scene(result["run"])
+    if sha == scene["sha256"]:
+        cy.log(f"cycle {c}: scene repair ended {result.get('status')} with the source scene unchanged")
+        return False
     cy.state["scenes"][str(c + 1)] = {"run": result["run"], "artifact": str(artifact), "sha256": sha,
                                       "from": f"S{c}_T{c}", "repair_status": result.get("status")}
     cy.save()

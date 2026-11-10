@@ -25,13 +25,17 @@ def repair(round_dir, source_run, target_name, log):
     out = round_dir / "scene_repair"
     target = SCENE_GEN / "runs" / target_name
     result_path = target / "robot_feedback_result.json"
-    if not (read(result_path) or {}).get("status") in ("candidate", "deferred", "no_change"):
+    previous = (read(result_path) or {}).get("status")
+    if previous not in ("candidate", "deferred", "no_change"):
         wait_for_load(log=log)
         command = [PYTHON, "scripts/apply_robot_feedback.py", "--source-run", source_run, "--run", target_name,
                    "--feedback", round_dir / "feedback/feedback.json",
                    "--max-calls", MAX_CALLS, "--max-tokens", MAX_TOKENS]
         if target.exists():
             command.append("--resume")
+        if previous == "assembly_failed":
+            # Rebuild with the current generator; the re-authored assets are kept.
+            command.append("--reassemble")
         code, seconds = guarded(command, cpus=REPAIR_CPUS, mem=REPAIR_MEM, cwd=SCENE_GEN,
                                 log_path=out / "repair.log", env={"PYTHONPATH": str(SCENE_GEN / "src")})
         if code and not result_path.exists():

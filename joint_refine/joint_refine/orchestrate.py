@@ -19,7 +19,7 @@ from . import diagnose, feedback, judge, quota, repair, trajectory
 from .common import CORES, ROOT, SCENE_GEN, TRAJ, Ledger, git_identity, now, read, write
 
 MIN_GAIN = 0.01        # stop when a round fixes fewer than 1% of the tasks ...
-STOP_STATUSES = ("deferred", "no_change")
+STOP_STATUSES = ("deferred", "no_change", "rejected", "assembly_failed")
 
 
 class Experiment:

@@ -38,9 +38,9 @@ def prepare(scene, out, log):
 def benchmark(scene, run_name, out, log):
     """Full benchmark under the resource guard; results stay in np002_traj/runs/<run_name> and are copied."""
     target = TRAJ / "runs" / run_name
-    if not (target / "results.jsonl").exists() or not _finished(target):
+    if not (target / "results.jsonl").exists() or not _finished(target, scene):
         if target.exists():
-            shutil.rmtree(target)          # a half-written run is deterministic to redo
+            shutil.rmtree(target)          # a half-written run, or one on another scene, is deterministic to redo
         wait_for_load(log=log)
         code, seconds = guarded([PYTHON, "scripts/run_benchmark.py", "--run", run_name, "--workers", WORKERS],
                                 cpus=BENCH_CPUS, mem=BENCH_MEM, cwd=TRAJ, log_path=out / "benchmark.log", env=_env(scene))
@@ -62,10 +62,10 @@ def benchmark(scene, run_name, out, log):
     return summary
 
 
-def _finished(target):
+def _finished(target, scene):
     config = read(target / "config.json") or {}
     lines = sum(1 for _ in (target / "results.jsonl").open())
-    return config.get("tasks") == lines
+    return config.get("tasks") == lines and Path(config.get("scene_source", "")) == Path(scene)
 
 
 def summarize(out):

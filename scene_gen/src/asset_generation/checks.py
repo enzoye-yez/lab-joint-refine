@@ -16,7 +16,8 @@ def _load_model(root, *, scope="asset", model_file="model.xml", enforce_geom_lim
     import mujoco
     require(scope in {"asset", "scene"}, "Invalid model loading scope")
     max_geoms = 50000 if scope == "scene" else 10000
-    max_xml_bytes = 32000000 if scope == "scene" else 8000000
+    # The byte cap only rejects runaway files: a repaired scene of ~100k geoms is already ~32 MB.
+    max_xml_bytes = 64000000 if scope == "scene" else 8000000
     root = Path(root)
     xml = safe_path(root, model_file)
     require(xml.is_file() and xml.stat().st_size <= max_xml_bytes, "Missing or oversized model.xml")

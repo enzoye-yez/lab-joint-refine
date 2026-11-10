@@ -7,8 +7,9 @@ from types import SimpleNamespace
 
 from asset_generation.contracts import GenerationConfig
 from asset_prep.errors import ValidationError
+from asset_prep.state_archive import read_state
 from scene_generation.contracts import SceneConfig
-from scene_generation.external_repair import inject, layout_changes
+from scene_generation.external_repair import inject, layout_changes, reassemble
 from scene_generation.feedback import PLANNER_POLICY, planning_feedback
 from scene_generation.pipeline import SceneRun
 from test_mobile_layout import mobile_fixture
@@ -95,6 +96,23 @@ class ExternalRepairTests(unittest.TestCase):
         run = SimpleNamespace(limits=SceneConfig(validation_mode="static"))
         with self.assertRaises(ValidationError):
             SceneRun.run(run, {"scene_sha256": "abc", "failures": [ROW]})
+
+    def test_reassemble_rewinds_only_a_failed_assembly_and_rebinds_the_source(self):
+        project = Path(__file__).resolve().parents[1]
+        binding = {"implementation": "old", "inputs": {"contract": {}}, "configuration": {"model": "m"}}
+        state = {"identity": {"implementation": "old", "binding": binding},
+                 "robot_feedback": {"phase": "done", "status": "assembly_failed", "reason": "oversized", "jobs_done": ["J1"]}}
+        reassemble(project, self.root, copy.deepcopy(state))
+        saved = read_state(self.root/"state.json")
+        receipt = saved["robot_feedback"]
+        self.assertEqual((receipt["phase"], receipt["jobs_done"]), ("assemble", ["J1"]))
+        self.assertNotIn("status", receipt)
+        self.assertNotEqual(saved["identity"]["implementation"], "old")
+        self.assertEqual(saved["identity"]["binding"]["configuration"], {"model": "m"})
+        self.assertEqual(receipt["reassembled"][0]["reason"], "oversized")
+        for status in ("candidate", "rejected"):
+            with self.assertRaises(ValidationError):
+                reassemble(project, self.root, {**state, "robot_feedback": {**state["robot_feedback"], "status": status}})
 
 
 if __name__ == "__main__":

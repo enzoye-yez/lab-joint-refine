@@ -52,7 +52,7 @@ def work_budget(mode, source, base_seconds):
     counts = {}
     for path in paths:
         if path not in counts:
-            require(path.stat().st_size <= 32000000, "Scene budget estimation input file too large")
+            require(path.stat().st_size <= 64000000, "Scene budget estimation input file too large")
             counts[path] = sum(1 for _ in ET.parse(path).iter("geom"))
     count = sum(counts[p] for p in paths)
     # Estimate includes repeated instances; the cap keeps process cancellation bounded.

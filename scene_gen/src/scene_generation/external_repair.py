@@ -179,6 +179,27 @@ def install(run, source):
     run.store.save()
 
 
+def reassemble(project, root, state):
+    """Rebind a run whose repaired scene could not be assembled to this source tree and rewind it to the
+    assemble phase: the re-authored assets are kept, only assembly and its static assessment run again."""
+    from asset_prep.state_archive import write_state
+    receipt = state[KIND]
+    require(receipt.get("status") == "assembly_failed", "--reassemble needs a run that ended assembly_failed")
+    identity = state["identity"]
+    binding = implementation.runtime_record(project, inputs=identity["binding"]["inputs"],
+                                            configuration=identity["binding"]["configuration"])
+    state.setdefault("implementation_history", []).append({"kind": KIND, "at": time.time(), "from": identity["implementation"],
+        "to": binding["implementation"], "model_calls_added": 0,
+        "reason": "reassemble: the repaired scene failed its assembly check; keep the re-authored assets"})
+    receipt.setdefault("reassembled", []).append({"at": time.time(), "from": identity["implementation"],
+                                                  "to": binding["implementation"], "reason": receipt.get("reason")})
+    identity.update(implementation=binding["implementation"], binding=binding)
+    receipt.update(phase="assemble", implementation=binding["implementation"])
+    receipt.pop("status", None)
+    receipt.pop("reason", None)
+    write_state(root/"state.json", state)
+
+
 def author(run, job):
     """Regenerate one job as collect() does: a failed replacement keeps the previous loadable version."""
     from .candidate import usable
@@ -365,6 +386,8 @@ def main(argv=None):
     parser.add_argument("--protocol-pdf", type=Path)
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--retry-uncertain", action="store_true")
+    parser.add_argument("--reassemble", action="store_true",
+                        help="with --resume: rebuild a scene that failed to assemble, keeping its re-authored assets")
     args = parser.parse_args(argv)
     project = Path(__file__).resolve().parents[2]
     if not getattr(sys, "_harness_runtime", None):
@@ -390,6 +413,8 @@ def main(argv=None):
                 if Path(receipt["source_run"]) != source:
                     raise ValidationError("--resume must use the same source run")
                 inputs = {**receipt["inputs"], "contract": saved["identity"]["contract"]}
+                if args.reassemble:
+                    reassemble(project, root, saved)
                 del saved
                 run = build_run(project, root, inputs, receipt["budget"], resume=True, retry_uncertain=args.retry_uncertain)
             else:

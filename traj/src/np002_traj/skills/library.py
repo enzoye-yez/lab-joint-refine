@@ -322,7 +322,9 @@ def actuate(ctx, interface, task):
         poses = mechanism_poses(m, s.data, interface, joint, now + stroke, tcp_pos, tcp_rot, steps)
         reached = motion.follow(s, dock.side, poses, speed=0.05, until=done)
         _note(ctx, "drive_mechanism", cycle=cycle, reached=reached, detail=s.monitor.details.get(task.key))
-        if reached or not hinge or abs(target - s.data.qpos[address]) < 0.05:
+        # A slide the arm could not follow to the end is regrasped where it stopped, like a hinge, if it moved.
+        progress = abs(s.data.qpos[address] - now)
+        if reached or abs(target - s.data.qpos[address]) < (0.05 if hinge else 0.005) or (not hinge and progress < 0.005):
             break
         _regrasp(ctx, dock, interface, moving)
     release_events(ctx, task, "driven")

@@ -203,6 +203,27 @@ def run_task(task_id):
     return result
 
 
+DISTURB_M = 0.005          # another instance moved further than this: a side effect
+OWN_INSTANCE_M = 0.02      # the operated instance's other parts may shift a little while it is worked on
+
+
+def _disturbed(model, data, start, own, instance):
+    """Roots that moved as a side effect. A root that kept its offset to the operated root (a cap lifted
+    with its tube) was carried, not disturbed."""
+    anchor = next((b for b in own if model.body_parentid[b] == 0), 0)
+    disturbed = {}
+    for b, p in start.items():
+        if b in own or b in STATE["unsettled"]:
+            continue
+        moved = float(np.linalg.norm(data.xpos[b] - p))
+        if anchor in start and np.linalg.norm((data.xpos[b] - data.xpos[anchor]) - (p - start[anchor])) < DISTURB_M:
+            continue
+        name = model.body(b).name
+        if moved > (OWN_INSTANCE_M if name.startswith(instance + "__") else DISTURB_M):
+            disturbed[name] = moved
+    return disturbed
+
+
 def _run_task(task_id, interface, task, model, robot, payload):
     data = mujoco.MjData(model)
     mujoco.mj_resetDataKeyframe(model, data, model.key("assembled").id)
@@ -232,9 +253,7 @@ def _run_task(task_id, interface, task, model, robot, payload):
     except Exception as exc:                                         # a code bug, never fed to a model
         result["reason"], result["detail"] = "code_error", {"error": repr(exc), "trace": traceback.format_exc()[-1500:]}
     own |= ctx.moved or set()                                       # set aside on purpose by a prerequisite
-    moved = {model.body(b).name: float(np.linalg.norm(data.xpos[b] - p)) for b, p in start.items()
-             if b not in own and b not in STATE["unsettled"]}
-    disturbed = {k: v for k, v in moved.items() if v > 0.005}
+    disturbed = _disturbed(model, data, start, own, interface.instance)
     goal = session.monitor.evaluate(task.goal, "goal")
     result.update(goal=goal, goal_detail=session.monitor.details.get("goal"), disturbed=disturbed,
                   peak_robot_force_n=session.peak_force, sim_s=session.time, wall_s=time.time() - started, log=ctx.log)

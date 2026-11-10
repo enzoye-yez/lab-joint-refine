@@ -13,9 +13,10 @@ from .common import read, write
 
 KINDS = {"collision", "unreachable", "grasp", "mechanism", "fit", "support"}
 MAX_FAILURES = 100
-MAX_JOBS = 4            # asset jobs one repair round is asked to touch (focus beats breadth: a round that
-                        # was sent 61 items rewrote 17 of 22 jobs, ran out of budget and fixed no task)
-MAX_FINDINGS = 30
+MAX_JOBS = None         # every asset job with a finding may be repaired. Round 0 (61 items, 17 of 22 jobs
+                        # rewritten) ran out of its 80M-token budget; the repair budget now covers all jobs
+                        # (repair.MAX_TOKENS) and the generator's precheck rejects assets that regress.
+MAX_FINDINGS = 200      # the Feedback Writer merges them into at most MAX_FAILURES rows
 
 PROMPT = """You are the Feedback Writer in a joint-refinement loop between a robot-trajectory generator and a
 3D asset / lab scene generator. A robot (holonomic base + 0.6 m lift + two Franka FR3 arms, reach 0.855 m,
@@ -96,7 +97,7 @@ def select(findings, instances, attempted=(), max_jobs=MAX_JOBS):
         need = {job[f["instance"]]} if f["instance"] in job else set()
         if not need:
             skipped.append({"finding": f["id"], "why": "instance not in the scene plan"})
-        elif len(jobs | need) > max_jobs:
+        elif max_jobs is not None and len(jobs | need) > max_jobs:
             skipped.append({"finding": f["id"], "why": f"outside the {max_jobs} jobs focused this round"})
         elif len(selected) >= MAX_FINDINGS:
             skipped.append({"finding": f["id"], "why": f"beyond {MAX_FINDINGS} findings this round"})

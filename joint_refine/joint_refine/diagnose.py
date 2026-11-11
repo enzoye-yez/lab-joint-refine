@@ -21,6 +21,7 @@ import numpy as np
 
 # Requirements derived from the robot profile (data/robot/profile.json in np002_traj):
 FINGER_SIDE_GAP_MM = 9.0        # 5 mm fingertip + 2 mm clearance each side
+EXPOSED_HEIGHT_MM = 12.0       # the part must stand this far clear of its holder and neighbours (pads 20 mm high)
 GRIP_HEIGHT_MM = 5.0            # minimum graspable height for the 20 mm pads
 GRIP_OPENING_MM = (5.0, 45.0)   # parallel faces must be 5-45 mm apart (50 mm stroke)
 PRESS_CLEAR_DIAMETER_MM, PRESS_CLEAR_HEIGHT_MM = 70.0, 35.0
@@ -96,6 +97,43 @@ class Measure:
         rows = sorted(best.items(), key=lambda kv: kv[1])[:top]
         return [{"geom": self.geom_name(g), "instance": instance_of(self.geom_name(g)) or instance_of(m.body(m.geom_bodyid[g]).name),
                  "gap_mm": round(gap * 1e3, 1)} for g, gap in rows]
+
+    def _box(self, g):
+        """World axis-aligned box of geom g from its local bounding box."""
+        m, d = self.model, self.data
+        rotation = d.geom_xmat[g].reshape(3, 3)
+        centre = d.geom_xpos[g] + rotation @ m.geom_aabb[g, :3]
+        half = np.abs(rotation) @ m.geom_aabb[g, 3:]
+        return centre - half, centre + half
+
+    def exposed_height(self, body):
+        """How far the part stands clear of whatever surrounds it within a finger's width (mm): its top
+        minus the highest neighbouring geometry (rack walls, neighbouring caps) beside it. The fingers
+        close on that exposed band only."""
+        own, bodies = self.subtree_geoms(body)
+        if not own:
+            return None
+        boxes = [self._box(g) for g in own]
+        lo = np.min([b[0] for b in boxes], axis=0)
+        hi = np.max([b[1] for b in boxes], axis=0)
+        gap = FINGER_SIDE_GAP_MM / 1e3
+        m = self.model
+        top = None
+        for g in self.collidable:
+            if m.geom_bodyid[g] in bodies or m.geom_type[g] == mujoco.mjtGeom.mjGEOM_PLANE:
+                continue
+            a, b = self._box(g)
+            if np.any(b[:2] < lo[:2] - gap) or np.any(a[:2] > hi[:2] + gap) or b[2] <= lo[2] or a[2] >= hi[2]:
+                continue
+            if b[2] - a[2] > 0.5:                  # a wall or a cabinet behind it, not its holder
+                continue
+            if top is None or b[2] > top:
+                top, highest = b[2], g
+        height = round(float(hi[2] - lo[2]) * 1e3, 1)
+        if top is None:
+            return {"exposed_mm": height, "part_height_mm": height}
+        return {"exposed_mm": round(float(hi[2] - top) * 1e3, 1), "part_height_mm": height,
+                "highest_neighbour": self.geom_name(highest)}
 
     def part_size(self, body):
         """Axis-aligned extent of the part's own collidable geoms (mm), as a size hint."""
@@ -289,6 +327,8 @@ def _measure(finding, measure, reach):
             continue
         row = {"interface": interface_id, "kind": interface.kind, "mechanism": interface.mechanism.kind,
                "part_size_mm": measure.part_size(interface.body), "neighbours": measure.neighbours(interface.body)}
+        if finding["kind"] in ("grasp", "collision", "fit"):
+            row["exposed_height"] = measure.exposed_height(interface.mechanism.body if interface.mechanism.body >= 0 else interface.body)
         if interface.mechanism.joint >= 0 and finding["kind"] == "mechanism":
             row["joint"] = measure.joint(interface.mechanism.joint)
         if interface_id in reach:
@@ -305,6 +345,7 @@ def _measure(finding, measure, reach):
                                   "finger_side_gap_mm": FINGER_SIDE_GAP_MM}
     elif kind in ("grasp", "collision"):
         finding["requirement"] = {"finger_side_gap_mm": FINGER_SIDE_GAP_MM, "grip_height_mm": GRIP_HEIGHT_MM,
+                                  "exposed_height_mm": EXPOSED_HEIGHT_MM,
                                   "parallel_face_spacing_mm": list(GRIP_OPENING_MM)}
     elif kind == "fit":
         finding["requirement"] = {"press_clear_cylinder_mm": {"diameter": PRESS_CLEAR_DIAMETER_MM, "height": PRESS_CLEAR_HEIGHT_MM}}

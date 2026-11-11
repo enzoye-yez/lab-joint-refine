@@ -13,7 +13,7 @@ from pathlib import Path
 
 from .common import ROOT, now, write
 
-STOP_BELOW = 50
+STOP_BELOW = 45                 # the user lowered the stop line from 50 % to 45 % on 2026-11-11
 STOP_FILE = ROOT / "experiments/QUOTA_STOP.json"
 
 

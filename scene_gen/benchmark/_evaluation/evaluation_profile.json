@@ -1,0 +1,119 @@
+{
+  "profile_id": "mobile-dual-arm-room-profile-v0.3",
+  "version": "0.3.1-mobile-evidence-review",
+  "status": "partially_defined_not_frozen",
+  "groups": {
+    "robot": {
+      "status": "defined_not_frozen",
+      "description": "Pinned integrated dual-arm robot identity; movable base and shared lift. Submitted poses are evidence state, not fixed design constraints.",
+      "values": {
+        "public_environment": "generation_environment.json",
+        "sha256": "fc2e7ad1bbb3bfc4ebb7a28c32c71a33901a560dd947212fa28d3a7b9b2afd73",
+        "controller_limits": "pending execution-profile freeze"
+      }
+    },
+    "workspace": {
+      "status": "defined_not_frozen",
+      "description": "Variable multi-table room design permissions are fixed; geometry is a versioned submission output.",
+      "values": {
+        "room": "Propose bounded room dimensions and reasons; version subsequent changes.",
+        "tables": "Variable count, dimensions, height, position and orientation; no universal count cap.",
+        "invariants": "Real equipment scale, source quantities, physical interfaces and required operations.",
+        "clearance": "Whole robot and tools, door/lid opening, loading, maintenance and required separation.",
+        "docking": "Multiple docks per instrument/operation; either arm, shared lift.",
+        "compactness": "Justify table sharing, dimensions and room extent; necessary clearance is not waste."
+      }
+    },
+    "runtime": {
+      "status": "pending_freeze",
+      "description": "Simulator/version, timestep, solver, controller, reset, observation and contact sampling settings.",
+      "values": {
+        "simulator_version": null,
+        "timestep_s": null,
+        "solver": null,
+        "controller": null,
+        "sampling": null
+      }
+    },
+    "nominal_tolerances": {
+      "status": "pending_freeze",
+      "description": "Per source property: nominal/range, unit, provenance, measurement method and evaluator allowance; never manufacturer accuracy by invention.",
+      "values": {
+        "per_property_register": null
+      }
+    },
+    "geometry_precision": {
+      "status": "pending_freeze",
+      "description": "Per interface numerical geometry/contact uncertainty and allowed penetration, distinct from physical fit allowance.",
+      "values": {
+        "per_interface_register": null
+      }
+    },
+    "stability": {
+      "status": "pending_freeze",
+      "description": "Per handled object and action: settling window, displacement, angular drift, velocity and permitted intentional deformation.",
+      "values": {
+        "per_object_action_register": null
+      }
+    },
+    "budget": {
+      "status": "pending_freeze",
+      "description": "Equal generation/repair/planning/control budgets, seeds, attempt counts, timeouts and model-cost reporting.",
+      "values": {
+        "generation_limits": {
+          "model_calls": 800,
+          "reserved_tokens": 240000000,
+          "scene_iterations": 80,
+          "asset_candidate_attempts": 60
+        },
+        "planning_limits": null,
+        "execution_limits": null,
+        "seeds": null,
+        "attempt_selection": "Must be frozen before comparative execution; no best-run cherry picking."
+      }
+    },
+    "allocation": {
+      "status": "pending_freeze",
+      "description": "Per task source quantities, sample realization, balancing instances and occurrence manifest fixed before submissions.",
+      "values": {
+        "per_task_instance_and_occurrence_manifest": null
+      }
+    },
+    "comparison_reference": {
+      "status": "pending_freeze",
+      "description": "Like-for-like achieved-goal reference for efficiency or an evidence-supported simplification comparison.",
+      "values": {
+        "reference_runs_or_geometric_arguments": null
+      }
+    },
+    "intervention_policy": {
+      "status": "pending_freeze",
+      "description": "Baseline supports, allowed extra actuators, physical assistance and device software interfaces.",
+      "values": {
+        "baseline_support_manifest": null,
+        "allowed_extra_actuators": "Reuse stock grippers. Declare task-specific adapters/replacements, arm, interface, payload and reasons. No second robot or undeclared powered assistance. Cooperative load sharing requires separate evidence.",
+        "software_interface_manifest": null
+      }
+    }
+  },
+  "candidate_configuration": {
+    "status": "historical_candidate_retired_not_scoring_truth",
+    "replacement": "generation_environment.json",
+    "note": "Old FR3 snapshot is preserved in the baseline archive, not an active environment."
+  },
+  "fixed_policy": {
+    "robot_base_motion": "No undeclared base relocation.",
+    "external_handling": "No invisible human relay or extra robot.",
+    "initial_state": "Input-declared fine fabrication, prepared contents and installed equipment may be precompleted.",
+    "device_dwell": "Declared virtual-clock abstraction allowed; retain all required external handling.",
+    "modeling_freedom": "Unpublished values must be declared and physically consistent; no hidden manufacturer target.",
+    "task_feasibility": "Before runtime comparison, validate full-scale workspace coexistence and witness configurations for required interfaces. Mark unresolved configuration as such, not as algorithm failure.",
+    "scope_change": "If a common fixed profile cannot support a task, revise the benchmark profile or explicitly version the task scope before comparing systems. Never shrink equipment silently."
+  },
+  "freeze_procedure": [
+    "Resolve each group with provenance and units.",
+    "Prepare per-task instance/occurrence manifests and signed feasibility records.",
+    "Record reviewer, date and profile hash before seeing comparative submissions.",
+    "Keep unaffected static/identity checks usable while specific groups remain pending."
+  ]
+}

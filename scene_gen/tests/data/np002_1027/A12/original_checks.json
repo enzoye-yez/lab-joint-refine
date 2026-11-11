@@ -1,0 +1,1 @@
+{"checks": [{"detail": "Error: range[0] should be smaller than range[1] in joint\nElement name 'door_lock_ref', id 0, line 64", "id": "assembly_compile", "status": "fail"}], "coverage": ["Not loadable for assembly"], "manifest": null, "renders": [], "status": "fail"}

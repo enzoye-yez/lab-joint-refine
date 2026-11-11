@@ -1,0 +1,10 @@
+{
+  "source": "runs\\np002_openai_astra_1027_repair02_np002\\stages\\00055_scene_measurement\\measurement\\checked\\report.json",
+  "source_sha256": "934eb9053c18910f427fc5b3ad9d65fef6be021fe1656df5ca243e8092ee31e2",
+  "selected_check_ids": [
+    "material_integrity:filter_train",
+    "scene_collisions",
+    "support:grinding_sample"
+  ],
+  "note": "Original check rows preserved verbatim as JSON data; unrelated rows omitted; plan from paused run."
+}

@@ -1,0 +1,1230 @@
+{
+  "schema_version": "1.0",
+  "asset_ids": [
+    "A13"
+  ],
+  "parts": [
+    {
+      "id": "2ml_collection_01",
+      "body": "body_tube2_01"
+    },
+    {
+      "id": "2ml_collection_02",
+      "body": "body_tube2_02"
+    },
+    {
+      "id": "2ml_collection_03",
+      "body": "body_tube2_03"
+    },
+    {
+      "id": "process_extract_a",
+      "body": "body_tube15_01"
+    },
+    {
+      "id": "process_extract_b",
+      "body": "body_tube15_02"
+    },
+    {
+      "id": "process_combined_product",
+      "body": "body_tube15_03"
+    },
+    {
+      "id": "process_library_round1",
+      "body": "body_tube15_04"
+    },
+    {
+      "id": "process_library_round2",
+      "body": "body_tube15_05"
+    },
+    {
+      "id": "process_library_round3",
+      "body": "body_tube15_06"
+    },
+    {
+      "id": "process_screen_keep_supernatant",
+      "body": "body_tube15_07"
+    },
+    {
+      "id": "process_screen_keep_beads",
+      "body": "body_tube15_08"
+    },
+    {
+      "id": "process_final_eluate",
+      "body": "body_tube15_09"
+    },
+    {
+      "id": "balance_stage_01",
+      "body": "body_balance15_01"
+    },
+    {
+      "id": "balance_stage_02",
+      "body": "body_balance15_02"
+    },
+    {
+      "id": "balance_stage_03",
+      "body": "body_balance15_03"
+    },
+    {
+      "id": "balance_stage_04",
+      "body": "body_balance15_04"
+    },
+    {
+      "id": "balance_stage_05",
+      "body": "body_balance15_05"
+    },
+    {
+      "id": "balance_stage_06",
+      "body": "body_balance15_06"
+    }
+  ],
+  "interfaces": [
+    {
+      "id": "2ml_collection_01_grasp",
+      "asset_id": "A13",
+      "kind": "grasp",
+      "body": "body_tube2_01",
+      "site": "site_tube2_01_grasp",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "2ml_collection_01_pipette",
+      "asset_id": "A13",
+      "kind": "insert",
+      "body": "body_tube2_01",
+      "site": "site_tube2_01_pipette",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "2ml_collection_01_lid",
+      "asset_id": "A13",
+      "kind": "rotate",
+      "body": "body_tube2_01_flipcap",
+      "site": "site_tube2_01_cap_grasp",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ],
+      "operation": {
+        "status": "declared",
+        "axis": [
+          0,
+          1,
+          0
+        ],
+        "joint": "joint_tube2_01_lid",
+        "range": [
+          0.0,
+          1.95
+        ],
+        "clearance_m": 0.002,
+        "grasp_geoms": [
+          "geom_tube2_01_cap"
+        ],
+        "basis": {
+          "axis": {
+            "kind": "assumption",
+            "reference": "flip-cap hinge axis inferred from supplied Axygen reference image"
+          },
+          "range": {
+            "kind": "assumption",
+            "reference": "modeling clearance for cap opening"
+          }
+        }
+      }
+    },
+    {
+      "id": "2ml_collection_02_grasp",
+      "asset_id": "A13",
+      "kind": "grasp",
+      "body": "body_tube2_02",
+      "site": "site_tube2_02_grasp",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "2ml_collection_02_pipette",
+      "asset_id": "A13",
+      "kind": "insert",
+      "body": "body_tube2_02",
+      "site": "site_tube2_02_pipette",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "2ml_collection_02_lid",
+      "asset_id": "A13",
+      "kind": "rotate",
+      "body": "body_tube2_02_flipcap",
+      "site": "site_tube2_02_cap_grasp",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ],
+      "operation": {
+        "status": "declared",
+        "axis": [
+          0,
+          1,
+          0
+        ],
+        "joint": "joint_tube2_02_lid",
+        "range": [
+          0.0,
+          1.95
+        ],
+        "clearance_m": 0.002,
+        "grasp_geoms": [
+          "geom_tube2_02_cap"
+        ],
+        "basis": {
+          "axis": {
+            "kind": "assumption",
+            "reference": "flip-cap hinge axis inferred from supplied Axygen reference image"
+          },
+          "range": {
+            "kind": "assumption",
+            "reference": "modeling clearance for cap opening"
+          }
+        }
+      }
+    },
+    {
+      "id": "2ml_collection_03_grasp",
+      "asset_id": "A13",
+      "kind": "grasp",
+      "body": "body_tube2_03",
+      "site": "site_tube2_03_grasp",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "2ml_collection_03_pipette",
+      "asset_id": "A13",
+      "kind": "insert",
+      "body": "body_tube2_03",
+      "site": "site_tube2_03_pipette",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "2ml_collection_03_lid",
+      "asset_id": "A13",
+      "kind": "rotate",
+      "body": "body_tube2_03_flipcap",
+      "site": "site_tube2_03_cap_grasp",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ],
+      "operation": {
+        "status": "declared",
+        "axis": [
+          0,
+          1,
+          0
+        ],
+        "joint": "joint_tube2_03_lid",
+        "range": [
+          0.0,
+          1.95
+        ],
+        "clearance_m": 0.002,
+        "grasp_geoms": [
+          "geom_tube2_03_cap"
+        ],
+        "basis": {
+          "axis": {
+            "kind": "assumption",
+            "reference": "flip-cap hinge axis inferred from supplied Axygen reference image"
+          },
+          "range": {
+            "kind": "assumption",
+            "reference": "modeling clearance for cap opening"
+          }
+        }
+      }
+    },
+    {
+      "id": "process_extract_a_grasp",
+      "asset_id": "A13",
+      "kind": "grasp",
+      "body": "body_tube15_01",
+      "site": "site_tube15_01_grasp",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "process_extract_a_pipette",
+      "asset_id": "A13",
+      "kind": "insert",
+      "body": "body_tube15_01",
+      "site": "site_tube15_01_pipette",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "process_extract_a_lid",
+      "asset_id": "A13",
+      "kind": "rotate",
+      "body": "body_tube15_01_flipcap",
+      "site": "site_tube15_01_cap_grasp",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ],
+      "operation": {
+        "status": "declared",
+        "axis": [
+          0,
+          1,
+          0
+        ],
+        "joint": "joint_tube15_01_lid",
+        "range": [
+          0.0,
+          1.95
+        ],
+        "clearance_m": 0.002,
+        "grasp_geoms": [
+          "geom_tube15_01_cap"
+        ],
+        "basis": {
+          "axis": {
+            "kind": "assumption",
+            "reference": "flip-cap hinge axis inferred from supplied Axygen reference image"
+          },
+          "range": {
+            "kind": "assumption",
+            "reference": "modeling clearance for cap opening"
+          }
+        }
+      }
+    },
+    {
+      "id": "process_extract_b_grasp",
+      "asset_id": "A13",
+      "kind": "grasp",
+      "body": "body_tube15_02",
+      "site": "site_tube15_02_grasp",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "process_extract_b_pipette",
+      "asset_id": "A13",
+      "kind": "insert",
+      "body": "body_tube15_02",
+      "site": "site_tube15_02_pipette",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "process_extract_b_lid",
+      "asset_id": "A13",
+      "kind": "rotate",
+      "body": "body_tube15_02_flipcap",
+      "site": "site_tube15_02_cap_grasp",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ],
+      "operation": {
+        "status": "declared",
+        "axis": [
+          0,
+          1,
+          0
+        ],
+        "joint": "joint_tube15_02_lid",
+        "range": [
+          0.0,
+          1.95
+        ],
+        "clearance_m": 0.002,
+        "grasp_geoms": [
+          "geom_tube15_02_cap"
+        ],
+        "basis": {
+          "axis": {
+            "kind": "assumption",
+            "reference": "flip-cap hinge axis inferred from supplied Axygen reference image"
+          },
+          "range": {
+            "kind": "assumption",
+            "reference": "modeling clearance for cap opening"
+          }
+        }
+      }
+    },
+    {
+      "id": "process_combined_product_grasp",
+      "asset_id": "A13",
+      "kind": "grasp",
+      "body": "body_tube15_03",
+      "site": "site_tube15_03_grasp",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "process_combined_product_pipette",
+      "asset_id": "A13",
+      "kind": "insert",
+      "body": "body_tube15_03",
+      "site": "site_tube15_03_pipette",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "process_combined_product_lid",
+      "asset_id": "A13",
+      "kind": "rotate",
+      "body": "body_tube15_03_flipcap",
+      "site": "site_tube15_03_cap_grasp",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ],
+      "operation": {
+        "status": "declared",
+        "axis": [
+          0,
+          1,
+          0
+        ],
+        "joint": "joint_tube15_03_lid",
+        "range": [
+          0.0,
+          1.95
+        ],
+        "clearance_m": 0.002,
+        "grasp_geoms": [
+          "geom_tube15_03_cap"
+        ],
+        "basis": {
+          "axis": {
+            "kind": "assumption",
+            "reference": "flip-cap hinge axis inferred from supplied Axygen reference image"
+          },
+          "range": {
+            "kind": "assumption",
+            "reference": "modeling clearance for cap opening"
+          }
+        }
+      }
+    },
+    {
+      "id": "process_library_round1_grasp",
+      "asset_id": "A13",
+      "kind": "grasp",
+      "body": "body_tube15_04",
+      "site": "site_tube15_04_grasp",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "process_library_round1_pipette",
+      "asset_id": "A13",
+      "kind": "insert",
+      "body": "body_tube15_04",
+      "site": "site_tube15_04_pipette",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "process_library_round1_lid",
+      "asset_id": "A13",
+      "kind": "rotate",
+      "body": "body_tube15_04_flipcap",
+      "site": "site_tube15_04_cap_grasp",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ],
+      "operation": {
+        "status": "declared",
+        "axis": [
+          0,
+          1,
+          0
+        ],
+        "joint": "joint_tube15_04_lid",
+        "range": [
+          0.0,
+          1.95
+        ],
+        "clearance_m": 0.002,
+        "grasp_geoms": [
+          "geom_tube15_04_cap"
+        ],
+        "basis": {
+          "axis": {
+            "kind": "assumption",
+            "reference": "flip-cap hinge axis inferred from supplied Axygen reference image"
+          },
+          "range": {
+            "kind": "assumption",
+            "reference": "modeling clearance for cap opening"
+          }
+        }
+      }
+    },
+    {
+      "id": "process_library_round2_grasp",
+      "asset_id": "A13",
+      "kind": "grasp",
+      "body": "body_tube15_05",
+      "site": "site_tube15_05_grasp",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "process_library_round2_pipette",
+      "asset_id": "A13",
+      "kind": "insert",
+      "body": "body_tube15_05",
+      "site": "site_tube15_05_pipette",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "process_library_round2_lid",
+      "asset_id": "A13",
+      "kind": "rotate",
+      "body": "body_tube15_05_flipcap",
+      "site": "site_tube15_05_cap_grasp",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ],
+      "operation": {
+        "status": "declared",
+        "axis": [
+          0,
+          1,
+          0
+        ],
+        "joint": "joint_tube15_05_lid",
+        "range": [
+          0.0,
+          1.95
+        ],
+        "clearance_m": 0.002,
+        "grasp_geoms": [
+          "geom_tube15_05_cap"
+        ],
+        "basis": {
+          "axis": {
+            "kind": "assumption",
+            "reference": "flip-cap hinge axis inferred from supplied Axygen reference image"
+          },
+          "range": {
+            "kind": "assumption",
+            "reference": "modeling clearance for cap opening"
+          }
+        }
+      }
+    },
+    {
+      "id": "process_library_round3_grasp",
+      "asset_id": "A13",
+      "kind": "grasp",
+      "body": "body_tube15_06",
+      "site": "site_tube15_06_grasp",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "process_library_round3_pipette",
+      "asset_id": "A13",
+      "kind": "insert",
+      "body": "body_tube15_06",
+      "site": "site_tube15_06_pipette",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "process_library_round3_lid",
+      "asset_id": "A13",
+      "kind": "rotate",
+      "body": "body_tube15_06_flipcap",
+      "site": "site_tube15_06_cap_grasp",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ],
+      "operation": {
+        "status": "declared",
+        "axis": [
+          0,
+          1,
+          0
+        ],
+        "joint": "joint_tube15_06_lid",
+        "range": [
+          0.0,
+          1.95
+        ],
+        "clearance_m": 0.002,
+        "grasp_geoms": [
+          "geom_tube15_06_cap"
+        ],
+        "basis": {
+          "axis": {
+            "kind": "assumption",
+            "reference": "flip-cap hinge axis inferred from supplied Axygen reference image"
+          },
+          "range": {
+            "kind": "assumption",
+            "reference": "modeling clearance for cap opening"
+          }
+        }
+      }
+    },
+    {
+      "id": "process_screen_keep_supernatant_grasp",
+      "asset_id": "A13",
+      "kind": "grasp",
+      "body": "body_tube15_07",
+      "site": "site_tube15_07_grasp",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "process_screen_keep_supernatant_pipette",
+      "asset_id": "A13",
+      "kind": "insert",
+      "body": "body_tube15_07",
+      "site": "site_tube15_07_pipette",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "process_screen_keep_supernatant_lid",
+      "asset_id": "A13",
+      "kind": "rotate",
+      "body": "body_tube15_07_flipcap",
+      "site": "site_tube15_07_cap_grasp",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ],
+      "operation": {
+        "status": "declared",
+        "axis": [
+          0,
+          1,
+          0
+        ],
+        "joint": "joint_tube15_07_lid",
+        "range": [
+          0.0,
+          1.95
+        ],
+        "clearance_m": 0.002,
+        "grasp_geoms": [
+          "geom_tube15_07_cap"
+        ],
+        "basis": {
+          "axis": {
+            "kind": "assumption",
+            "reference": "flip-cap hinge axis inferred from supplied Axygen reference image"
+          },
+          "range": {
+            "kind": "assumption",
+            "reference": "modeling clearance for cap opening"
+          }
+        }
+      }
+    },
+    {
+      "id": "process_screen_keep_beads_grasp",
+      "asset_id": "A13",
+      "kind": "grasp",
+      "body": "body_tube15_08",
+      "site": "site_tube15_08_grasp",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "process_screen_keep_beads_pipette",
+      "asset_id": "A13",
+      "kind": "insert",
+      "body": "body_tube15_08",
+      "site": "site_tube15_08_pipette",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "process_screen_keep_beads_lid",
+      "asset_id": "A13",
+      "kind": "rotate",
+      "body": "body_tube15_08_flipcap",
+      "site": "site_tube15_08_cap_grasp",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ],
+      "operation": {
+        "status": "declared",
+        "axis": [
+          0,
+          1,
+          0
+        ],
+        "joint": "joint_tube15_08_lid",
+        "range": [
+          0.0,
+          1.95
+        ],
+        "clearance_m": 0.002,
+        "grasp_geoms": [
+          "geom_tube15_08_cap"
+        ],
+        "basis": {
+          "axis": {
+            "kind": "assumption",
+            "reference": "flip-cap hinge axis inferred from supplied Axygen reference image"
+          },
+          "range": {
+            "kind": "assumption",
+            "reference": "modeling clearance for cap opening"
+          }
+        }
+      }
+    },
+    {
+      "id": "process_final_eluate_grasp",
+      "asset_id": "A13",
+      "kind": "grasp",
+      "body": "body_tube15_09",
+      "site": "site_tube15_09_grasp",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "process_final_eluate_pipette",
+      "asset_id": "A13",
+      "kind": "insert",
+      "body": "body_tube15_09",
+      "site": "site_tube15_09_pipette",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "process_final_eluate_lid",
+      "asset_id": "A13",
+      "kind": "rotate",
+      "body": "body_tube15_09_flipcap",
+      "site": "site_tube15_09_cap_grasp",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ],
+      "operation": {
+        "status": "declared",
+        "axis": [
+          0,
+          1,
+          0
+        ],
+        "joint": "joint_tube15_09_lid",
+        "range": [
+          0.0,
+          1.95
+        ],
+        "clearance_m": 0.002,
+        "grasp_geoms": [
+          "geom_tube15_09_cap"
+        ],
+        "basis": {
+          "axis": {
+            "kind": "assumption",
+            "reference": "flip-cap hinge axis inferred from supplied Axygen reference image"
+          },
+          "range": {
+            "kind": "assumption",
+            "reference": "modeling clearance for cap opening"
+          }
+        }
+      }
+    },
+    {
+      "id": "balance_stage_01_grasp",
+      "asset_id": "A13",
+      "kind": "grasp",
+      "body": "body_balance15_01",
+      "site": "site_balance15_01_grasp",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "balance_stage_01_pipette",
+      "asset_id": "A13",
+      "kind": "insert",
+      "body": "body_balance15_01",
+      "site": "site_balance15_01_pipette",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "balance_stage_01_lid",
+      "asset_id": "A13",
+      "kind": "rotate",
+      "body": "body_balance15_01_flipcap",
+      "site": "site_balance15_01_cap_grasp",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ],
+      "operation": {
+        "status": "declared",
+        "axis": [
+          0,
+          1,
+          0
+        ],
+        "joint": "joint_balance15_01_lid",
+        "range": [
+          0.0,
+          1.95
+        ],
+        "clearance_m": 0.002,
+        "grasp_geoms": [
+          "geom_balance15_01_cap"
+        ],
+        "basis": {
+          "axis": {
+            "kind": "assumption",
+            "reference": "flip-cap hinge axis inferred from supplied Axygen reference image"
+          },
+          "range": {
+            "kind": "assumption",
+            "reference": "modeling clearance for cap opening"
+          }
+        }
+      }
+    },
+    {
+      "id": "balance_stage_02_grasp",
+      "asset_id": "A13",
+      "kind": "grasp",
+      "body": "body_balance15_02",
+      "site": "site_balance15_02_grasp",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "balance_stage_02_pipette",
+      "asset_id": "A13",
+      "kind": "insert",
+      "body": "body_balance15_02",
+      "site": "site_balance15_02_pipette",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "balance_stage_02_lid",
+      "asset_id": "A13",
+      "kind": "rotate",
+      "body": "body_balance15_02_flipcap",
+      "site": "site_balance15_02_cap_grasp",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ],
+      "operation": {
+        "status": "declared",
+        "axis": [
+          0,
+          1,
+          0
+        ],
+        "joint": "joint_balance15_02_lid",
+        "range": [
+          0.0,
+          1.95
+        ],
+        "clearance_m": 0.002,
+        "grasp_geoms": [
+          "geom_balance15_02_cap"
+        ],
+        "basis": {
+          "axis": {
+            "kind": "assumption",
+            "reference": "flip-cap hinge axis inferred from supplied Axygen reference image"
+          },
+          "range": {
+            "kind": "assumption",
+            "reference": "modeling clearance for cap opening"
+          }
+        }
+      }
+    },
+    {
+      "id": "balance_stage_03_grasp",
+      "asset_id": "A13",
+      "kind": "grasp",
+      "body": "body_balance15_03",
+      "site": "site_balance15_03_grasp",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "balance_stage_03_pipette",
+      "asset_id": "A13",
+      "kind": "insert",
+      "body": "body_balance15_03",
+      "site": "site_balance15_03_pipette",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "balance_stage_03_lid",
+      "asset_id": "A13",
+      "kind": "rotate",
+      "body": "body_balance15_03_flipcap",
+      "site": "site_balance15_03_cap_grasp",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ],
+      "operation": {
+        "status": "declared",
+        "axis": [
+          0,
+          1,
+          0
+        ],
+        "joint": "joint_balance15_03_lid",
+        "range": [
+          0.0,
+          1.95
+        ],
+        "clearance_m": 0.002,
+        "grasp_geoms": [
+          "geom_balance15_03_cap"
+        ],
+        "basis": {
+          "axis": {
+            "kind": "assumption",
+            "reference": "flip-cap hinge axis inferred from supplied Axygen reference image"
+          },
+          "range": {
+            "kind": "assumption",
+            "reference": "modeling clearance for cap opening"
+          }
+        }
+      }
+    },
+    {
+      "id": "balance_stage_04_grasp",
+      "asset_id": "A13",
+      "kind": "grasp",
+      "body": "body_balance15_04",
+      "site": "site_balance15_04_grasp",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "balance_stage_04_pipette",
+      "asset_id": "A13",
+      "kind": "insert",
+      "body": "body_balance15_04",
+      "site": "site_balance15_04_pipette",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "balance_stage_04_lid",
+      "asset_id": "A13",
+      "kind": "rotate",
+      "body": "body_balance15_04_flipcap",
+      "site": "site_balance15_04_cap_grasp",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ],
+      "operation": {
+        "status": "declared",
+        "axis": [
+          0,
+          1,
+          0
+        ],
+        "joint": "joint_balance15_04_lid",
+        "range": [
+          0.0,
+          1.95
+        ],
+        "clearance_m": 0.002,
+        "grasp_geoms": [
+          "geom_balance15_04_cap"
+        ],
+        "basis": {
+          "axis": {
+            "kind": "assumption",
+            "reference": "flip-cap hinge axis inferred from supplied Axygen reference image"
+          },
+          "range": {
+            "kind": "assumption",
+            "reference": "modeling clearance for cap opening"
+          }
+        }
+      }
+    },
+    {
+      "id": "balance_stage_05_grasp",
+      "asset_id": "A13",
+      "kind": "grasp",
+      "body": "body_balance15_05",
+      "site": "site_balance15_05_grasp",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "balance_stage_05_pipette",
+      "asset_id": "A13",
+      "kind": "insert",
+      "body": "body_balance15_05",
+      "site": "site_balance15_05_pipette",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "balance_stage_05_lid",
+      "asset_id": "A13",
+      "kind": "rotate",
+      "body": "body_balance15_05_flipcap",
+      "site": "site_balance15_05_cap_grasp",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ],
+      "operation": {
+        "status": "declared",
+        "axis": [
+          0,
+          1,
+          0
+        ],
+        "joint": "joint_balance15_05_lid",
+        "range": [
+          0.0,
+          1.95
+        ],
+        "clearance_m": 0.002,
+        "grasp_geoms": [
+          "geom_balance15_05_cap"
+        ],
+        "basis": {
+          "axis": {
+            "kind": "assumption",
+            "reference": "flip-cap hinge axis inferred from supplied Axygen reference image"
+          },
+          "range": {
+            "kind": "assumption",
+            "reference": "modeling clearance for cap opening"
+          }
+        }
+      }
+    },
+    {
+      "id": "balance_stage_06_grasp",
+      "asset_id": "A13",
+      "kind": "grasp",
+      "body": "body_balance15_06",
+      "site": "site_balance15_06_grasp",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "balance_stage_06_pipette",
+      "asset_id": "A13",
+      "kind": "insert",
+      "body": "body_balance15_06",
+      "site": "site_balance15_06_pipette",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "balance_stage_06_lid",
+      "asset_id": "A13",
+      "kind": "rotate",
+      "body": "body_balance15_06_flipcap",
+      "site": "site_balance15_06_cap_grasp",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ],
+      "operation": {
+        "status": "declared",
+        "axis": [
+          0,
+          1,
+          0
+        ],
+        "joint": "joint_balance15_06_lid",
+        "range": [
+          0.0,
+          1.95
+        ],
+        "clearance_m": 0.002,
+        "grasp_geoms": [
+          "geom_balance15_06_cap"
+        ],
+        "basis": {
+          "axis": {
+            "kind": "assumption",
+            "reference": "flip-cap hinge axis inferred from supplied Axygen reference image"
+          },
+          "range": {
+            "kind": "assumption",
+            "reference": "modeling clearance for cap opening"
+          }
+        }
+      }
+    }
+  ],
+  "assumptions": [
+    "Tube lengths, diameters, cone transitions, wall thicknesses and hinge coordinates are modeling values because the supplied catalog images do not provide numeric dimensions.",
+    "The asset is a single reusable set containing three 2 ml collection tubes, fifteen 1.5 ml tubes including six balance-stage tubes, and no external rack.",
+    "Tube bottoms are modeled as supported directly by the receiving table at local z=0; the tubes are not welded to one another."
+  ],
+  "approximations": [
+    "Clear polypropylene is represented by translucent mesh and simple translucent liquid volumes.",
+    "The one-piece flip cap is represented as a rigid cap on a hinge joint; cap latch friction and snap engagement are not simulated.",
+    "Liquid colors encode retained sample, eluate and waste identity states; no biochemical reaction is simulated."
+  ],
+  "buttons": [],
+  "connections": [],
+  "mechanical_events": [],
+  "construction_records": []
+}

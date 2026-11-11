@@ -1,0 +1,7 @@
+{
+  "provenance": "developer_fixture",
+  "model_generated": false,
+  "sha256": "a0a625abf27cf12c7dfa91541fe17fc6bcbf00ad2a656a5f57918ba141bc3443",
+  "description": "Fixed developer response: original FFW-SG2, explicit bench fixture, shared lift and two-arm hold, bounded physical gripper closure. Task conditions are frozen separately before loading this response.",
+  "source": "joint_upgrade_20261025 developer_strategy_v15; validated contact manifold counterfactual acceptance_v16"
+}

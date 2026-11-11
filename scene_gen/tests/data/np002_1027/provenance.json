@@ -1,0 +1,249 @@
+{
+  "provenance": "archived_model_output",
+  "run": "runs/np002_tatu_sol_1027_01_np002",
+  "model": "gpt-6.1-sol",
+  "provider": "TatuCloud",
+  "files": {
+    "A01/model.py": {
+      "source": "runs/np002_tatu_sol_1027_01_np002/stages/00003_asset/model.py",
+      "sha256": "8b8dbcfdac73a50d312b14559e86527f042628247231f67d3af58e678854fa93"
+    },
+    "A01/artifact/interfaces.json": {
+      "source": "runs/np002_tatu_sol_1027_01_np002/stages/00003_asset/artifact/interfaces.json",
+      "sha256": "1f4ba25f199a0093e17520e7ef4eefa0711fcb676b47422a4e9556804f0b836f"
+    },
+    "A01/artifact/model.xml": {
+      "source": "runs/np002_tatu_sol_1027_01_np002/stages/00003_asset/artifact/model.xml",
+      "sha256": "563b3eca90ffa14bc3417649808d64b84af8a3b25cf68423535719caa9349cc6"
+    },
+    "A01/original_checks.json": {
+      "source": "runs/np002_tatu_sol_1027_01_np002/stages/00003_asset/checks.json",
+      "sha256": "960e0a253cfadaf54f18c97e4f5d038334db7be2a4f3511b4f21e9e9d4aecedd"
+    },
+    "A02/model.py": {
+      "source": "runs/np002_tatu_sol_1027_01_np002/stages/00004_asset/model.py",
+      "sha256": "396b6cf3ede5105f31f72347bbefe2000254aeaabf9b4c2f3ccde6b207a3c277"
+    },
+    "A02/artifact/interfaces.json": {
+      "source": "runs/np002_tatu_sol_1027_01_np002/stages/00004_asset/artifact/interfaces.json",
+      "sha256": "0cff618d511cb27c6f995539dad336bc6173bcf1c5277f986ace709ad88f2a00"
+    },
+    "A02/artifact/model.xml": {
+      "source": "runs/np002_tatu_sol_1027_01_np002/stages/00004_asset/artifact/model.xml",
+      "sha256": "26a5736e62716783e5e67d045db2dac33c83b13cfb4cc4dc684d9e1b5a09337d"
+    },
+    "A02/original_checks.json": {
+      "source": "runs/np002_tatu_sol_1027_01_np002/stages/00004_asset/checks.json",
+      "sha256": "9c7087352b1da5aa017f7a425e0d717a88fff064082ac1352dce9073d42c1852"
+    },
+    "A03/model.py": {
+      "source": "runs/np002_tatu_sol_1027_01_np002/stages/00005_asset/model.py",
+      "sha256": "30b9c7e3805f2cfcae5b47e349aaee8117a744431d462188eb4709ad776303e2"
+    },
+    "A03/artifact/interfaces.json": {
+      "source": "runs/np002_tatu_sol_1027_01_np002/stages/00005_asset/artifact/interfaces.json",
+      "sha256": "4a682391b9fbbc22adf1e8f9da85630648306e1b13606f989e54e1d5448da491"
+    },
+    "A03/artifact/model.xml": {
+      "source": "runs/np002_tatu_sol_1027_01_np002/stages/00005_asset/artifact/model.xml",
+      "sha256": "d8e73246d507f280f05a6261bce2ae7a569d1f5a95fa9abfd7ea469f3bd93518"
+    },
+    "A03/original_checks.json": {
+      "source": "runs/np002_tatu_sol_1027_01_np002/stages/00005_asset/checks.json",
+      "sha256": "d0c0f37aed1637436ae5d64fe53ddc1b6f75db2a81b1ceae9d6ec308e66d0bb0"
+    },
+    "A04/model.py": {
+      "source": "runs/np002_tatu_sol_1027_01_np002/stages/00006_asset/model.py",
+      "sha256": "8b8ae5a83d44bbb334689c7fa93f4aafe4637ba9585d94490bc45923ae7728d1"
+    },
+    "A04/original_checks.json": {
+      "source": "runs/np002_tatu_sol_1027_01_np002/stages/00006_asset/checks.json",
+      "sha256": "4703078a50c61cfd2577960b2f1fcb93a3598c8081feb8c72112b60ad27eb929"
+    },
+    "A05/model.py": {
+      "source": "runs/np002_tatu_sol_1027_01_np002/stages/00007_asset/model.py",
+      "sha256": "ccd40b9ecea1a64086a4be0dbf8f54bc4f9e6cdddeab302bd06ebfbac1d3cb4a"
+    },
+    "A05/artifact/interfaces.json": {
+      "source": "runs/np002_tatu_sol_1027_01_np002/stages/00007_asset/artifact/interfaces.json",
+      "sha256": "5bef623704082f826dcc6335ab83c822475c035bcb7398562ea23d04cd870332"
+    },
+    "A05/artifact/model.xml": {
+      "source": "runs/np002_tatu_sol_1027_01_np002/stages/00007_asset/artifact/model.xml",
+      "sha256": "032564f31adfcc58576ae468fa68e2225a0e5b467acd38b4138c9649b7af24a4"
+    },
+    "A05/artifact/meshes/falcon352070_tube.obj": {
+      "source": "runs/np002_tatu_sol_1027_01_np002/stages/00007_asset/artifact/meshes/falcon352070_tube.obj",
+      "sha256": "d96ee2cd4ebbaf9b2cc0630f11dc53aa143a717344ab3a904fd4498fa5382d2e"
+    },
+    "A05/artifact/meshes/falcon358206_cap.obj": {
+      "source": "runs/np002_tatu_sol_1027_01_np002/stages/00007_asset/artifact/meshes/falcon358206_cap.obj",
+      "sha256": "4f8034d234da56291085f4dd437ede8c6d939608678897ea58f41f65ad5adaf9"
+    },
+    "A05/original_checks.json": {
+      "source": "runs/np002_tatu_sol_1027_01_np002/stages/00007_asset/checks.json",
+      "sha256": "98e954fd23c6da885c663689de47bfc7fbb3615f3a10d1900f8858856bc61d69"
+    },
+    "A06/model.py": {
+      "source": "runs/np002_tatu_sol_1027_01_np002/stages/00008_asset/model.py",
+      "sha256": "6e68c3022c1563bba9b7d417d7a812cdf94892ae909f2a56bdee24581f93461a"
+    },
+    "A06/original_checks.json": {
+      "source": "runs/np002_tatu_sol_1027_01_np002/stages/00008_asset/checks.json",
+      "sha256": "351a86a7579fdeb2eb9bf35e0ecbccf6d24cd2ad03d8014d1bc091b58ddf8112"
+    },
+    "A07/model.py": {
+      "source": "runs/np002_tatu_sol_1027_01_np002/stages/00009_asset/model.py",
+      "sha256": "92e610fbce521c45b0ddb6775a4a18db1c81cfec03dbb61436474a54eb63e81a"
+    },
+    "A07/artifact/interfaces.json": {
+      "source": "runs/np002_tatu_sol_1027_01_np002/stages/00009_asset/artifact/interfaces.json",
+      "sha256": "6523b603768aa22bd88cbd188dcdbe1ae4d9371f5d36503035000c0c8729a617"
+    },
+    "A07/artifact/model.xml": {
+      "source": "runs/np002_tatu_sol_1027_01_np002/stages/00009_asset/artifact/model.xml",
+      "sha256": "c7fa78378c5e630dea59b554a3b612e888035f08c8d6527c3a9381c651e0c8c9"
+    },
+    "A07/original_checks.json": {
+      "source": "runs/np002_tatu_sol_1027_01_np002/stages/00009_asset/checks.json",
+      "sha256": "f667441ae639c9f1156a3dad84e4011b8c4f5f846974a0623a1517b2e6616685"
+    },
+    "A08/model.py": {
+      "source": "runs/np002_tatu_sol_1027_01_np002/stages/00010_asset/model.py",
+      "sha256": "cb4487b8a259fa416c26d5d3e54cdfe1e6218da008f98568d78e68335d4beb40"
+    },
+    "A08/artifact/interfaces.json": {
+      "source": "runs/np002_tatu_sol_1027_01_np002/stages/00010_asset/artifact/interfaces.json",
+      "sha256": "bc23a98e1294243c0aff34c07001df522211b5634691edb4f7113482fc51f654"
+    },
+    "A08/artifact/model.xml": {
+      "source": "runs/np002_tatu_sol_1027_01_np002/stages/00010_asset/artifact/model.xml",
+      "sha256": "b856d7257e79578021aa6cd9537823a01adb6b80b3572f45a2eccbfd264448b4"
+    },
+    "A08/artifact/meshes/grinding_tube_shell.obj": {
+      "source": "runs/np002_tatu_sol_1027_01_np002/stages/00010_asset/artifact/meshes/grinding_tube_shell.obj",
+      "sha256": "88580c7a9d89dbd0eb0a660c431e7199ad7d9fc8d345371d4f1798eb9cc24b1a"
+    },
+    "A08/artifact/meshes/tube_support_ring.obj": {
+      "source": "runs/np002_tatu_sol_1027_01_np002/stages/00010_asset/artifact/meshes/tube_support_ring.obj",
+      "sha256": "4ac3e5be766c7b5f4001c4876464e762769da427320e653f1f282b9ed96f7cb4"
+    },
+    "A08/original_checks.json": {
+      "source": "runs/np002_tatu_sol_1027_01_np002/stages/00010_asset/checks.json",
+      "sha256": "9c7087352b1da5aa017f7a425e0d717a88fff064082ac1352dce9073d42c1852"
+    },
+    "A09/model.py": {
+      "source": "runs/np002_tatu_sol_1027_01_np002/stages/00011_asset/model.py",
+      "sha256": "54f9fdf7e4a7152924ab562d2adde5a03a4625ae3568f87b1cdb19f2a795cd7d"
+    },
+    "A09/original_checks.json": {
+      "source": "runs/np002_tatu_sol_1027_01_np002/stages/00011_asset/checks.json",
+      "sha256": "c424df55407050a29b144a38aa271efc9eb40953733293a62e6fcb831e2154b4"
+    },
+    "A10/model.py": {
+      "source": "runs/np002_tatu_sol_1027_01_np002/stages/00012_asset/model.py",
+      "sha256": "c487d0d0f45d7a61f695bf1badf3bfd5ebc3b1dff396298fa643b2b6d9b28240"
+    },
+    "A10/original_checks.json": {
+      "source": "runs/np002_tatu_sol_1027_01_np002/stages/00012_asset/checks.json",
+      "sha256": "178935faa3883ca0ff1b649049183a977f3cc6107ccc9c8a16d246e6c7ce1387"
+    },
+    "A11/model.py": {
+      "source": "runs/np002_tatu_sol_1027_01_np002/stages/00013_asset/model.py",
+      "sha256": "7029ac3ca8f8342c660c1bfe90401d2905738bf5450a28b65fe636266e739fa3"
+    },
+    "A11/original_checks.json": {
+      "source": "runs/np002_tatu_sol_1027_01_np002/stages/00013_asset/checks.json",
+      "sha256": "98cae6f5d647ae2e791b5b9ba8254ccade138084a15cca077acc4276c001491b"
+    },
+    "A12/model.py": {
+      "source": "runs/np002_tatu_sol_1027_01_np002/stages/00014_asset/model.py",
+      "sha256": "a531b96d5ef55aa9ea170c49e8eaad58bd0a7e5093f81f73a35a2dbe06c71cc9"
+    },
+    "A12/artifact/interfaces.json": {
+      "source": "runs/np002_tatu_sol_1027_01_np002/stages/00014_asset/artifact/interfaces.json",
+      "sha256": "0a0fcd2d3b57852c93419d676996cff7224b305504839664033fc948b1791835"
+    },
+    "A12/artifact/model.xml": {
+      "source": "runs/np002_tatu_sol_1027_01_np002/stages/00014_asset/artifact/model.xml",
+      "sha256": "d163a094ffd77f9193c00f96e6e31176002d8f383d79be5f8aef3f030c172228"
+    },
+    "A12/original_checks.json": {
+      "source": "runs/np002_tatu_sol_1027_01_np002/stages/00014_asset/checks.json",
+      "sha256": "a34ca764ed5fccd049e619dde8ee27d20cb5d910aaecfcbc53ed14a3ebdf9b37"
+    },
+    "A13/model.py": {
+      "source": "runs/np002_tatu_sol_1027_01_np002/stages/00015_asset/model.py",
+      "sha256": "bcffd47eb094684a38d8ad17ed36c8c11176b7a0d9abc59cc6c150399f46c346"
+    },
+    "A13/artifact/interfaces.json": {
+      "source": "runs/np002_tatu_sol_1027_01_np002/stages/00015_asset/artifact/interfaces.json",
+      "sha256": "0b038ace266a3f373f1867384bc9a98a2a4518be31b31c764547f0fe40774270"
+    },
+    "A13/artifact/model.xml": {
+      "source": "runs/np002_tatu_sol_1027_01_np002/stages/00015_asset/artifact/model.xml",
+      "sha256": "cde9927becd695f077fcb21bb419ded741408813526d355df15450f79be26197"
+    },
+    "A13/artifact/meshes/tube_15mm.obj": {
+      "source": "runs/np002_tatu_sol_1027_01_np002/stages/00015_asset/artifact/meshes/tube_15mm.obj",
+      "sha256": "f0b1d4463d91089a7c1d601aabdbf5a4e4ae081ec49e1df9ae52e0f2814bfd72"
+    },
+    "A13/artifact/meshes/tube_20mm.obj": {
+      "source": "runs/np002_tatu_sol_1027_01_np002/stages/00015_asset/artifact/meshes/tube_20mm.obj",
+      "sha256": "b8f3a1e0b4536e423a27f87a8e6cb1cf8bf6746a2e2355aabd3fde438242d1b7"
+    },
+    "A13/original_checks.json": {
+      "source": "runs/np002_tatu_sol_1027_01_np002/stages/00015_asset/checks.json",
+      "sha256": "9c7087352b1da5aa017f7a425e0d717a88fff064082ac1352dce9073d42c1852"
+    },
+    "A14/model.py": {
+      "source": "runs/np002_tatu_sol_1027_01_np002/stages/00016_asset/model.py",
+      "sha256": "12c4c42c91723066be45c285848ba1e8cef29359ad1a6b605b0f5e208342764e"
+    },
+    "A14/artifact/interfaces.json": {
+      "source": "runs/np002_tatu_sol_1027_01_np002/stages/00016_asset/artifact/interfaces.json",
+      "sha256": "67e4656a78e1c9c9e13ba23c49f3237b681ea422c9e533649d6c4f2192321b56"
+    },
+    "A14/artifact/model.xml": {
+      "source": "runs/np002_tatu_sol_1027_01_np002/stages/00016_asset/artifact/model.xml",
+      "sha256": "3ca11eefb5ba109ce7fc5af2072f10ff5170dbff60f277c0740f35622e7c9186"
+    },
+    "A14/original_checks.json": {
+      "source": "runs/np002_tatu_sol_1027_01_np002/stages/00016_asset/checks.json",
+      "sha256": "be1b86d06279851cb48984595b5fa948d58957a2a9064e21ce82cb410365017c"
+    },
+    "A15/model.py": {
+      "source": "runs/np002_tatu_sol_1027_01_np002/stages/00017_asset/model.py",
+      "sha256": "844407e40829a53942fc20be582a434fa300539a03f1ea24739dff3fe2f136c2"
+    },
+    "A15/artifact/interfaces.json": {
+      "source": "runs/np002_tatu_sol_1027_01_np002/stages/00017_asset/artifact/interfaces.json",
+      "sha256": "98e584bc0f56bd27c21668573927cc46461005bc5e12fd4695d8c27f4d81d9ad"
+    },
+    "A15/artifact/model.xml": {
+      "source": "runs/np002_tatu_sol_1027_01_np002/stages/00017_asset/artifact/model.xml",
+      "sha256": "cdbf4a2ff555f9c3ac1a8832a2ecf981dc5b2f53baa19e9c5e06739327cd0c4d"
+    },
+    "A15/artifact/meshes/socket_sector.obj": {
+      "source": "runs/np002_tatu_sol_1027_01_np002/stages/00017_asset/artifact/meshes/socket_sector.obj",
+      "sha256": "2c5ffafe38284d89290c08aede381d93ece457fe528609d5c67928ac1b6980ff"
+    },
+    "A15/artifact/textures/magnet_warning.png": {
+      "source": "runs/np002_tatu_sol_1027_01_np002/stages/00017_asset/artifact/textures/magnet_warning.png",
+      "sha256": "2b7798934b73487ff88134c9b6967b55e750ed52e7a02f01ef5454099a5d1cd5"
+    },
+    "A15/original_checks.json": {
+      "source": "runs/np002_tatu_sol_1027_01_np002/stages/00017_asset/checks.json",
+      "sha256": "7a9b813085616c21d71ccf700d6b7040181649b1f71312a597e7b8f1910412aa"
+    },
+    "A01/producer_report.json": {
+      "source": "runs/np002_tatu_sol_1027_01_np002/stages/00003_asset/checked/report.json",
+      "sha256": "8b7483e2ce23b42abab3d9c1c0cdea52753ddcfa242bcb43c893bd3662d95123"
+    },
+    "A16/response.json": {
+      "source": "runs/np002_tatu_sol_1027_01_np002/records/00021.json",
+      "sha256": "bc2c2ae6afd69604ed023ab736a846d9771964c6882bee66739c131bc77bf876"
+    }
+  },
+  "qualification": "Original failures; no model repair or quality success is claimed."
+}

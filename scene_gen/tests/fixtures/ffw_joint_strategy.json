@@ -1,0 +1,633 @@
+[
+  {
+    "completion": {
+      "kind": "base_stopped"
+    },
+    "id": "n0",
+    "on_failure": "failed",
+    "on_success": "n1",
+    "operation": "wait",
+    "parameters": {
+      "seconds": 1.0
+    },
+    "precondition": {
+      "kind": "base_stopped"
+    },
+    "stage": "dock",
+    "timeout": 45
+  },
+  {
+    "completion": {
+      "kind": "base_stopped"
+    },
+    "id": "n1",
+    "on_failure": "failed",
+    "on_success": "n2",
+    "operation": "cartesian",
+    "parameters": {
+      "targets": [
+        {
+          "arm": "left",
+          "position": [
+            0.5142016200003255,
+            -1.772519702429837,
+            0.6601095467293152
+          ],
+          "quaternion": [
+            0.5090093374476738,
+            -0.00020276677768277617,
+            0.8607609614055075,
+            -0.00014351648151899338
+          ]
+        },
+        {
+          "arm": "right",
+          "position": [
+            0.5142412682039039,
+            -2.227476532621121,
+            0.6601579682085785
+          ],
+          "quaternion": [
+            0.509057567238953,
+            0.00020049192699991313,
+            0.8607324404492748,
+            0.00013783316084454384
+          ]
+        }
+      ]
+    },
+    "precondition": {
+      "kind": "base_stopped"
+    },
+    "stage": "dock",
+    "timeout": 45
+  },
+  {
+    "completion": {
+      "kind": "base_stopped"
+    },
+    "id": "n2",
+    "on_failure": "failed",
+    "on_success": "n3",
+    "operation": "navigate",
+    "parameters": {
+      "bounds": [
+        [
+          -0.3,
+          -2.5
+        ],
+        [
+          0.25,
+          -1.5
+        ]
+      ],
+      "goal": [
+        0.0205,
+        -2,
+        0
+      ],
+      "transport": {
+        "arms": [
+          "left",
+          "right"
+        ],
+        "positions": {
+          "robot__arm_l_joint1": 0.1804187210774075,
+          "robot__arm_l_joint2": 0.00021749947921741446,
+          "robot__arm_l_joint3": 4.7548202626847294e-05,
+          "robot__arm_l_joint4": -1.7204641794969335,
+          "robot__arm_l_joint5": 0.0007531900502603635,
+          "robot__arm_l_joint6": 0.4721781160964006,
+          "robot__arm_l_joint7": 0.0003567141294910395,
+          "robot__arm_r_joint1": 0.18034706626159058,
+          "robot__arm_r_joint2": -0.0002186951949547117,
+          "robot__arm_r_joint3": -5.023277759351478e-05,
+          "robot__arm_r_joint4": -1.7204745762283566,
+          "robot__arm_r_joint5": -0.000747604509425584,
+          "robot__arm_r_joint6": 0.4721421403525699,
+          "robot__arm_r_joint7": -0.0003591798504306787
+        }
+      }
+    },
+    "precondition": {
+      "kind": "base_stopped"
+    },
+    "stage": "dock",
+    "timeout": 45
+  },
+  {
+    "completion": {
+      "kind": "base_stopped"
+    },
+    "id": "n3",
+    "on_failure": "failed",
+    "on_success": "n4",
+    "operation": "cartesian",
+    "parameters": {
+      "allowed_contacts": [
+        [
+          "robot__gripper_r_r1",
+          "station__lid"
+        ],
+        [
+          "robot__gripper_r_r2",
+          "station__lid"
+        ],
+        [
+          "robot__gripper_r_l1",
+          "station__lid"
+        ],
+        [
+          "robot__gripper_r_l2",
+          "station__lid"
+        ]
+      ],
+      "targets": [
+        {
+          "arm": "right",
+          "position": [
+            0.54,
+            -2.227,
+            0.58
+          ],
+          "quaternion": [
+            0.4954913575939097,
+            0.0003903681071941074,
+            0.8686126401266073,
+            0.0004935329465986043
+          ]
+        }
+      ]
+    },
+    "precondition": {
+      "kind": "base_stopped"
+    },
+    "stage": "open",
+    "timeout": 45
+  },
+  {
+    "completion": {
+      "kind": "base_stopped"
+    },
+    "id": "n4",
+    "on_failure": "failed",
+    "on_success": "n5",
+    "operation": "press",
+    "parameters": {
+      "allowed_contacts": [
+        [
+          "robot__gripper_r_r1",
+          "station__lid"
+        ],
+        [
+          "robot__gripper_r_r2",
+          "station__lid"
+        ],
+        [
+          "robot__gripper_r_l1",
+          "station__lid"
+        ],
+        [
+          "robot__gripper_r_l2",
+          "station__lid"
+        ]
+      ],
+      "arm": "right",
+      "axis": [
+        1,
+        0,
+        0
+      ],
+      "distance": 0.04,
+      "hold_arms": [
+        "left"
+      ]
+    },
+    "precondition": {
+      "kind": "base_stopped"
+    },
+    "stage": "open",
+    "timeout": 45
+  },
+  {
+    "completion": {
+      "kind": "base_stopped"
+    },
+    "id": "n5",
+    "on_failure": "failed",
+    "on_success": "hover",
+    "operation": "press",
+    "parameters": {
+      "allowed_contacts": [
+        [
+          "robot__gripper_r_r1",
+          "station__lid"
+        ],
+        [
+          "robot__gripper_r_r2",
+          "station__lid"
+        ],
+        [
+          "robot__gripper_r_l1",
+          "station__lid"
+        ],
+        [
+          "robot__gripper_r_l2",
+          "station__lid"
+        ]
+      ],
+      "arm": "right",
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "distance": 0.07,
+      "hold_arms": [
+        "left"
+      ]
+    },
+    "precondition": {
+      "kind": "base_stopped"
+    },
+    "stage": "grasp",
+    "timeout": 45
+  },
+  {
+    "completion": {
+      "kind": "base_stopped"
+    },
+    "id": "hover",
+    "on_failure": "failed",
+    "on_success": "n6",
+    "operation": "cartesian",
+    "parameters": {
+      "allowed_contacts": [
+        [
+          "robot__gripper_l_r1",
+          "station__object"
+        ],
+        [
+          "robot__gripper_l_r2",
+          "station__object"
+        ],
+        [
+          "robot__gripper_l_l1",
+          "station__object"
+        ],
+        [
+          "robot__gripper_l_l2",
+          "station__object"
+        ],
+        [
+          "station__object",
+          "environment__table_bench"
+        ]
+      ],
+      "targets": [
+        {
+          "arm": "left",
+          "position": [
+            0.5,
+            -1.7725,
+            0.66
+          ],
+          "quaternion": [
+            0.7071067811865476,
+            0,
+            0.7071067811865476,
+            0
+          ]
+        },
+        {
+          "arm": "right",
+          "position": [
+            0.5820423348522124,
+            -2.228467780074076,
+            0.6519365046081407
+          ],
+          "quaternion": [
+            0.49782638160510356,
+            0.0006469697427514023,
+            0.867276151313915,
+            -0.0007433506883229051
+          ]
+        }
+      ],
+      "include_lift": true
+    },
+    "precondition": {
+      "kind": "base_stopped"
+    },
+    "stage": "grasp",
+    "timeout": 45
+  },
+  {
+    "completion": {
+      "kind": "base_stopped"
+    },
+    "id": "n6",
+    "on_failure": "failed",
+    "on_success": "n7",
+    "operation": "cartesian",
+    "parameters": {
+      "allowed_contacts": [
+        [
+          "robot__gripper_l_r1",
+          "station__object"
+        ],
+        [
+          "robot__gripper_l_r2",
+          "station__object"
+        ],
+        [
+          "robot__gripper_l_l1",
+          "station__object"
+        ],
+        [
+          "robot__gripper_l_l2",
+          "station__object"
+        ],
+        [
+          "station__object",
+          "environment__table_bench"
+        ]
+      ],
+      "targets": [
+        {
+          "arm": "left",
+          "position": [
+            0.5,
+            -1.7725,
+            0.56
+          ],
+          "quaternion": [
+            0.7071067811865476,
+            0,
+            0.7071067811865476,
+            0
+          ]
+        },
+        {
+          "arm": "right",
+          "position": [
+            0.5820423348522124,
+            -2.228467780074076,
+            0.6519365046081407
+          ],
+          "quaternion": [
+            0.49782638160510356,
+            0.0006469697427514023,
+            0.867276151313915,
+            -0.0007433506883229051
+          ]
+        }
+      ],
+      "include_lift": true,
+      "contact": true
+    },
+    "precondition": {
+      "kind": "base_stopped"
+    },
+    "stage": "grasp",
+    "timeout": 45
+  },
+  {
+    "completion": {
+      "kind": "base_stopped"
+    },
+    "id": "n7",
+    "on_failure": "failed",
+    "on_success": "n8",
+    "operation": "grasp",
+    "parameters": {
+      "allowed_contacts": [
+        [
+          "robot__gripper_l_r1",
+          "station__object"
+        ],
+        [
+          "robot__gripper_l_r2",
+          "station__object"
+        ],
+        [
+          "robot__gripper_l_l1",
+          "station__object"
+        ],
+        [
+          "robot__gripper_l_l2",
+          "station__object"
+        ],
+        [
+          "station__object",
+          "environment__table_bench"
+        ]
+      ],
+      "arm": "left",
+      "body": "station__object",
+      "closure_speed": 0.05,
+      "controls": {
+        "robot__gripper_l_joint1": 0.85
+      },
+      "contact_force_n": 1.0
+    },
+    "precondition": {
+      "kind": "base_stopped"
+    },
+    "stage": "grasp",
+    "timeout": 45
+  },
+  {
+    "completion": {
+      "kind": "base_stopped"
+    },
+    "id": "n8",
+    "on_failure": "failed",
+    "on_success": "n9",
+    "operation": "press",
+    "parameters": {
+      "allowed_contacts": [
+        [
+          "robot__gripper_l_r1",
+          "station__object"
+        ],
+        [
+          "robot__gripper_l_r2",
+          "station__object"
+        ],
+        [
+          "robot__gripper_l_l1",
+          "station__object"
+        ],
+        [
+          "robot__gripper_l_l2",
+          "station__object"
+        ],
+        [
+          "station__object",
+          "environment__table_bench"
+        ]
+      ],
+      "arm": "left",
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "distance": 0.04,
+      "hold_arms": [
+        "right"
+      ]
+    },
+    "precondition": {
+      "kind": "base_stopped"
+    },
+    "stage": "transfer",
+    "timeout": 45
+  },
+  {
+    "completion": {
+      "kind": "base_stopped"
+    },
+    "id": "n9",
+    "on_failure": "failed",
+    "on_success": "n10",
+    "operation": "press",
+    "parameters": {
+      "allowed_contacts": [
+        [
+          "robot__gripper_l_r1",
+          "station__object"
+        ],
+        [
+          "robot__gripper_l_r2",
+          "station__object"
+        ],
+        [
+          "robot__gripper_l_l1",
+          "station__object"
+        ],
+        [
+          "robot__gripper_l_l2",
+          "station__object"
+        ],
+        [
+          "station__object",
+          "environment__table_bench"
+        ]
+      ],
+      "arm": "left",
+      "axis": [
+        0,
+        1,
+        0
+      ],
+      "distance": 0.035,
+      "hold_arms": [
+        "right"
+      ]
+    },
+    "precondition": {
+      "kind": "base_stopped"
+    },
+    "stage": "transfer",
+    "timeout": 45
+  },
+  {
+    "completion": {
+      "kind": "base_stopped"
+    },
+    "id": "n10",
+    "on_failure": "failed",
+    "on_success": "n11",
+    "operation": "press",
+    "parameters": {
+      "allowed_contacts": [
+        [
+          "robot__gripper_l_r1",
+          "station__object"
+        ],
+        [
+          "robot__gripper_l_r2",
+          "station__object"
+        ],
+        [
+          "robot__gripper_l_l1",
+          "station__object"
+        ],
+        [
+          "robot__gripper_l_l2",
+          "station__object"
+        ],
+        [
+          "station__object",
+          "environment__table_bench"
+        ]
+      ],
+      "arm": "left",
+      "axis": [
+        0,
+        0,
+        -1
+      ],
+      "distance": 0.04,
+      "hold_arms": [
+        "right"
+      ],
+      "stop_when": {
+        "body_a": "station__object",
+        "body_b": "environment__table_bench",
+        "kind": "contact"
+      }
+    },
+    "precondition": {
+      "kind": "base_stopped"
+    },
+    "stage": "release",
+    "timeout": 45
+  },
+  {
+    "completion": {
+      "kind": "base_stopped"
+    },
+    "id": "n11",
+    "on_failure": "failed",
+    "on_success": "success",
+    "operation": "place",
+    "parameters": {
+      "allowed_contacts": [
+        [
+          "robot__gripper_l_r1",
+          "station__object"
+        ],
+        [
+          "robot__gripper_l_r2",
+          "station__object"
+        ],
+        [
+          "robot__gripper_l_l1",
+          "station__object"
+        ],
+        [
+          "robot__gripper_l_l2",
+          "station__object"
+        ],
+        [
+          "station__object",
+          "environment__table_bench"
+        ]
+      ],
+      "arm": "left",
+      "body": "station__object",
+      "controls": {
+        "robot__gripper_l_joint1": 0
+      },
+      "support": "environment__table_bench"
+    },
+    "precondition": {
+      "kind": "base_stopped"
+    },
+    "stage": "release",
+    "timeout": 45
+  }
+]

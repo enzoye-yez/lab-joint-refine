@@ -1,0 +1,10 @@
+# 单资产工程检查依赖；在项目环境安装，缓存使用 .cache/pip。
+mujoco==3.3.7
+Pillow==11.3.0
+trimesh==4.7.4
+
+scipy==1.16.3
+python-fcl==0.7.0.11
+# 仅用于展示视频（scripts/render_figures.py），检查不依赖。
+imageio==2.37.0
+imageio-ffmpeg==0.6.0

@@ -1,0 +1,770 @@
+<mujoco model="A14_single_channel_pipette_set">
+  <compiler angle="radian" coordinate="local"/>
+  <option gravity="0 0 -9.81" integrator="implicitfast"/>
+  <default>
+    <joint damping="0.04" armature="0.0001"/>
+    <geom friction="0.7 0.1 0.1" density="650"/>
+  </default>
+  <worldbody><body name="support_base" pos="0 0 0.012"><inertial pos="0 0 0" mass="2.0" diaginertia="0.015 0.0384 0.0534"/><geom name="support_base_geom" type="box" size="0.24 0.15 0.012" rgba="0.18 0.20 0.23 1" contype="1" conaffinity="1" mass="2.0"/></body><body name="pipette_cradle" pos="0 0 0.04"><inertial pos="0 0 0" mass="0.8" diaginertia="0.00384 0.012906667 0.016746667"/><geom name="pipette_cradle_geom" type="box" size="0.22 0.12 0.016" rgba="0.35 0.38 0.42 1" contype="1" conaffinity="1" mass="0.8"/></body><body name="pipette_p025" pos="-0.17 0 0.072">
+          <freejoint name="p025_freejoint"/>
+          <inertial pos="0 0 0.10" mass="0.105" diaginertia="0.00025 0.00025 0.00003"/>
+          <geom name="p025_handle" type="capsule" fromto="0 0 0.025 0 0 0.185" size="0.017" rgba="0.93 0.94 0.91 1"/>
+          <geom name="p025_head" type="box" pos="0 0 0.185" size="0.032 0.026 0.032" rgba="0.80 0.82 0.80 1"/>
+          <geom name="p025_finger_rest" type="box" pos="-0.033 0 0.174" size="0.022 0.026 0.008" rgba="0.86 0.87 0.84 1"/>
+          <site name="p025_grasp_site" pos="0 0 0.145" size="0.004" rgba="0.1 0.8 0.2 1"/>
+          <site name="p025_tip_interface" pos="0 0 0.018" size="0.003" rgba="0.9 0.2 0.1 1"/>
+          <body name="p025_knob" pos="0 0 0.227">
+            <joint name="p025_knob_rotate" type="hinge" axis="0 0 1" range="-3.14 3.14" limited="true"/>
+            <inertial pos="0 0 0" mass="0.012" diaginertia="0.000002 0.000002 0.000002"/>
+            <geom name="p025_knob_geom" type="cylinder" size="0.020 0.014" rgba="0.74 0.76 0.73 1"/>
+            <geom name="p025_knob_grip" type="cylinder" pos="0 0 0.014" size="0.016 0.004" rgba="0.62 0.64 0.62 1"/>
+          </body>
+          <body name="p025_stage1" pos="0 0 0.212">
+            <joint name="p025_stage1_slide" type="slide" axis="0 0 1" range="0 0.006" limited="true"/>
+            <inertial pos="0 0 0" mass="0.006" diaginertia="0.000001 0.000001 0.000001"/>
+            <geom name="p025_stage1_button" type="cylinder" size="0.010 0.008" rgba="0.18 0.20 0.20 1"/>
+            <body name="p025_stage2" pos="0 0 0.008">
+              <joint name="p025_stage2_slide" type="slide" axis="0 0 1" range="0 0.006" limited="true"/>
+              <inertial pos="0 0 0" mass="0.004" diaginertia="0.0000006 0.0000006 0.0000006"/>
+              <geom name="p025_stage2_button" type="cylinder" size="0.008 0.006" rgba="0.12 0.14 0.14 1"/>
+            </body>
+          </body>
+          <body name="p025_collar" pos="0 0 0.026">
+            <geom name="p025_collar_geom" type="cylinder" size="0.011 0.008" rgba="0.70 0.72 0.69 1"/>
+          </body>
+          <body name="p025_tip" pos="0 0 -0.045">
+            <freejoint name="p025_tip_freejoint"/>
+            <inertial pos="0 0 -0.045" mass="0.0008" diaginertia="0.00000003 0.00000003 0.000000001"/>
+            <geom name="p025_tip_upper" type="cylinder" size="0.00119 0.010" rgba="0.86 0.88 0.86 1"/>
+            <geom name="p025_tip_taper" type="cone" pos="0 0 -0.030" size="0.00119 0.00018 0.060" rgba="0.91 0.92 0.89 1"/>
+            <site name="p025_tip_site" pos="0 0 -0.061" size="0.0008"/>
+          </body>
+        </body><body name="pipette_p010" pos="-0.085 0 0.072">
+          <freejoint name="p010_freejoint"/>
+          <inertial pos="0 0 0.10" mass="0.105" diaginertia="0.00025 0.00025 0.00003"/>
+          <geom name="p010_handle" type="capsule" fromto="0 0 0.025 0 0 0.185" size="0.017" rgba="0.93 0.94 0.91 1"/>
+          <geom name="p010_head" type="box" pos="0 0 0.185" size="0.032 0.026 0.032" rgba="0.80 0.82 0.80 1"/>
+          <geom name="p010_finger_rest" type="box" pos="-0.033 0 0.174" size="0.022 0.026 0.008" rgba="0.86 0.87 0.84 1"/>
+          <site name="p010_grasp_site" pos="0 0 0.145" size="0.004" rgba="0.1 0.8 0.2 1"/>
+          <site name="p010_tip_interface" pos="0 0 0.018" size="0.003" rgba="0.9 0.2 0.1 1"/>
+          <body name="p010_knob" pos="0 0 0.227">
+            <joint name="p010_knob_rotate" type="hinge" axis="0 0 1" range="-3.14 3.14" limited="true"/>
+            <inertial pos="0 0 0" mass="0.012" diaginertia="0.000002 0.000002 0.000002"/>
+            <geom name="p010_knob_geom" type="cylinder" size="0.020 0.014" rgba="0.74 0.76 0.73 1"/>
+            <geom name="p010_knob_grip" type="cylinder" pos="0 0 0.014" size="0.016 0.004" rgba="0.62 0.64 0.62 1"/>
+          </body>
+          <body name="p010_stage1" pos="0 0 0.212">
+            <joint name="p010_stage1_slide" type="slide" axis="0 0 1" range="0 0.006" limited="true"/>
+            <inertial pos="0 0 0" mass="0.006" diaginertia="0.000001 0.000001 0.000001"/>
+            <geom name="p010_stage1_button" type="cylinder" size="0.010 0.008" rgba="0.18 0.20 0.20 1"/>
+            <body name="p010_stage2" pos="0 0 0.008">
+              <joint name="p010_stage2_slide" type="slide" axis="0 0 1" range="0 0.006" limited="true"/>
+              <inertial pos="0 0 0" mass="0.004" diaginertia="0.0000006 0.0000006 0.0000006"/>
+              <geom name="p010_stage2_button" type="cylinder" size="0.008 0.006" rgba="0.12 0.14 0.14 1"/>
+            </body>
+          </body>
+          <body name="p010_collar" pos="0 0 0.026">
+            <geom name="p010_collar_geom" type="cylinder" size="0.011 0.008" rgba="0.70 0.72 0.69 1"/>
+          </body>
+          <body name="p010_tip" pos="0 0 -0.045">
+            <freejoint name="p010_tip_freejoint"/>
+            <inertial pos="0 0 -0.045" mass="0.0008" diaginertia="0.00000003 0.00000003 0.000000001"/>
+            <geom name="p010_tip_upper" type="cylinder" size="0.001326 0.010" rgba="0.86 0.88 0.86 1"/>
+            <geom name="p010_tip_taper" type="cone" pos="0 0 -0.030" size="0.001326 0.00018 0.060" rgba="0.91 0.92 0.89 1"/>
+            <site name="p010_tip_site" pos="0 0 -0.061" size="0.0008"/>
+          </body>
+        </body><body name="pipette_p020" pos="0 0 0.072">
+          <freejoint name="p020_freejoint"/>
+          <inertial pos="0 0 0.10" mass="0.105" diaginertia="0.00025 0.00025 0.00003"/>
+          <geom name="p020_handle" type="capsule" fromto="0 0 0.025 0 0 0.185" size="0.017" rgba="0.93 0.94 0.91 1"/>
+          <geom name="p020_head" type="box" pos="0 0 0.185" size="0.032 0.026 0.032" rgba="0.80 0.82 0.80 1"/>
+          <geom name="p020_finger_rest" type="box" pos="-0.033 0 0.174" size="0.022 0.026 0.008" rgba="0.86 0.87 0.84 1"/>
+          <site name="p020_grasp_site" pos="0 0 0.145" size="0.004" rgba="0.1 0.8 0.2 1"/>
+          <site name="p020_tip_interface" pos="0 0 0.018" size="0.003" rgba="0.9 0.2 0.1 1"/>
+          <body name="p020_knob" pos="0 0 0.227">
+            <joint name="p020_knob_rotate" type="hinge" axis="0 0 1" range="-3.14 3.14" limited="true"/>
+            <inertial pos="0 0 0" mass="0.012" diaginertia="0.000002 0.000002 0.000002"/>
+            <geom name="p020_knob_geom" type="cylinder" size="0.020 0.014" rgba="0.74 0.76 0.73 1"/>
+            <geom name="p020_knob_grip" type="cylinder" pos="0 0 0.014" size="0.016 0.004" rgba="0.62 0.64 0.62 1"/>
+          </body>
+          <body name="p020_stage1" pos="0 0 0.212">
+            <joint name="p020_stage1_slide" type="slide" axis="0 0 1" range="0 0.006" limited="true"/>
+            <inertial pos="0 0 0" mass="0.006" diaginertia="0.000001 0.000001 0.000001"/>
+            <geom name="p020_stage1_button" type="cylinder" size="0.010 0.008" rgba="0.18 0.20 0.20 1"/>
+            <body name="p020_stage2" pos="0 0 0.008">
+              <joint name="p020_stage2_slide" type="slide" axis="0 0 1" range="0 0.006" limited="true"/>
+              <inertial pos="0 0 0" mass="0.004" diaginertia="0.0000006 0.0000006 0.0000006"/>
+              <geom name="p020_stage2_button" type="cylinder" size="0.008 0.006" rgba="0.12 0.14 0.14 1"/>
+            </body>
+          </body>
+          <body name="p020_collar" pos="0 0 0.026">
+            <geom name="p020_collar_geom" type="cylinder" size="0.011 0.008" rgba="0.70 0.72 0.69 1"/>
+          </body>
+          <body name="p020_tip" pos="0 0 -0.045">
+            <freejoint name="p020_tip_freejoint"/>
+            <inertial pos="0 0 -0.045" mass="0.0008" diaginertia="0.00000003 0.00000003 0.000000001"/>
+            <geom name="p020_tip_upper" type="cylinder" size="0.001462 0.010" rgba="0.86 0.88 0.86 1"/>
+            <geom name="p020_tip_taper" type="cone" pos="0 0 -0.030" size="0.001462 0.00018 0.060" rgba="0.91 0.92 0.89 1"/>
+            <site name="p020_tip_site" pos="0 0 -0.061" size="0.0008"/>
+          </body>
+        </body><body name="pipette_p200" pos="0.085 0 0.072">
+          <freejoint name="p200_freejoint"/>
+          <inertial pos="0 0 0.10" mass="0.105" diaginertia="0.00025 0.00025 0.00003"/>
+          <geom name="p200_handle" type="capsule" fromto="0 0 0.025 0 0 0.185" size="0.017" rgba="0.93 0.94 0.91 1"/>
+          <geom name="p200_head" type="box" pos="0 0 0.185" size="0.032 0.026 0.032" rgba="0.80 0.82 0.80 1"/>
+          <geom name="p200_finger_rest" type="box" pos="-0.033 0 0.174" size="0.022 0.026 0.008" rgba="0.86 0.87 0.84 1"/>
+          <site name="p200_grasp_site" pos="0 0 0.145" size="0.004" rgba="0.1 0.8 0.2 1"/>
+          <site name="p200_tip_interface" pos="0 0 0.018" size="0.003" rgba="0.9 0.2 0.1 1"/>
+          <body name="p200_knob" pos="0 0 0.227">
+            <joint name="p200_knob_rotate" type="hinge" axis="0 0 1" range="-3.14 3.14" limited="true"/>
+            <inertial pos="0 0 0" mass="0.012" diaginertia="0.000002 0.000002 0.000002"/>
+            <geom name="p200_knob_geom" type="cylinder" size="0.020 0.014" rgba="0.74 0.76 0.73 1"/>
+            <geom name="p200_knob_grip" type="cylinder" pos="0 0 0.014" size="0.016 0.004" rgba="0.62 0.64 0.62 1"/>
+          </body>
+          <body name="p200_stage1" pos="0 0 0.212">
+            <joint name="p200_stage1_slide" type="slide" axis="0 0 1" range="0 0.006" limited="true"/>
+            <inertial pos="0 0 0" mass="0.006" diaginertia="0.000001 0.000001 0.000001"/>
+            <geom name="p200_stage1_button" type="cylinder" size="0.010 0.008" rgba="0.18 0.20 0.20 1"/>
+            <body name="p200_stage2" pos="0 0 0.008">
+              <joint name="p200_stage2_slide" type="slide" axis="0 0 1" range="0 0.006" limited="true"/>
+              <inertial pos="0 0 0" mass="0.004" diaginertia="0.0000006 0.0000006 0.0000006"/>
+              <geom name="p200_stage2_button" type="cylinder" size="0.008 0.006" rgba="0.12 0.14 0.14 1"/>
+            </body>
+          </body>
+          <body name="p200_collar" pos="0 0 0.026">
+            <geom name="p200_collar_geom" type="cylinder" size="0.011 0.008" rgba="0.70 0.72 0.69 1"/>
+          </body>
+          <body name="p200_tip" pos="0 0 -0.045">
+            <freejoint name="p200_tip_freejoint"/>
+            <inertial pos="0 0 -0.045" mass="0.0008" diaginertia="0.00000003 0.00000003 0.000000001"/>
+            <geom name="p200_tip_upper" type="cylinder" size="0.0017 0.010" rgba="0.86 0.88 0.86 1"/>
+            <geom name="p200_tip_taper" type="cone" pos="0 0 -0.030" size="0.0017 0.00018 0.060" rgba="0.91 0.92 0.89 1"/>
+            <site name="p200_tip_site" pos="0 0 -0.061" size="0.0008"/>
+          </body>
+        </body><body name="pipette_p1000" pos="0.17 0 0.072">
+          <freejoint name="p1000_freejoint"/>
+          <inertial pos="0 0 0.10" mass="0.105" diaginertia="0.00025 0.00025 0.00003"/>
+          <geom name="p1000_handle" type="capsule" fromto="0 0 0.025 0 0 0.185" size="0.017" rgba="0.93 0.94 0.91 1"/>
+          <geom name="p1000_head" type="box" pos="0 0 0.185" size="0.032 0.026 0.032" rgba="0.80 0.82 0.80 1"/>
+          <geom name="p1000_finger_rest" type="box" pos="-0.033 0 0.174" size="0.022 0.026 0.008" rgba="0.86 0.87 0.84 1"/>
+          <site name="p1000_grasp_site" pos="0 0 0.145" size="0.004" rgba="0.1 0.8 0.2 1"/>
+          <site name="p1000_tip_interface" pos="0 0 0.018" size="0.003" rgba="0.9 0.2 0.1 1"/>
+          <body name="p1000_knob" pos="0 0 0.227">
+            <joint name="p1000_knob_rotate" type="hinge" axis="0 0 1" range="-3.14 3.14" limited="true"/>
+            <inertial pos="0 0 0" mass="0.012" diaginertia="0.000002 0.000002 0.000002"/>
+            <geom name="p1000_knob_geom" type="cylinder" size="0.020 0.014" rgba="0.74 0.76 0.73 1"/>
+            <geom name="p1000_knob_grip" type="cylinder" pos="0 0 0.014" size="0.016 0.004" rgba="0.62 0.64 0.62 1"/>
+          </body>
+          <body name="p1000_stage1" pos="0 0 0.212">
+            <joint name="p1000_stage1_slide" type="slide" axis="0 0 1" range="0 0.006" limited="true"/>
+            <inertial pos="0 0 0" mass="0.006" diaginertia="0.000001 0.000001 0.000001"/>
+            <geom name="p1000_stage1_button" type="cylinder" size="0.010 0.008" rgba="0.18 0.20 0.20 1"/>
+            <body name="p1000_stage2" pos="0 0 0.008">
+              <joint name="p1000_stage2_slide" type="slide" axis="0 0 1" range="0 0.006" limited="true"/>
+              <inertial pos="0 0 0" mass="0.004" diaginertia="0.0000006 0.0000006 0.0000006"/>
+              <geom name="p1000_stage2_button" type="cylinder" size="0.008 0.006" rgba="0.12 0.14 0.14 1"/>
+            </body>
+          </body>
+          <body name="p1000_collar" pos="0 0 0.026">
+            <geom name="p1000_collar_geom" type="cylinder" size="0.011 0.008" rgba="0.70 0.72 0.69 1"/>
+          </body>
+          <body name="p1000_tip" pos="0 0 -0.045">
+            <freejoint name="p1000_tip_freejoint"/>
+            <inertial pos="0 0 -0.045" mass="0.0008" diaginertia="0.00000003 0.00000003 0.000000001"/>
+            <geom name="p1000_tip_upper" type="cylinder" size="0.001955 0.010" rgba="0.86 0.88 0.86 1"/>
+            <geom name="p1000_tip_taper" type="cone" pos="0 0 -0.030" size="0.001955 0.00018 0.060" rgba="0.91 0.92 0.89 1"/>
+            <site name="p1000_tip_site" pos="0 0 -0.061" size="0.0008"/>
+          </body>
+        </body><body name="tip_box" pos="0.0 0.165 0.045">
+      <freejoint name="tip_box_freejoint"/>
+      <inertial pos="0 0 0.025" mass="0.34" diaginertia="0.001 0.001 0.001"/>
+      <geom name="tip_box_floor" type="box" pos="0 0 0.010" size="0.075 0.060 0.006" rgba="0.88 0.89 0.87 1"/>
+      <geom name="tip_box_front_wall" type="box" pos="0 -0.064 0.035" size="0.082 0.006 0.035" rgba="0.88 0.89 0.87 1"/>
+      <geom name="tip_box_back_wall" type="box" pos="0 0.064 0.035" size="0.082 0.006 0.035" rgba="0.88 0.89 0.87 1"/>
+      <geom name="tip_box_left_wall" type="box" pos="-0.082 0 0.035" size="0.006 0.070 0.035" rgba="0.88 0.89 0.87 1"/>
+      <geom name="tip_box_right_wall" type="box" pos="0.082 0 0.035" size="0.006 0.070 0.035" rgba="0.88 0.89 0.87 1"/>
+      <geom name="tip_grid_plate" type="box" pos="0 0 0.039" size="0.074 0.058 0.003" rgba="0.78 0.80 0.78 1" contype="0" conaffinity="0"/>
+      <site name="tip_box_grasp_site" pos="0 0 0.082" size="0.006"/>
+      <body name="tip_box_lid" pos="0 0.070 0.075">
+        <joint name="tip_box_lid_hinge" type="hinge" axis="1 0 0" range="0 2.5" limited="true"/>
+        <inertial pos="0 -0.035 0.003" mass="0.06" diaginertia="0.00008 0.00008 0.00012"/>
+        <geom name="tip_box_lid_panel" type="box" pos="0 -0.035 0.003" size="0.085 0.070 0.003" rgba="0.25 0.45 0.78 0.32" contype="1" conaffinity="1"/>
+        <site name="tip_box_lid_grasp_site" pos="0 -0.035 0.009" size="0.005"/>
+      </body>
+    </body><body name="box_tip_01_01" pos="-0.06600 0.11000 0.018">
+              <freejoint name="box_tip_01_01_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_01_01_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_01_01_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_01_01_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_01_02" pos="-0.05400 0.11000 0.018">
+              <freejoint name="box_tip_01_02_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_01_02_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_01_02_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_01_02_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_01_03" pos="-0.04200 0.11000 0.018">
+              <freejoint name="box_tip_01_03_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_01_03_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_01_03_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_01_03_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_01_04" pos="-0.03000 0.11000 0.018">
+              <freejoint name="box_tip_01_04_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_01_04_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_01_04_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_01_04_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_01_05" pos="-0.01800 0.11000 0.018">
+              <freejoint name="box_tip_01_05_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_01_05_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_01_05_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_01_05_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_01_06" pos="-0.00600 0.11000 0.018">
+              <freejoint name="box_tip_01_06_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_01_06_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_01_06_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_01_06_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_01_07" pos="0.00600 0.11000 0.018">
+              <freejoint name="box_tip_01_07_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_01_07_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_01_07_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_01_07_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_01_08" pos="0.01800 0.11000 0.018">
+              <freejoint name="box_tip_01_08_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_01_08_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_01_08_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_01_08_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_01_09" pos="0.03000 0.11000 0.018">
+              <freejoint name="box_tip_01_09_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_01_09_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_01_09_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_01_09_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_01_10" pos="0.04200 0.11000 0.018">
+              <freejoint name="box_tip_01_10_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_01_10_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_01_10_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_01_10_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_01_11" pos="0.05400 0.11000 0.018">
+              <freejoint name="box_tip_01_11_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_01_11_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_01_11_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_01_11_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_01_12" pos="0.06600 0.11000 0.018">
+              <freejoint name="box_tip_01_12_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_01_12_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_01_12_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_01_12_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_02_01" pos="-0.06600 0.12400 0.018">
+              <freejoint name="box_tip_02_01_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_02_01_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_02_01_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_02_01_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_02_02" pos="-0.05400 0.12400 0.018">
+              <freejoint name="box_tip_02_02_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_02_02_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_02_02_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_02_02_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_02_03" pos="-0.04200 0.12400 0.018">
+              <freejoint name="box_tip_02_03_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_02_03_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_02_03_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_02_03_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_02_04" pos="-0.03000 0.12400 0.018">
+              <freejoint name="box_tip_02_04_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_02_04_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_02_04_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_02_04_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_02_05" pos="-0.01800 0.12400 0.018">
+              <freejoint name="box_tip_02_05_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_02_05_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_02_05_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_02_05_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_02_06" pos="-0.00600 0.12400 0.018">
+              <freejoint name="box_tip_02_06_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_02_06_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_02_06_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_02_06_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_02_07" pos="0.00600 0.12400 0.018">
+              <freejoint name="box_tip_02_07_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_02_07_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_02_07_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_02_07_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_02_08" pos="0.01800 0.12400 0.018">
+              <freejoint name="box_tip_02_08_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_02_08_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_02_08_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_02_08_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_02_09" pos="0.03000 0.12400 0.018">
+              <freejoint name="box_tip_02_09_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_02_09_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_02_09_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_02_09_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_02_10" pos="0.04200 0.12400 0.018">
+              <freejoint name="box_tip_02_10_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_02_10_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_02_10_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_02_10_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_02_11" pos="0.05400 0.12400 0.018">
+              <freejoint name="box_tip_02_11_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_02_11_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_02_11_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_02_11_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_02_12" pos="0.06600 0.12400 0.018">
+              <freejoint name="box_tip_02_12_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_02_12_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_02_12_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_02_12_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_03_01" pos="-0.06600 0.13800 0.018">
+              <freejoint name="box_tip_03_01_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_03_01_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_03_01_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_03_01_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_03_02" pos="-0.05400 0.13800 0.018">
+              <freejoint name="box_tip_03_02_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_03_02_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_03_02_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_03_02_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_03_03" pos="-0.04200 0.13800 0.018">
+              <freejoint name="box_tip_03_03_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_03_03_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_03_03_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_03_03_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_03_04" pos="-0.03000 0.13800 0.018">
+              <freejoint name="box_tip_03_04_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_03_04_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_03_04_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_03_04_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_03_05" pos="-0.01800 0.13800 0.018">
+              <freejoint name="box_tip_03_05_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_03_05_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_03_05_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_03_05_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_03_06" pos="-0.00600 0.13800 0.018">
+              <freejoint name="box_tip_03_06_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_03_06_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_03_06_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_03_06_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_03_07" pos="0.00600 0.13800 0.018">
+              <freejoint name="box_tip_03_07_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_03_07_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_03_07_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_03_07_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_03_08" pos="0.01800 0.13800 0.018">
+              <freejoint name="box_tip_03_08_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_03_08_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_03_08_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_03_08_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_03_09" pos="0.03000 0.13800 0.018">
+              <freejoint name="box_tip_03_09_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_03_09_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_03_09_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_03_09_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_03_10" pos="0.04200 0.13800 0.018">
+              <freejoint name="box_tip_03_10_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_03_10_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_03_10_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_03_10_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_03_11" pos="0.05400 0.13800 0.018">
+              <freejoint name="box_tip_03_11_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_03_11_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_03_11_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_03_11_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_03_12" pos="0.06600 0.13800 0.018">
+              <freejoint name="box_tip_03_12_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_03_12_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_03_12_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_03_12_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_04_01" pos="-0.06600 0.15200 0.018">
+              <freejoint name="box_tip_04_01_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_04_01_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_04_01_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_04_01_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_04_02" pos="-0.05400 0.15200 0.018">
+              <freejoint name="box_tip_04_02_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_04_02_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_04_02_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_04_02_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_04_03" pos="-0.04200 0.15200 0.018">
+              <freejoint name="box_tip_04_03_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_04_03_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_04_03_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_04_03_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_04_04" pos="-0.03000 0.15200 0.018">
+              <freejoint name="box_tip_04_04_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_04_04_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_04_04_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_04_04_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_04_05" pos="-0.01800 0.15200 0.018">
+              <freejoint name="box_tip_04_05_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_04_05_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_04_05_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_04_05_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_04_06" pos="-0.00600 0.15200 0.018">
+              <freejoint name="box_tip_04_06_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_04_06_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_04_06_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_04_06_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_04_07" pos="0.00600 0.15200 0.018">
+              <freejoint name="box_tip_04_07_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_04_07_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_04_07_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_04_07_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_04_08" pos="0.01800 0.15200 0.018">
+              <freejoint name="box_tip_04_08_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_04_08_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_04_08_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_04_08_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_04_09" pos="0.03000 0.15200 0.018">
+              <freejoint name="box_tip_04_09_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_04_09_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_04_09_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_04_09_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_04_10" pos="0.04200 0.15200 0.018">
+              <freejoint name="box_tip_04_10_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_04_10_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_04_10_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_04_10_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_04_11" pos="0.05400 0.15200 0.018">
+              <freejoint name="box_tip_04_11_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_04_11_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_04_11_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_04_11_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_04_12" pos="0.06600 0.15200 0.018">
+              <freejoint name="box_tip_04_12_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_04_12_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_04_12_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_04_12_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_05_01" pos="-0.06600 0.16600 0.018">
+              <freejoint name="box_tip_05_01_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_05_01_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_05_01_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_05_01_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_05_02" pos="-0.05400 0.16600 0.018">
+              <freejoint name="box_tip_05_02_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_05_02_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_05_02_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_05_02_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_05_03" pos="-0.04200 0.16600 0.018">
+              <freejoint name="box_tip_05_03_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_05_03_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_05_03_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_05_03_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_05_04" pos="-0.03000 0.16600 0.018">
+              <freejoint name="box_tip_05_04_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_05_04_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_05_04_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_05_04_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_05_05" pos="-0.01800 0.16600 0.018">
+              <freejoint name="box_tip_05_05_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_05_05_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_05_05_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_05_05_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_05_06" pos="-0.00600 0.16600 0.018">
+              <freejoint name="box_tip_05_06_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_05_06_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_05_06_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_05_06_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_05_07" pos="0.00600 0.16600 0.018">
+              <freejoint name="box_tip_05_07_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_05_07_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_05_07_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_05_07_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_05_08" pos="0.01800 0.16600 0.018">
+              <freejoint name="box_tip_05_08_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_05_08_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_05_08_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_05_08_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_05_09" pos="0.03000 0.16600 0.018">
+              <freejoint name="box_tip_05_09_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_05_09_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_05_09_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_05_09_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_05_10" pos="0.04200 0.16600 0.018">
+              <freejoint name="box_tip_05_10_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_05_10_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_05_10_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_05_10_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_05_11" pos="0.05400 0.16600 0.018">
+              <freejoint name="box_tip_05_11_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_05_11_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_05_11_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_05_11_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_05_12" pos="0.06600 0.16600 0.018">
+              <freejoint name="box_tip_05_12_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_05_12_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_05_12_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_05_12_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_06_01" pos="-0.06600 0.18000 0.018">
+              <freejoint name="box_tip_06_01_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_06_01_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_06_01_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_06_01_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_06_02" pos="-0.05400 0.18000 0.018">
+              <freejoint name="box_tip_06_02_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_06_02_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_06_02_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_06_02_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_06_03" pos="-0.04200 0.18000 0.018">
+              <freejoint name="box_tip_06_03_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_06_03_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_06_03_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_06_03_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_06_04" pos="-0.03000 0.18000 0.018">
+              <freejoint name="box_tip_06_04_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_06_04_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_06_04_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_06_04_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_06_05" pos="-0.01800 0.18000 0.018">
+              <freejoint name="box_tip_06_05_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_06_05_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_06_05_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_06_05_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_06_06" pos="-0.00600 0.18000 0.018">
+              <freejoint name="box_tip_06_06_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_06_06_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_06_06_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_06_06_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_06_07" pos="0.00600 0.18000 0.018">
+              <freejoint name="box_tip_06_07_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_06_07_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_06_07_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_06_07_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_06_08" pos="0.01800 0.18000 0.018">
+              <freejoint name="box_tip_06_08_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_06_08_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_06_08_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_06_08_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_06_09" pos="0.03000 0.18000 0.018">
+              <freejoint name="box_tip_06_09_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_06_09_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_06_09_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_06_09_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_06_10" pos="0.04200 0.18000 0.018">
+              <freejoint name="box_tip_06_10_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_06_10_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_06_10_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_06_10_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_06_11" pos="0.05400 0.18000 0.018">
+              <freejoint name="box_tip_06_11_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_06_11_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_06_11_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_06_11_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_06_12" pos="0.06600 0.18000 0.018">
+              <freejoint name="box_tip_06_12_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_06_12_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_06_12_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_06_12_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_07_01" pos="-0.06600 0.19400 0.018">
+              <freejoint name="box_tip_07_01_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_07_01_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_07_01_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_07_01_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_07_02" pos="-0.05400 0.19400 0.018">
+              <freejoint name="box_tip_07_02_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_07_02_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_07_02_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_07_02_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_07_03" pos="-0.04200 0.19400 0.018">
+              <freejoint name="box_tip_07_03_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_07_03_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_07_03_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_07_03_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_07_04" pos="-0.03000 0.19400 0.018">
+              <freejoint name="box_tip_07_04_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_07_04_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_07_04_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_07_04_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_07_05" pos="-0.01800 0.19400 0.018">
+              <freejoint name="box_tip_07_05_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_07_05_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_07_05_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_07_05_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_07_06" pos="-0.00600 0.19400 0.018">
+              <freejoint name="box_tip_07_06_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_07_06_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_07_06_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_07_06_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_07_07" pos="0.00600 0.19400 0.018">
+              <freejoint name="box_tip_07_07_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_07_07_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_07_07_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_07_07_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_07_08" pos="0.01800 0.19400 0.018">
+              <freejoint name="box_tip_07_08_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_07_08_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_07_08_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_07_08_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_07_09" pos="0.03000 0.19400 0.018">
+              <freejoint name="box_tip_07_09_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_07_09_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_07_09_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_07_09_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_07_10" pos="0.04200 0.19400 0.018">
+              <freejoint name="box_tip_07_10_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_07_10_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_07_10_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_07_10_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_07_11" pos="0.05400 0.19400 0.018">
+              <freejoint name="box_tip_07_11_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_07_11_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_07_11_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_07_11_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_07_12" pos="0.06600 0.19400 0.018">
+              <freejoint name="box_tip_07_12_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_07_12_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_07_12_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_07_12_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_08_01" pos="-0.06600 0.20800 0.018">
+              <freejoint name="box_tip_08_01_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_08_01_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_08_01_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_08_01_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_08_02" pos="-0.05400 0.20800 0.018">
+              <freejoint name="box_tip_08_02_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_08_02_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_08_02_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_08_02_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_08_03" pos="-0.04200 0.20800 0.018">
+              <freejoint name="box_tip_08_03_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_08_03_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_08_03_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_08_03_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_08_04" pos="-0.03000 0.20800 0.018">
+              <freejoint name="box_tip_08_04_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_08_04_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_08_04_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_08_04_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_08_05" pos="-0.01800 0.20800 0.018">
+              <freejoint name="box_tip_08_05_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_08_05_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_08_05_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_08_05_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_08_06" pos="-0.00600 0.20800 0.018">
+              <freejoint name="box_tip_08_06_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_08_06_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_08_06_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_08_06_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_08_07" pos="0.00600 0.20800 0.018">
+              <freejoint name="box_tip_08_07_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_08_07_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_08_07_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_08_07_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_08_08" pos="0.01800 0.20800 0.018">
+              <freejoint name="box_tip_08_08_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_08_08_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_08_08_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_08_08_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_08_09" pos="0.03000 0.20800 0.018">
+              <freejoint name="box_tip_08_09_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_08_09_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_08_09_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_08_09_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_08_10" pos="0.04200 0.20800 0.018">
+              <freejoint name="box_tip_08_10_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_08_10_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_08_10_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_08_10_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_08_11" pos="0.05400 0.20800 0.018">
+              <freejoint name="box_tip_08_11_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_08_11_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_08_11_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_08_11_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body><body name="box_tip_08_12" pos="0.06600 0.20800 0.018">
+              <freejoint name="box_tip_08_12_freejoint"/>
+              <inertial pos="0 0 0.025" mass="0.00045" diaginertia="0.00000002 0.00000002 0.000000001"/>
+              <geom name="box_tip_08_12_shaft" type="cylinder" size="0.0032 0.018" rgba="0.92 0.94 0.91 1"/>
+              <geom name="box_tip_08_12_point" type="cone" pos="0 0 -0.025" size="0.0032 0.0003 0.032" rgba="0.96 0.96 0.93 1"/>
+              <site name="box_tip_08_12_grasp_site" pos="0 0 0.015" size="0.001"/>
+            </body></worldbody><equality><weld name="p025_tip_detachable_weld" body1="pipette_p025" body2="p025_tip" solref="0.01 1" solimp="0.9 0.95 0.01"/><weld name="p010_tip_detachable_weld" body1="pipette_p010" body2="p010_tip" solref="0.01 1" solimp="0.9 0.95 0.01"/><weld name="p020_tip_detachable_weld" body1="pipette_p020" body2="p020_tip" solref="0.01 1" solimp="0.9 0.95 0.01"/><weld name="p200_tip_detachable_weld" body1="pipette_p200" body2="p200_tip" solref="0.01 1" solimp="0.9 0.95 0.01"/><weld name="p1000_tip_detachable_weld" body1="pipette_p1000" body2="p1000_tip" solref="0.01 1" solimp="0.9 0.95 0.01"/></equality></mujoco>

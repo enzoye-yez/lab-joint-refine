@@ -1,0 +1,55 @@
+<mujoco model="A05_falcon_50ml_tube_and_stand">
+  <compiler angle="radian" autolimits="true"/>
+  <option gravity="0 0 -9.81" integrator="implicitfast"/>
+  <asset>
+    <mesh name="falcon_tube_mesh" file="meshes/falcon352070_tube.obj"/>
+    <mesh name="falcon_cap_mesh" file="meshes/falcon358206_cap.obj"/>
+  </asset>
+  <default>
+    <geom contype="1" conaffinity="1" friction="0.7 0.05 0.02"/>
+  </default>
+  <worldbody>
+    <body name="support_stand" pos="0 0 0">
+      <geom name="stand_base" type="box" pos="0 0 0.006" size="0.075 0.048 0.006" rgba="0.18 0.20 0.23 1"/>
+      <geom name="stand_left_rail" type="box" pos="-0.052 0 0.020" size="0.006 0.044 0.014" rgba="0.20 0.22 0.25 1"/>
+      <geom name="stand_right_rail" type="box" pos="0.052 0 0.020" size="0.006 0.044 0.014" rgba="0.20 0.22 0.25 1"/>
+      <geom name="stand_endstop_front" type="box" pos="0 -0.040 0.019" size="0.070 0.004 0.013" rgba="0.20 0.22 0.25 1"/>
+      <geom name="stand_endstop_back" type="box" pos="0 0.040 0.019" size="0.070 0.004 0.013" rgba="0.20 0.22 0.25 1"/>
+      <geom name="position_a_left_guide" type="box" pos="-0.038 -0.022 0.031" size="0.004 0.018 0.012" rgba="0.28 0.30 0.34 1"/>
+      <geom name="position_a_right_guide" type="box" pos="-0.038 0.022 0.031" size="0.004 0.018 0.012" rgba="0.28 0.30 0.34 1"/>
+      <geom name="position_b_left_guide" type="box" pos="0.038 -0.022 0.031" size="0.004 0.018 0.012" rgba="0.28 0.30 0.34 1"/>
+      <geom name="position_b_right_guide" type="box" pos="0.038 0.022 0.031" size="0.004 0.018 0.012" rgba="0.28 0.30 0.34 1"/>
+      <site name="stand_position_a" pos="-0.038 0 0.032" size="0.003"/>
+      <site name="stand_position_b" pos="0.038 0 0.032" size="0.003"/>
+      <site name="cap_rest_area" pos="0 0.034 0.030" size="0.012 0.012 0.003" type="box"/>
+    </body>
+
+    <body name="sample_tube_352070" pos="-0.038 0 0.032">
+      <joint name="sample_tube_free" type="free"/>
+      <geom name="sample_tube_shell" type="mesh" mesh="falcon_tube_mesh" rgba="0.78 0.82 0.88 0.42" mass="0.012"/>
+      <site name="sample_tube_grasp" pos="0 0 0.072" size="0.004"/>
+      <site name="sample_tube_mouth" pos="0 0 0.11455" size="0.003"/>
+    </body>
+    <body name="sample_cap_358206" pos="-0.038 0 0.032">
+      <joint name="sample_cap_free" type="free"/>
+      <geom name="sample_cap_shell" type="mesh" mesh="falcon_cap_mesh" rgba="0.03 0.16 0.72 1" mass="0.006"/>
+      <geom name="sample_cap_thread_rib_1" type="torus" pos="0 0 0.1050" size="0.0167 0.00065" rgba="0.03 0.16 0.72 1"/>
+      <geom name="sample_cap_thread_rib_2" type="torus" pos="0 0 0.1080" size="0.0167 0.00065" rgba="0.03 0.16 0.72 1"/>
+      <site name="sample_cap_grasp" pos="0 0 0.109" size="0.004"/>
+    </body>
+
+    <body name="balance_tube_352070" pos="0.038 0 0.032">
+      <joint name="balance_tube_free" type="free"/>
+      <geom name="balance_tube_shell" type="mesh" mesh="falcon_tube_mesh" rgba="0.78 0.82 0.88 0.42" mass="0.012"/>
+      <site name="balance_tube_grasp" pos="0 0 0.072" size="0.004"/>
+      <site name="balance_tube_mouth" pos="0 0 0.11455" size="0.003"/>
+    </body>
+    <body name="balance_cap_358206" pos="0.038 0 0.032">
+      <joint name="balance_cap_free" type="free"/>
+      <geom name="balance_cap_shell" type="mesh" mesh="falcon_cap_mesh" rgba="0.03 0.16 0.72 1" mass="0.006"/>
+      <geom name="balance_cap_thread_rib_1" type="torus" pos="0 0 0.1050" size="0.0167 0.00065" rgba="0.03 0.16 0.72 1"/>
+      <geom name="balance_cap_thread_rib_2" type="torus" pos="0 0 0.1080" size="0.0167 0.00065" rgba="0.03 0.16 0.72 1"/>
+      <site name="balance_cap_grasp" pos="0 0 0.109" size="0.004"/>
+    </body>
+  </worldbody>
+</mujoco>

@@ -1,0 +1,38 @@
+{
+  "snapshot": "D:\\harness\\new_harness\\.cache\\quality_launch_20261029\\project",
+  "implementation": "5a3f445268afee07170d45339c4b6bdcc8f4699dc0b77d0346e771916eecf4e4",
+  "selection": "User selected the fixed 2026-10-29 17:36 version, not repair02 generation source",
+  "original_delivery_receipt_sha256": "3a2f2acc0c3ce5be00e59a40b4a3b6a9f9dc9e56018c0fc4ce84d0e64b048fc2",
+  "support_files": {
+    "pyproject.toml": {
+      "sha256": "1fdd365bb9faf9bc121d10a00bea12ec76b476569de951f9c8984f2450bee4c5",
+      "source": "current project supporting file; outside historical frozen manifest"
+    },
+    "requirements.txt": {
+      "sha256": "e202c89a4150092666b18d5b33e0e5c363ab70c501bbb74c168cf7ba0e0cac83",
+      "source": "current project supporting file; outside historical frozen manifest"
+    },
+    "requirements-generation.txt": {
+      "sha256": "d25044dbed94ec4599ddfafd881ead98135f6b62bf1d5d85285d8ea240529890",
+      "source": "current project supporting file; outside historical frozen manifest"
+    },
+    "test.ps1": {
+      "sha256": "d9958a87a543ce05a58798155e4f711b592801e126d848acc87239ddc1a50aa0",
+      "source": "current project supporting file; outside historical frozen manifest"
+    },
+    "AGENTS.md": {
+      "sha256": "240491176258751e9f4a61d43940843db4d76de84961d49699fa16eb7e2f33a1",
+      "source": "current project supporting file; outside historical frozen manifest"
+    },
+    "containers/asset-worker.Dockerfile": {
+      "sha256": "e2d90fcd836b2fad04421af9e0400cf241b93622a7090c14b3e9c3057860866e",
+      "source": "current project supporting file; outside historical frozen manifest"
+    }
+  },
+  "contains_credentials": false,
+  "contains_experiment_records": false,
+  "np002_bundle": {
+    "receipt": "np002_bundle_receipt.json",
+    "source_root": "D:\\harness\\selected50_protocols"
+  }
+}

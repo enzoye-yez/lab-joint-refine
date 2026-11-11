@@ -1,0 +1,238 @@
+{
+  "version": "0.3.1-mobile-evidence-review",
+  "updated": "2026-10-25",
+  "language": "en",
+  "delivery_format": "JSON only",
+  "scope": "Review all fifty selected task rubrics and shared evaluation specifications. Document readiness is distinct from implemented or empirically validated evaluation.",
+  "entry_points": {
+    "task_rubrics": [
+      "../NP-001/rubric.json",
+      "../NP-002/rubric.json",
+      "../NP-003/rubric.json",
+      "../NP-004/rubric.json",
+      "../NP-005/rubric.json",
+      "../NP-006/rubric.json",
+      "../NP-007/rubric.json",
+      "../NP-008/rubric.json",
+      "../NP-009/rubric.json",
+      "../NP-010/rubric.json",
+      "../NP-011/rubric.json",
+      "../NP-012/rubric.json",
+      "../NP-014/rubric.json",
+      "../NP-015/rubric.json",
+      "../NP-016/rubric.json",
+      "../NP-017/rubric.json",
+      "../NP-018/rubric.json",
+      "../NP-019/rubric.json",
+      "../NP-020/rubric.json",
+      "../NP-021/rubric.json",
+      "../NP-022/rubric.json",
+      "../NP-023/rubric.json",
+      "../NP-024/rubric.json",
+      "../NP-025/rubric.json",
+      "../NP-026/rubric.json",
+      "../NP-027/rubric.json",
+      "../NP-028/rubric.json",
+      "../NP-029/rubric.json",
+      "../NP-031/rubric.json",
+      "../NP-032/rubric.json",
+      "../NP-040/rubric.json",
+      "../NP-041/rubric.json",
+      "../NP-043/rubric.json",
+      "../NP-044/rubric.json",
+      "../NP-045/rubric.json",
+      "../NP-046/rubric.json",
+      "../NP-047/rubric.json",
+      "../NP-052/rubric.json",
+      "../NP-053/rubric.json",
+      "../NP-055/rubric.json",
+      "../NP-058/rubric.json",
+      "../NP-062/rubric.json",
+      "../NP-064/rubric.json",
+      "../NP-065/rubric.json",
+      "../NP-071/rubric.json",
+      "../NP-082/rubric.json",
+      "../NP-085/rubric.json",
+      "../NP-086/rubric.json",
+      "../NP-087/rubric.json",
+      "../NP-088/rubric.json"
+    ],
+    "task_input_allowlists": [
+      "../NP-001/input_manifest.json",
+      "../NP-002/input_manifest.json",
+      "../NP-003/input_manifest.json",
+      "../NP-004/input_manifest.json",
+      "../NP-005/input_manifest.json",
+      "../NP-006/input_manifest.json",
+      "../NP-007/input_manifest.json",
+      "../NP-008/input_manifest.json",
+      "../NP-009/input_manifest.json",
+      "../NP-010/input_manifest.json",
+      "../NP-011/input_manifest.json",
+      "../NP-012/input_manifest.json",
+      "../NP-014/input_manifest.json",
+      "../NP-015/input_manifest.json",
+      "../NP-016/input_manifest.json",
+      "../NP-017/input_manifest.json",
+      "../NP-018/input_manifest.json",
+      "../NP-019/input_manifest.json",
+      "../NP-020/input_manifest.json",
+      "../NP-021/input_manifest.json",
+      "../NP-022/input_manifest.json",
+      "../NP-023/input_manifest.json",
+      "../NP-024/input_manifest.json",
+      "../NP-025/input_manifest.json",
+      "../NP-026/input_manifest.json",
+      "../NP-027/input_manifest.json",
+      "../NP-028/input_manifest.json",
+      "../NP-029/input_manifest.json",
+      "../NP-031/input_manifest.json",
+      "../NP-032/input_manifest.json",
+      "../NP-040/input_manifest.json",
+      "../NP-041/input_manifest.json",
+      "../NP-043/input_manifest.json",
+      "../NP-044/input_manifest.json",
+      "../NP-045/input_manifest.json",
+      "../NP-046/input_manifest.json",
+      "../NP-047/input_manifest.json",
+      "../NP-052/input_manifest.json",
+      "../NP-053/input_manifest.json",
+      "../NP-055/input_manifest.json",
+      "../NP-058/input_manifest.json",
+      "../NP-062/input_manifest.json",
+      "../NP-064/input_manifest.json",
+      "../NP-065/input_manifest.json",
+      "../NP-071/input_manifest.json",
+      "../NP-082/input_manifest.json",
+      "../NP-085/input_manifest.json",
+      "../NP-086/input_manifest.json",
+      "../NP-087/input_manifest.json",
+      "../NP-088/input_manifest.json"
+    ],
+    "policy": "evaluation_policy.json",
+    "configuration": "evaluation_profile.json",
+    "synthetic_training_examples": "calibration_cases.json",
+    "checksums": "deliverable_manifest.json"
+  },
+  "reading_order": [
+    "Selected task scope",
+    "Four dimensions and quality anchors",
+    "Task-specific equipment/fixture/stage checks",
+    "assessment_units with evidence, dependencies and exact weights",
+    "Temporal observation boundaries and distinction between missing specification, pending profile and missing evidence",
+    "Shared status/aggregation policy",
+    "Candidate configuration and freeze requirements"
+  ],
+  "changes": [
+    "Explicit check-level dependencies instead of a blanket pending flag.",
+    "Separated equipment, fixture, workflow and motion checks without adding source workflow stages.",
+    "Shared method definitions avoid duplicating the same instructions in every check.",
+    "JSON is the only scoring deliverable; Markdown rubric copies are removed at user request.",
+    "Input allowlists separate current references from retained historical images.",
+    "Equal task weights and descriptive operation groups; no invented difficulty weighting."
+  ],
+  "check_granularity": {
+    "unit": "A separately reportable predicate. Some predicates cover a source-defined object set or prescribed repetitions; these sets and counts are fixed before submissions.",
+    "diagnostics": "Report completed/required occurrence counts and individual failures even where an aggregate binary predicate requires all occurrences.",
+    "motion": "T1-T3 expand fixed physical witnesses into limits, causality and stability checks. This expansion is not an instruction to perform extra experimental operations.",
+    "boundary": "All failures are local. A simple nonfunctional fixture can score well for burden and poorly for function; no dimension overwrites another."
+  },
+  "configuration_review": [
+    {
+      "group": "robot",
+      "candidate": "Existing code declares Franka Research 3, 3 kg payload and 0.855 m reach. These are not independently verified manufacturer measurements.",
+      "needs": "Exact robot/gripper files and hashes, base pose, limits and controller."
+    },
+    {
+      "group": "workspace",
+      "candidate": "Existing table dimensions are 2.0 by 1.6 m, thickness 0.06 m and height 0.8 m.",
+      "needs": "World frame, permitted supports/floor areas and full-scale feasibility per task."
+    },
+    {
+      "group": "runtime",
+      "candidate": "Existing scene settings are preserved with source hashes.",
+      "needs": "Simulator/version, timestep, solver, reset and observation sampling."
+    },
+    {
+      "group": "tolerances",
+      "candidate": "Source nominal/ranges and code numerical tolerances exist.",
+      "needs": "Per-property dimensional allowances, per-interface numerical precision and per-object stability windows; do not equate these with manufacturing tolerances."
+    },
+    {
+      "group": "budget_allocation_interfaces",
+      "candidate": "Source stages and selected quantities are retained.",
+      "needs": "Freeze comparable budgets/seeds, any variable instance allocations, source occurrences, release-check applicability, baseline supports and software/extra-actuator policy."
+    }
+  ],
+  "feasibility": "NP-002 and NP-003 contain large equipment. A nominal reach and table footprint do not prove access to every interface; obtain full-scale workspace and access witnesses. A planner timeout is not an impossibility proof. Version any scope/profile change before comparing methods.",
+  "input_boundary": "The current shared profile is a candidate. Adopted public generation constraints must accompany the model input before comparative runtime evaluation. Rubric visibility must be declared consistently; evaluator material is not silently added to the asset input.",
+  "human_calibration": {
+    "executor": "User coordinates at least two independent human reviewers; the assistant does not execute the experiment.",
+    "preparation": "Synthetic examples teach anchors only. For an empirical pilot the user supplies real artifact/evidence cases, with expected answers and system identities withheld from reviewers.",
+    "initial_budget": "20-30 actual cases across tasks, quality levels, S2, T4 and all three K4 aspects; agree a human time budget before starting. This is not a statistical sample-size claim. No paid API calls are required.",
+    "real_case_schema": {
+      "root": "cases",
+      "required_row_fields": [
+        "id",
+        "task_id",
+        "criterion_id",
+        "aspect",
+        "scenario",
+        "evidence_locators"
+      ]
+    },
+    "prepare_training_command": "& 'C:\\Users\\31408\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe' -B -X utf8 'D:\\harness\\asset_curation\\rubric_pilot\\calibration_review.py' prepare --cases 'D:\\harness\\selected50_protocols\\_evaluation\\calibration_cases.json' --out 'D:\\harness\\asset_curation\\rubric_pilot\\reviewer_forms'",
+    "real_pilot_command_adjustment": "Replace --cases with the real-evidence JSON file and choose a new output folder; no overwrite is allowed.",
+    "rating_instruction": "Use the assessment unit result_kind: integer 0-4 for existing quality ratings, integer 0-2 for compactness, or UNVERIFIED with null rating. Include concrete evidence and rationale; normalized compactness scores are 0, 0.5 and 1.",
+    "compare_command": "& 'C:\\Users\\31408\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe' -B -X utf8 'D:\\harness\\asset_curation\\rubric_pilot\\calibration_review.py' compare --a 'D:\\harness\\asset_curation\\rubric_pilot\\reviewer_forms\\reviewer_A.json' --b 'D:\\harness\\asset_curation\\rubric_pilot\\reviewer_forms\\reviewer_B.json' --out 'D:\\harness\\asset_curation\\rubric_pilot\\reviewer_agreement.json'",
+    "outputs": [
+      "jointly rated/unverified counts",
+      "exact agreement",
+      "mean absolute ordinal difference",
+      "quadratic-weighted kappa by criterion/aspect",
+      "disagreement reasons"
+    ],
+    "limits": "Homogeneous or small samples can make kappa undefined or unreliable. Synthetic training is not empirical validation. Agreement does not validate point weights; inspect content coverage and sensitivity separately."
+  },
+  "maintenance": {
+    "edit": "Edit canonical task/shared JSON directly.",
+    "refresh_command": "Use the reviewed release-maintenance script for the current revision; legacy pilot --refresh is not the fifty-task release workflow.",
+    "validate_command": "& 'C:\\Users\\31408\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe' -B -X utf8 'D:\\harness\\selected50_protocols\\_dev\\_final_delivery_audit.py'",
+    "refresh_effect": "Refresh canonical and shared-file hashes only after review and validation; do not silently redefine input allowlists or erase historical audit records.",
+    "validation_report": "completion_report.json",
+    "cleanup": "Old images and curation records are retained. Current image-source fields and note links now use allowlisted names, with legacy-name mappings preserved. Rubrics remain JSON-only.",
+    "optional_history": {
+      "archive_index": "../../asset_curation/rubric_pilot/provenance_archive_index.json",
+      "required_for_scoring": false,
+      "portable_release_requirement": "Do not dereference optional development paths when loading the benchmark."
+    },
+    "legacy_pilot_commands": "Earlier asset_curation/rubric_pilot maintenance commands cover the original pilot and are not the fifty-task release validator."
+  },
+  "not_claimed": [
+    "Implemented simulator observation/checking engine",
+    "Measured simulator performance",
+    "Verified full-profile physical feasibility",
+    "Empirically calibrated tolerances/weights",
+    "Measured independent reviewer agreement"
+  ],
+  "delivery_boundary": {
+    "required": [
+      "Each selected task rubric.json and input_manifest.json",
+      "Every file allowlisted by that task input_manifest.json",
+      "The four shared specifications: evaluation_policy.json, evaluation_profile.json, calibration_cases.json and review_guide.json"
+    ],
+    "shared_files": "One shared copy serves every task through ../_evaluation relative references. Keep the shared directory when distributing any subset.",
+    "optional": [
+      "Representative checker_mappings JSON drafts; they do not override scoring",
+      "Development tools, review reports, research notes, source history and historical snapshots"
+    ],
+    "portable_release": "Required evaluation specification and model input references remain inside selected50_protocols. Optional development archive/tool paths are informative and may be absent.",
+    "runtime_boundary": "This packages the specification and input, not an implemented simulator scoring engine."
+  },
+  "mobile_revision": {
+    "public_input": "generation_environment.json",
+    "phase_reports": "evaluation_policy.json#/stage_reporting",
+    "changed_units": "mobile_change_register.json",
+    "old_results": "Keep separate; do not rewrite archived experimental verdicts."
+  }
+}

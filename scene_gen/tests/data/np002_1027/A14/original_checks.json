@@ -1,0 +1,1 @@
+{"checks": [{"detail": "XML Error: invalid keyword: 'cone'\nElement 'geom', line 39\n", "id": "assembly_compile", "status": "fail"}], "coverage": ["Not loadable for assembly"], "manifest": null, "renders": [], "status": "fail"}

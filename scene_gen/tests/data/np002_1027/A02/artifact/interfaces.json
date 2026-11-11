@@ -1,0 +1,131 @@
+{
+  "schema_version": "1.0",
+  "asset_ids": [
+    "A02"
+  ],
+  "parts": [
+    {
+      "id": "A02_balance",
+      "body": "pl303_balance_body"
+    },
+    {
+      "id": "A02_weighing_pan",
+      "body": "weighing_pan"
+    },
+    {
+      "id": "A02_glass_enclosure",
+      "body": "glass_enclosure_fixed"
+    },
+    {
+      "id": "A02_side_sliding_door",
+      "body": "side_sliding_door"
+    },
+    {
+      "id": "A02_support_feet",
+      "body": "foot_front_left"
+    }
+  ],
+  "interfaces": [
+    {
+      "id": "A02_pan_grasp",
+      "asset_id": "A02",
+      "kind": "grasp",
+      "body": "weighing_pan",
+      "site": "weighing_pan_center",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ],
+      "operation": {
+        "status": "declared",
+        "axis": [
+          0,
+          0,
+          1
+        ],
+        "joint": "",
+        "range": [
+          0,
+          0
+        ],
+        "clearance_m": 0.005,
+        "grasp_geoms": [
+          "round_weighing_pan"
+        ],
+        "basis": {
+          "clearance_m": {
+            "kind": "assumption",
+            "reference": "建模操作间隙"
+          }
+        }
+      }
+    },
+    {
+      "id": "A02_side_door_operation",
+      "asset_id": "A02",
+      "kind": "insert",
+      "body": "side_sliding_door",
+      "site": "side_door_handle_grasp",
+      "approach_axis": [
+        1,
+        0,
+        0
+      ],
+      "operation": {
+        "status": "declared",
+        "axis": [
+          0,
+          1,
+          0
+        ],
+        "joint": "side_door_slide_joint",
+        "range": [
+          -0.105,
+          0.105
+        ],
+        "clearance_m": 0.003,
+        "grasp_geoms": [
+          "door_handle"
+        ],
+        "basis": {
+          "axis": {
+            "kind": "source_specification",
+            "reference": "资料明确说明侧玻璃门沿深度方向滑动"
+          },
+          "range": {
+            "kind": "assumption",
+            "reference": "满足100 mm称量盘进出所需的建模行程"
+          }
+        }
+      }
+    },
+    {
+      "id": "A02_balance_mount",
+      "asset_id": "A02",
+      "kind": "mount",
+      "body": "pl303_balance_body",
+      "site": "balance_mount_reference",
+      "approach_axis": [
+        0,
+        0,
+        -1
+      ]
+    }
+  ],
+  "assumptions": [
+    "PL303-IC后缀未确认，按PL303系列外形和机构要求建模。",
+    "局部坐标取X为宽度238 mm、Y为深度335.2 mm、Z为高度287 mm，支撑面为z=0。",
+    "外壳曲面按分段实体包络近似，保持指定总体外形尺寸；未使用原始网格资料。",
+    "玻璃板、门框、门把手、支脚和内部承托结构的厚度、材料及质量为建模假设。",
+    "内部净高按称量盘上表面至玻璃罩内顶面150 mm布置。"
+  ],
+  "approximations": [
+    "精密天平外壳采用带有真实厚度的分段盒体近似。",
+    "玻璃罩采用薄实体玻璃板组合，侧门采用直线滑移关节近似实际滑轨。",
+    "显示区和控制键作为静态外观几何，不声明为可操作电子按钮。"
+  ],
+  "buttons": [],
+  "connections": [],
+  "mechanical_events": []
+}

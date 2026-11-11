@@ -1,0 +1,1609 @@
+{
+  "assumptions": [
+    "仅以A01—A21为生成范围，不重新提取protocol资产，不联网搜索。20个asset任务恰好覆盖21个资料编号；A19与A21因载架、瓶盖和吸液管直接配合联合建模，其余资料编号分别建模。",
+    "所有位置和长度采用米，所有朝向和关节角采用弧度。资料产品名、目录号和管型配置名不是长度数值。模型局部支撑面为z=0；桌上实例位置均为世界坐标，桌子旋转不改变此规则。",
+    "资料图片未实际送达，image_catalog为空；没有将文件名或图片引用当作已查看图片。文本未公开的结构仍为建模参数而非已验证实物事实。",
+    "数量按一个样本推断：一个完整采样膜、一套包膜铝箔、一套培养皿、一套抽滤膜；大管样本和平衡各一个，研磨管样本和平衡各一个。新收集微管为三个较大管型及九个较小管型，另加一个微管平衡管。",
+    "另外暂配十二个独立小体积源液管和三个十五孔CoolRack。源液管数量是机械库存假设，不代表已核定的试剂品种或全部用量；具体准备清单缺失，不编写配方，若需更多独立源身份须增加同几何实例并复核容量。",
+    "四个反应管对应四个独立使用身份。五支单道移液器、三盒各九十六支吸头为初始库存；未证明该库存满足完整执行的消耗量，不能默认复用废头。",
+    "A18内部含一个样本流动池、一个模板八联条及十一排预装八联条；A19内部含一个不同身份的预冲流动池。A21共二十七个独立管体，即十个首装、九个替换及八个空接收管；另有九个锥底瓶，即八个首装及一个替换瓶。套装中的部件是可单独卸载的物体，不是合并装饰网格，也不再重复列外部实例。",
+    "A20大体积源瓶一个；两处废液瓶、两处废头罐是分区布局推断，不代表原文给出的固定数量。源液、产物、平衡物和废物身份相互隔离，不能因共用几何交换身份。",
+    "原文整膜尺寸0.2032×0.254与所谓四分之一片0.0896×0.115的面积比例不直接一致。两者作为冲突保留，切割机构支持调整，但不隐式决定哪一个替代另一个。",
+    "称重设备PL303与PL303-IC后缀对应未确认；深度资料0.335与0.3352存在差异，本计划用较具体图值0.3352并保留差异。A11按资料包5424R生成，不悄悄退回原例室温型号。A03先前笔记的0.1.300是排版错误，资料宽度为1.300。",
+    "A16使用S220、CH03、500114和520045；原文E220部件不属于本次配置。520045的玻璃尺寸不是整管含盖包络，使用量也不是名义容量。A17不同手册的质量冲突保持未决，不能据此认证载荷。",
+    "未知采样器初步预留约0.700×0.700的地面包络；CH03初步预留0.500×0.500的桌面包络。它们只是布局预算，不是仪器规格。实际生成超出时必须报告并调整位置或桌子，不能缩放。",
+    "fixture尺寸、孔位和初始承托高度是待真实接口回填的设计值。大管底部暂取0.810，研磨管底部暂取0.830，反应管底部暂取0.820；CoolRack内微管底部暂取0.8053。必须核对实际锥底、盖缘和支撑接触，不能因提供support_instance便认为不存在穿透或悬浮。",
+    "杯头支撑高度暂按机身顶面0.965安排，实际接口高度未公开。生成时必须报告真实安装点；若不一致需明确修正放置，不能改动机身规格。",
+    "柜内初装抽滤组件与切割站按左右分区安排，需核对泵、抽滤瓶及漏斗真实总高、柜格栅和0.200正常窗口。初装在柜内不证明整套组件可通过正常窗口搬入；常规拆装和机械臂工作可达性保持未验证。",
+    "所有台式整机保持台上安装；安全柜采用资料独立支架，冰箱及采样器按独立落地设备安排。重型整机由初始场景安装，不安排每臂额定3千克的机器人搬运。",
+    "工作台只由框架生成，需具备实际设备总载荷、支撑和抗倾覆能力；当前未提供桌材和结构承载报告。尤其北台离心机和东台测序仪的重载安全尚未认证。",
+    "三张桌面面积合计约15.00平方米，房间面积56平方米。已知机体尺寸只提供占用估算；开盖、抽架、软管、侧向服务和未知夹具外形是必要留空，不能一律算成浪费。尚无模型生成后的layout_metrics或碰撞检查结果。",
+    "HiSeq两侧各0.610、后方0.102、顶部0.610的要求保持不变。预冲站拟放在侧向要求区域之外，实际站宽、独立废瓶包络及八管软管长度仍须核对；不能将管路改道需求用状态替代。",
+    "全部必要盖、门、夹杆、转子摆篮、移液器机构及fixture活动件须建真实关节；状态只用于运行、身份、液量及不可见内部过程。支撑关系不永久固定可移动耗材。",
+    "原厂双臂共用底盘和升降；未列关节沿用environment.robot.home，夹爪被动关节由主关节联动。框架处理整机落地偏移，不再次在实例中叠加-0.1465。",
+    "初始摆放和停靠点只形成可加载场景及粗略接近建议，未证明导航、双臂协同、逐操作逆运动学、抓取力、开盖力或动态载荷。细膜剥离、滤膜折叠、流动池翻转、移液器操作及柜内细操作仍可能需要后续经过证据支持的工具修订。",
+    "未声明桌面加工和桌边安装，不允许生成任务暗中依赖凹槽、通孔或越界夹持。未知尺寸、接口冲突和缺失验证应随生成结果显式报告，优先保留可加载的部分场景而不是伪造通过。"
+  ],
+  "edge_mounts": [],
+  "end_effectors": {
+    "left": {
+      "instance": null,
+      "mode": "stock",
+      "reason": "保留原厂夹爪，优先利用可释放台面反力装置处理容器和载架。尚无证据确认必须换装；细小封膜、隔膜取液及薄流动池抓持仍未验证。"
+    },
+    "right": {
+      "instance": null,
+      "mode": "stock",
+      "reason": "保留原厂夹爪，不因双臂数量制造第二套定制工具。夹爪驱动按钮、夹杆和专用台面机构的能力需局部测试，不能按两臂额定载荷之和证明搬运能力。"
+    }
+  },
+  "instances": [
+    {
+      "id": "sampler",
+      "job": "asset01",
+      "placement": "floor",
+      "position": [
+        -3.35,
+        -1.05,
+        0
+      ],
+      "yaw": 1.570796
+    },
+    {
+      "id": "balance",
+      "job": "asset02",
+      "placement": "table",
+      "position": [
+        -2.84,
+        2.36,
+        0.8
+      ],
+      "table_id": "bench1",
+      "yaw": 0
+    },
+    {
+      "id": "cabinet",
+      "job": "asset03",
+      "placement": "floor",
+      "position": [
+        -3.35,
+        0.5,
+        0
+      ],
+      "yaw": 1.570796
+    },
+    {
+      "id": "membrane_station",
+      "job": "fixture_membrane",
+      "placement": "floor",
+      "position": [
+        -3.35,
+        0.18,
+        0.75
+      ],
+      "support_instance": "cabinet",
+      "yaw": 1.570796
+    },
+    {
+      "configuration": "foil",
+      "id": "foil",
+      "job": "asset04",
+      "placement": "floor",
+      "position": [
+        -3.35,
+        0.18,
+        0.78
+      ],
+      "support_instance": "membrane_station",
+      "yaw": 1.570796
+    },
+    {
+      "configuration": "dish",
+      "id": "dish",
+      "job": "asset04",
+      "placement": "floor",
+      "position": [
+        -3.22,
+        0.03,
+        0.78
+      ],
+      "support_instance": "membrane_station",
+      "yaw": 1.570796
+    },
+    {
+      "id": "filter_train",
+      "job": "asset07",
+      "placement": "floor",
+      "position": [
+        -3.35,
+        0.8,
+        0.75
+      ],
+      "support_instance": "cabinet",
+      "yaw": 1.570796
+    },
+    {
+      "configuration": "large_tube_rack",
+      "id": "large_rack",
+      "job": "asset20",
+      "placement": "table",
+      "position": [
+        -2.37,
+        1.99,
+        0.8
+      ],
+      "table_id": "bench1",
+      "yaw": 0
+    },
+    {
+      "id": "large_sample",
+      "job": "asset05",
+      "placement": "table",
+      "position": [
+        -2.41,
+        1.99,
+        0.81
+      ],
+      "support_instance": "large_rack",
+      "table_id": "bench1",
+      "yaw": 0
+    },
+    {
+      "id": "large_balance",
+      "job": "asset05",
+      "placement": "table",
+      "position": [
+        -2.33,
+        1.99,
+        0.81
+      ],
+      "support_instance": "large_rack",
+      "table_id": "bench1",
+      "yaw": 0
+    },
+    {
+      "id": "centrifuge_large",
+      "job": "asset06",
+      "placement": "table",
+      "position": [
+        -2.25,
+        2.46,
+        0.8
+      ],
+      "table_id": "bench1",
+      "yaw": 0
+    },
+    {
+      "id": "waterbath",
+      "job": "asset09",
+      "placement": "table",
+      "position": [
+        -1.65,
+        2.35,
+        0.8
+      ],
+      "table_id": "bench1",
+      "yaw": 0
+    },
+    {
+      "configuration": "body",
+      "id": "vortex",
+      "job": "asset10",
+      "placement": "table",
+      "position": [
+        -1.3,
+        2.35,
+        0.8
+      ],
+      "table_id": "bench1",
+      "yaw": 0
+    },
+    {
+      "configuration": "cup",
+      "id": "vortex_cup",
+      "job": "asset10",
+      "placement": "table",
+      "position": [
+        -1.3,
+        2.35,
+        0.965
+      ],
+      "support_instance": "vortex",
+      "table_id": "bench1",
+      "yaw": 0
+    },
+    {
+      "configuration": "horizontal_holder",
+      "id": "horizontal_holder",
+      "job": "asset10",
+      "placement": "table",
+      "position": [
+        -1.59,
+        1.99,
+        0.8
+      ],
+      "table_id": "bench1",
+      "yaw": 0
+    },
+    {
+      "id": "grinding_sample",
+      "job": "asset08",
+      "placement": "table",
+      "position": [
+        -1.1,
+        1.99,
+        0.83
+      ],
+      "support_instance": "prep_tube_service",
+      "table_id": "bench1",
+      "yaw": 0
+    },
+    {
+      "id": "grinding_balance",
+      "job": "asset08",
+      "placement": "table",
+      "position": [
+        -1.04,
+        1.99,
+        0.83
+      ],
+      "support_instance": "prep_tube_service",
+      "table_id": "bench1",
+      "yaw": 0
+    },
+    {
+      "id": "centrifuge_micro",
+      "job": "asset11",
+      "placement": "table",
+      "position": [
+        -0.9,
+        2.4,
+        0.8
+      ],
+      "table_id": "bench1",
+      "yaw": 0
+    },
+    {
+      "id": "fridge",
+      "job": "asset12",
+      "placement": "floor",
+      "position": [
+        1.2,
+        0.95,
+        0
+      ],
+      "yaw": 0
+    },
+    {
+      "configuration": "tube_service",
+      "id": "prep_tube_service",
+      "job": "fixture_service",
+      "placement": "table",
+      "position": [
+        -1.07,
+        1.99,
+        0.8
+      ],
+      "table_id": "bench1",
+      "yaw": 0
+    },
+    {
+      "configuration": "source_bottle",
+      "id": "source_bottle",
+      "job": "asset20",
+      "placement": "table",
+      "position": [
+        -0.5,
+        2.35,
+        0.8
+      ],
+      "table_id": "bench1",
+      "yaw": 0
+    },
+    {
+      "configuration": "waste_liquid",
+      "id": "prep_waste_liquid",
+      "job": "asset20",
+      "placement": "table",
+      "position": [
+        -0.25,
+        2.35,
+        0.8
+      ],
+      "table_id": "bench1",
+      "yaw": 0
+    },
+    {
+      "configuration": "waste_tips",
+      "id": "prep_waste_tips",
+      "job": "asset20",
+      "placement": "table",
+      "position": [
+        0.04,
+        2.35,
+        0.8
+      ],
+      "table_id": "bench1",
+      "yaw": 0
+    },
+    {
+      "configuration": "instrument",
+      "id": "sonicator",
+      "job": "asset16",
+      "placement": "table",
+      "position": [
+        -2.8,
+        -2.38,
+        0.8
+      ],
+      "table_id": "bench2",
+      "yaw": 3.141593
+    },
+    {
+      "configuration": "cooler",
+      "id": "cooler",
+      "job": "asset16",
+      "placement": "table",
+      "position": [
+        -2.3,
+        -2.4,
+        0.8
+      ],
+      "table_id": "bench2",
+      "yaw": 3.141593
+    },
+    {
+      "configuration": "special_tube_support",
+      "id": "special_tube_support",
+      "job": "fixture_service",
+      "placement": "table",
+      "position": [
+        -2.77,
+        -1.8,
+        0.8
+      ],
+      "table_id": "bench2",
+      "yaw": 0
+    },
+    {
+      "configuration": "tube_520045",
+      "id": "special_tube",
+      "job": "asset16",
+      "placement": "table",
+      "position": [
+        -2.77,
+        -1.8,
+        0.83
+      ],
+      "support_instance": "special_tube_support",
+      "table_id": "bench2",
+      "yaw": 0
+    },
+    {
+      "configuration": "holder_500114",
+      "id": "special_holder",
+      "job": "asset16",
+      "placement": "table",
+      "position": [
+        -2.58,
+        -1.8,
+        0.8
+      ],
+      "table_id": "bench2",
+      "yaw": 0
+    },
+    {
+      "configuration": "instrument",
+      "id": "thermal_cycler",
+      "job": "asset17",
+      "placement": "table",
+      "position": [
+        -1.72,
+        -2.38,
+        0.8
+      ],
+      "table_id": "bench2",
+      "yaw": 3.141593
+    },
+    {
+      "configuration": "loading_station",
+      "id": "reaction_loading",
+      "job": "asset17",
+      "placement": "table",
+      "position": [
+        -1.72,
+        -1.83,
+        0.8
+      ],
+      "table_id": "bench2",
+      "yaw": 0
+    },
+    {
+      "configuration": "reaction_tube",
+      "id": "reaction_1",
+      "job": "asset17",
+      "placement": "table",
+      "position": [
+        -1.747,
+        -1.83,
+        0.82
+      ],
+      "support_instance": "reaction_loading",
+      "table_id": "bench2",
+      "yaw": 0
+    },
+    {
+      "configuration": "reaction_tube",
+      "id": "reaction_2",
+      "job": "asset17",
+      "placement": "table",
+      "position": [
+        -1.729,
+        -1.83,
+        0.82
+      ],
+      "support_instance": "reaction_loading",
+      "table_id": "bench2",
+      "yaw": 0
+    },
+    {
+      "configuration": "reaction_tube",
+      "id": "reaction_3",
+      "job": "asset17",
+      "placement": "table",
+      "position": [
+        -1.711,
+        -1.83,
+        0.82
+      ],
+      "support_instance": "reaction_loading",
+      "table_id": "bench2",
+      "yaw": 0
+    },
+    {
+      "configuration": "reaction_tube",
+      "id": "reaction_4",
+      "job": "asset17",
+      "placement": "table",
+      "position": [
+        -1.693,
+        -1.83,
+        0.82
+      ],
+      "support_instance": "reaction_loading",
+      "table_id": "bench2",
+      "yaw": 0
+    },
+    {
+      "id": "magnetic_stand",
+      "job": "asset15",
+      "placement": "table",
+      "position": [
+        -1.22,
+        -2.2,
+        0.8
+      ],
+      "table_id": "bench2",
+      "yaw": 0
+    },
+    {
+      "configuration": "tube_service",
+      "id": "molecular_tube_service",
+      "job": "fixture_service",
+      "placement": "table",
+      "position": [
+        -1.13,
+        -1.79,
+        0.8
+      ],
+      "table_id": "bench2",
+      "yaw": 0
+    },
+    {
+      "configuration": "coolrack",
+      "id": "rack_process",
+      "job": "asset20",
+      "placement": "table",
+      "position": [
+        -0.8,
+        -1.95,
+        0.8
+      ],
+      "table_id": "bench2",
+      "yaw": 0
+    },
+    {
+      "configuration": "coolrack",
+      "id": "rack_library",
+      "job": "asset20",
+      "placement": "table",
+      "position": [
+        -0.55,
+        -1.95,
+        0.8
+      ],
+      "table_id": "bench2",
+      "yaw": 0
+    },
+    {
+      "configuration": "coolrack",
+      "id": "rack_sources",
+      "job": "asset20",
+      "placement": "table",
+      "position": [
+        -0.3,
+        -1.95,
+        0.8
+      ],
+      "table_id": "bench2",
+      "yaw": 0
+    },
+    {
+      "configuration": "micro_2",
+      "id": "supernatant_1",
+      "job": "asset13",
+      "placement": "table",
+      "position": [
+        -0.8356,
+        -1.9678,
+        0.8053
+      ],
+      "support_instance": "rack_process",
+      "table_id": "bench2",
+      "yaw": 0
+    },
+    {
+      "configuration": "micro_2",
+      "id": "supernatant_2",
+      "job": "asset13",
+      "placement": "table",
+      "position": [
+        -0.8178,
+        -1.9678,
+        0.8053
+      ],
+      "support_instance": "rack_process",
+      "table_id": "bench2",
+      "yaw": 0
+    },
+    {
+      "configuration": "micro_2",
+      "id": "supernatant_3",
+      "job": "asset13",
+      "placement": "table",
+      "position": [
+        -0.8,
+        -1.9678,
+        0.8053
+      ],
+      "support_instance": "rack_process",
+      "table_id": "bench2",
+      "yaw": 0
+    },
+    {
+      "configuration": "micro_2",
+      "id": "micro_balance",
+      "job": "asset13",
+      "placement": "table",
+      "position": [
+        -0.7822,
+        -1.9678,
+        0.8053
+      ],
+      "support_instance": "rack_process",
+      "table_id": "bench2",
+      "yaw": 0
+    },
+    {
+      "configuration": "micro_1_5",
+      "id": "extract_1",
+      "job": "asset13",
+      "placement": "table",
+      "position": [
+        -0.8356,
+        -1.95,
+        0.8053
+      ],
+      "support_instance": "rack_process",
+      "table_id": "bench2",
+      "yaw": 0
+    },
+    {
+      "configuration": "micro_1_5",
+      "id": "extract_2",
+      "job": "asset13",
+      "placement": "table",
+      "position": [
+        -0.8178,
+        -1.95,
+        0.8053
+      ],
+      "support_instance": "rack_process",
+      "table_id": "bench2",
+      "yaw": 0
+    },
+    {
+      "configuration": "micro_1_5",
+      "id": "merged_extract",
+      "job": "asset13",
+      "placement": "table",
+      "position": [
+        -0.8,
+        -1.95,
+        0.8053
+      ],
+      "support_instance": "rack_process",
+      "table_id": "bench2",
+      "yaw": 0
+    },
+    {
+      "configuration": "micro_1_5",
+      "id": "cleanup_1",
+      "job": "asset13",
+      "placement": "table",
+      "position": [
+        -0.5856,
+        -1.9678,
+        0.8053
+      ],
+      "support_instance": "rack_library",
+      "table_id": "bench2",
+      "yaw": 0
+    },
+    {
+      "configuration": "micro_1_5",
+      "id": "cleanup_2",
+      "job": "asset13",
+      "placement": "table",
+      "position": [
+        -0.5678,
+        -1.9678,
+        0.8053
+      ],
+      "support_instance": "rack_library",
+      "table_id": "bench2",
+      "yaw": 0
+    },
+    {
+      "configuration": "micro_1_5",
+      "id": "cleanup_3",
+      "job": "asset13",
+      "placement": "table",
+      "position": [
+        -0.55,
+        -1.9678,
+        0.8053
+      ],
+      "support_instance": "rack_library",
+      "table_id": "bench2",
+      "yaw": 0
+    },
+    {
+      "configuration": "micro_1_5",
+      "id": "selection_1",
+      "job": "asset13",
+      "placement": "table",
+      "position": [
+        -0.5322,
+        -1.9678,
+        0.8053
+      ],
+      "support_instance": "rack_library",
+      "table_id": "bench2",
+      "yaw": 0
+    },
+    {
+      "configuration": "micro_1_5",
+      "id": "selection_2",
+      "job": "asset13",
+      "placement": "table",
+      "position": [
+        -0.5144,
+        -1.9678,
+        0.8053
+      ],
+      "support_instance": "rack_library",
+      "table_id": "bench2",
+      "yaw": 0
+    },
+    {
+      "configuration": "micro_1_5",
+      "id": "final_library",
+      "job": "asset13",
+      "placement": "table",
+      "position": [
+        -0.5856,
+        -1.95,
+        0.8053
+      ],
+      "support_instance": "rack_library",
+      "table_id": "bench2",
+      "yaw": 0
+    },
+    {
+      "configuration": "micro_2",
+      "id": "source_micro_01",
+      "job": "asset13",
+      "placement": "table",
+      "position": [
+        -0.3356,
+        -1.9678,
+        0.8053
+      ],
+      "support_instance": "rack_sources",
+      "table_id": "bench2",
+      "yaw": 0
+    },
+    {
+      "configuration": "micro_2",
+      "id": "source_micro_02",
+      "job": "asset13",
+      "placement": "table",
+      "position": [
+        -0.3178,
+        -1.9678,
+        0.8053
+      ],
+      "support_instance": "rack_sources",
+      "table_id": "bench2",
+      "yaw": 0
+    },
+    {
+      "configuration": "micro_2",
+      "id": "source_micro_03",
+      "job": "asset13",
+      "placement": "table",
+      "position": [
+        -0.3,
+        -1.9678,
+        0.8053
+      ],
+      "support_instance": "rack_sources",
+      "table_id": "bench2",
+      "yaw": 0
+    },
+    {
+      "configuration": "micro_2",
+      "id": "source_micro_04",
+      "job": "asset13",
+      "placement": "table",
+      "position": [
+        -0.2822,
+        -1.9678,
+        0.8053
+      ],
+      "support_instance": "rack_sources",
+      "table_id": "bench2",
+      "yaw": 0
+    },
+    {
+      "configuration": "micro_2",
+      "id": "source_micro_05",
+      "job": "asset13",
+      "placement": "table",
+      "position": [
+        -0.2644,
+        -1.9678,
+        0.8053
+      ],
+      "support_instance": "rack_sources",
+      "table_id": "bench2",
+      "yaw": 0
+    },
+    {
+      "configuration": "micro_2",
+      "id": "source_micro_06",
+      "job": "asset13",
+      "placement": "table",
+      "position": [
+        -0.3356,
+        -1.95,
+        0.8053
+      ],
+      "support_instance": "rack_sources",
+      "table_id": "bench2",
+      "yaw": 0
+    },
+    {
+      "configuration": "micro_2",
+      "id": "source_micro_07",
+      "job": "asset13",
+      "placement": "table",
+      "position": [
+        -0.3178,
+        -1.95,
+        0.8053
+      ],
+      "support_instance": "rack_sources",
+      "table_id": "bench2",
+      "yaw": 0
+    },
+    {
+      "configuration": "micro_2",
+      "id": "source_micro_08",
+      "job": "asset13",
+      "placement": "table",
+      "position": [
+        -0.3,
+        -1.95,
+        0.8053
+      ],
+      "support_instance": "rack_sources",
+      "table_id": "bench2",
+      "yaw": 0
+    },
+    {
+      "configuration": "micro_2",
+      "id": "source_micro_09",
+      "job": "asset13",
+      "placement": "table",
+      "position": [
+        -0.2822,
+        -1.95,
+        0.8053
+      ],
+      "support_instance": "rack_sources",
+      "table_id": "bench2",
+      "yaw": 0
+    },
+    {
+      "configuration": "micro_2",
+      "id": "source_micro_10",
+      "job": "asset13",
+      "placement": "table",
+      "position": [
+        -0.2644,
+        -1.95,
+        0.8053
+      ],
+      "support_instance": "rack_sources",
+      "table_id": "bench2",
+      "yaw": 0
+    },
+    {
+      "configuration": "micro_2",
+      "id": "source_micro_11",
+      "job": "asset13",
+      "placement": "table",
+      "position": [
+        -0.3356,
+        -1.9322,
+        0.8053
+      ],
+      "support_instance": "rack_sources",
+      "table_id": "bench2",
+      "yaw": 0
+    },
+    {
+      "configuration": "micro_2",
+      "id": "source_micro_12",
+      "job": "asset13",
+      "placement": "table",
+      "position": [
+        -0.3178,
+        -1.9322,
+        0.8053
+      ],
+      "support_instance": "rack_sources",
+      "table_id": "bench2",
+      "yaw": 0
+    },
+    {
+      "configuration": "pipette_parking",
+      "id": "pipette_parking",
+      "job": "fixture_service",
+      "placement": "table",
+      "position": [
+        -0.6,
+        -2.7,
+        0.8
+      ],
+      "table_id": "bench2",
+      "yaw": 0
+    },
+    {
+      "configuration": "pipette_p2_5",
+      "id": "pipette_2_5",
+      "job": "asset14",
+      "placement": "table",
+      "position": [
+        -0.72,
+        -2.7,
+        0.83
+      ],
+      "support_instance": "pipette_parking",
+      "table_id": "bench2",
+      "yaw": 0
+    },
+    {
+      "configuration": "pipette_p10",
+      "id": "pipette_10",
+      "job": "asset14",
+      "placement": "table",
+      "position": [
+        -0.66,
+        -2.7,
+        0.83
+      ],
+      "support_instance": "pipette_parking",
+      "table_id": "bench2",
+      "yaw": 0
+    },
+    {
+      "configuration": "pipette_p20",
+      "id": "pipette_20",
+      "job": "asset14",
+      "placement": "table",
+      "position": [
+        -0.6,
+        -2.7,
+        0.83
+      ],
+      "support_instance": "pipette_parking",
+      "table_id": "bench2",
+      "yaw": 0
+    },
+    {
+      "configuration": "pipette_p200",
+      "id": "pipette_200",
+      "job": "asset14",
+      "placement": "table",
+      "position": [
+        -0.54,
+        -2.7,
+        0.83
+      ],
+      "support_instance": "pipette_parking",
+      "table_id": "bench2",
+      "yaw": 0
+    },
+    {
+      "configuration": "pipette_p1000",
+      "id": "pipette_1000",
+      "job": "asset14",
+      "placement": "table",
+      "position": [
+        -0.48,
+        -2.7,
+        0.83
+      ],
+      "support_instance": "pipette_parking",
+      "table_id": "bench2",
+      "yaw": 0
+    },
+    {
+      "configuration": "box_small",
+      "id": "tips_small",
+      "job": "asset14",
+      "placement": "table",
+      "position": [
+        -0.85,
+        -2.35,
+        0.8
+      ],
+      "table_id": "bench2",
+      "yaw": 0
+    },
+    {
+      "configuration": "box_medium",
+      "id": "tips_medium",
+      "job": "asset14",
+      "placement": "table",
+      "position": [
+        -0.58,
+        -2.35,
+        0.8
+      ],
+      "table_id": "bench2",
+      "yaw": 0
+    },
+    {
+      "configuration": "box_large",
+      "id": "tips_large",
+      "job": "asset14",
+      "placement": "table",
+      "position": [
+        -0.31,
+        -2.35,
+        0.8
+      ],
+      "table_id": "bench2",
+      "yaw": 0
+    },
+    {
+      "configuration": "waste_liquid",
+      "id": "molecular_waste_liquid",
+      "job": "asset20",
+      "placement": "table",
+      "position": [
+        0.05,
+        -2.65,
+        0.8
+      ],
+      "table_id": "bench2",
+      "yaw": 0
+    },
+    {
+      "configuration": "waste_tips",
+      "id": "molecular_waste_tips",
+      "job": "asset20",
+      "placement": "table",
+      "position": [
+        0.33,
+        -2.65,
+        0.8
+      ],
+      "table_id": "bench2",
+      "yaw": 0
+    },
+    {
+      "configuration": "flowcell_service",
+      "id": "flowcell_service",
+      "job": "fixture_service",
+      "placement": "table",
+      "position": [
+        0.18,
+        -1.88,
+        0.8
+      ],
+      "table_id": "bench2",
+      "yaw": 0
+    },
+    {
+      "id": "cbot",
+      "job": "asset18",
+      "placement": "table",
+      "position": [
+        1.05,
+        -2.38,
+        0.8
+      ],
+      "table_id": "bench2",
+      "yaw": 3.141593
+    },
+    {
+      "configuration": "replacement_station",
+      "id": "replacement_station",
+      "job": "asset19_21",
+      "placement": "table",
+      "position": [
+        0.92,
+        -1.82,
+        0.8
+      ],
+      "table_id": "bench2",
+      "yaw": 0
+    },
+    {
+      "configuration": "sequencer_loaded",
+      "id": "sequencer",
+      "job": "asset19_21",
+      "placement": "table",
+      "position": [
+        2.9,
+        0,
+        0.8
+      ],
+      "table_id": "bench3",
+      "yaw": -1.570796
+    },
+    {
+      "configuration": "priming_station",
+      "id": "priming_station",
+      "job": "asset19_21",
+      "placement": "table",
+      "position": [
+        2.64,
+        1.4,
+        0.8
+      ],
+      "table_id": "bench3",
+      "yaw": -1.570796
+    }
+  ],
+  "jobs": [
+    {
+      "asset_ids": [
+        "A01"
+      ],
+      "depends_on": [],
+      "id": "asset01",
+      "requirements": "生成资料指定的PM10采样器、可拆滤膜夹及一张完整滤膜，保持独立身份。滤膜展开尺寸为0.2032×0.254；夹具开闭、抽出和锁定须有真实机械结构，滤膜支持折叠和分割状态。采样器未公开外形和接口按资料约束建模并报告，不以本计划的预留包络替代真实规格。初始滤膜夹与膜不永久焊接在采样器上。",
+      "role": "asset"
+    },
+    {
+      "asset_ids": [
+        "A02"
+      ],
+      "depends_on": [],
+      "id": "asset02",
+      "requirements": "生成资料指定称重套件，采用0.238×0.3352×0.287参考外形、直径0.100称盘及0.150罩内高度；侧玻璃沿深度方向滑动。保留折包滤膜与同一铝箔的可放入空间、称盘接触和两次质量状态。整机固定安装，不规划机器人搬运。型号后缀及尺寸资料差异列入假设。",
+      "role": "asset"
+    },
+    {
+      "asset_ids": [
+        "A03"
+      ],
+      "depends_on": [],
+      "id": "asset03",
+      "requirements": "生成完整安全柜及资料固定支架，柜体0.1300×0.802×1.522中的宽度按资料正确值1.300执行，不采用笔记中的排版错误；支架高度0.680。内部空间1.200×0.630×0.780，实际工作面世界高度0.750。保留格栅、侧壁和滑窗真实关节；常规工作开口0.200，最大开口0.533不得冒充正常工作状态。提供内部支撑面命名和坐标，核对夹膜、切割及抽滤套件的内部空间。",
+      "role": "asset"
+    },
+    {
+      "asset_ids": [
+        "A04"
+      ],
+      "configurations": [
+        "foil",
+        "dish"
+      ],
+      "depends_on": [],
+      "id": "asset04",
+      "requirements": "foil生成可展开和折包的独立铝箔；dish生成实际直径0.08943、高0.01918的培养皿及可分离盖，不能使用名义0.100替代实物直径。保留0.047滤膜及膜碎片的承托空间。切割反力与刀具由后续fixture提供，不生成额外手持剪刀或镊子。",
+      "role": "asset"
+    },
+    {
+      "asset_ids": [
+        "A05"
+      ],
+      "depends_on": [],
+      "id": "asset05",
+      "requirements": "生成352070管及358206独立螺盖，可重复实例化。管身高0.11455、外径0.02972、口内径0.02781、螺纹外径0.03150；盖高0.01321、外径0.03475，合盖总高0.11580。真实内腔、锥底及开盖关系须保留，不用名义容量代替满口容量；分别记录样本与平衡身份。与A06适配器、A20支架的接口共同核对，不能为通过验收缩小管盖。",
+      "role": "asset"
+    },
+    {
+      "asset_ids": [
+        "A06"
+      ],
+      "depends_on": [],
+      "id": "asset06",
+      "requirements": "生成完整5810R、A-4-62转子、四个摆篮、可拆篮盖及资料指定三位适配器。整机外形0.700×0.608×0.345，摆篮有真实摆动关节，主盖有铰链和运行锁。对置装相同适配器并保留平衡身份；每篮载荷限制沿用资料。管身上限0.030、带盖高度上限0.116，不隐式增大适配器或篮盖。输出0.00020名义高度余量的实际碰撞检查结果。",
+      "role": "asset"
+    },
+    {
+      "asset_ids": [
+        "A07"
+      ],
+      "depends_on": [],
+      "id": "asset07",
+      "requirements": "联合生成紧密连接的4238磁性漏斗、独立0.047膜、No.8塞、抽滤瓶、泵及连续管路。漏斗高0.229、外径0.089；泵外形0.330×0.165×0.220，管内径约0.0095。漏斗杯、基座、膜和塞均可分离，管路接口、开关及泄压机构可接近。柜内初装套件暂按不超过0.600×0.550的台面占用安排，实际超出必须报告，不缩放。瓶内液体仅用身份和体积状态表达。",
+      "role": "asset"
+    },
+    {
+      "asset_ids": [
+        "A08"
+      ],
+      "depends_on": [],
+      "id": "asset08",
+      "requirements": "生成独立螺口研磨管及可拆盖，不以A13翻盖管替代。管腔、珠和液体状态、封盖机械接口完整；未公开外径、长度和螺纹为明确建模参数，与A09浸架、A10横架和A11转子共同核对。样本及平衡管采用相同几何、不同身份。",
+      "role": "asset"
+    },
+    {
+      "asset_ids": [
+        "A09"
+      ],
+      "depends_on": [],
+      "id": "asset09",
+      "requirements": "生成GP05水浴、可拆透明盖及独立防浮浸架。机身外形0.246×0.355×0.232不含盖，槽内0.154×0.300×0.150；浸架匹配A08，保留管口高于液面、取管和开盖空间。盖和浸架是可移动物体，不能合并为装饰网格。",
+      "role": "asset"
+    },
+    {
+      "asset_ids": [
+        "A10"
+      ],
+      "configurations": [
+        "body",
+        "cup",
+        "horizontal_holder"
+      ],
+      "depends_on": [],
+      "id": "asset10",
+      "requirements": "生成资料Vortex机身0.122×0.165×0.165，以及独立杯头、SI-HP524二十四位横向管架。两种附件为真实可换件，不能同时占据安装接口。横架保留可释放卡位、管盖朝内和至少两管平衡条件；初始杯头安装、横架独立暂存。附件实际安装支撑高度由生成模型报告。",
+      "role": "asset"
+    },
+    {
+      "asset_ids": [
+        "A11"
+      ],
+      "depends_on": [],
+      "id": "asset11",
+      "requirements": "生成5424R完整机体、FA-45-24-11二十四斜孔转子、可拆转子盖及有锁主盖。机身0.290×0.480×0.260；保持每孔管与内容物质量限制。A08、A13各自校验真实配合与盖内余量，不生成资料范围外的管型适配器。",
+      "role": "asset"
+    },
+    {
+      "asset_ids": [
+        "A12"
+      ],
+      "depends_on": [],
+      "id": "asset12",
+      "requirements": "生成TSX505GA落地冰箱及内部独立稳定管架和搁板。外宽0.600、含把手深0.686、高0.813；内部0.496×0.521×0.585。门有真实铰链，传感器周围保留0.025空隙，管架可移除。开门、取管与冷藏状态保留，内部架初始不加载额外虚构样本。",
+      "role": "asset"
+    },
+    {
+      "asset_ids": [
+        "A13"
+      ],
+      "configurations": [
+        "micro_2",
+        "micro_1_5"
+      ],
+      "depends_on": [],
+      "id": "asset13",
+      "requirements": "分别生成资料两种容量的翻盖微管；均为有实际铰链的管盖与真实管腔，几何不得仅靠缩放另一规格得到。未知长度、锥底和盖铰链参数显式报告，匹配A11、A15和A20。重复实例保留独立身份；配置名称仅为资料管型标识。初始管盖闭合，液体仅作为状态，不改变机械外形。",
+      "role": "asset"
+    },
+    {
+      "asset_ids": [
+        "A14"
+      ],
+      "configurations": [
+        "pipette_p2_5",
+        "pipette_p10",
+        "pipette_p20",
+        "pipette_p200",
+        "pipette_p1000",
+        "box_small",
+        "box_medium",
+        "box_large"
+      ],
+      "depends_on": [],
+      "id": "asset14",
+      "requirements": "生成资料指定五个量程的单道移液器与三种兼容epT.I.P.S./Box 2.0吸头盒。量程与吸头匹配严格沿用资料，不新增多道型。每盒初装96个可独立拆卸吸头，盒盖有铰链，吸头尖端悬空并支持竖直取头；孔距、孔径及盒形是明示建模参数。各移液器保留旋转调量、第一及第二止点、回弹和退头的真实活动机构。全部吸头初始属于未使用身份，废头接收容器独立。",
+      "role": "asset"
+    },
+    {
+      "asset_ids": [
+        "A15"
+      ],
+      "depends_on": [],
+      "id": "asset15",
+      "requirements": "生成DynaMag-2，十六个编号孔、两侧各八孔，独立可拆上架和磁体底座，兼容A13两种管型。外形、孔距和拆卸力未知须报告。磁作用仅为状态，不把管焊接或吸附到磁体。保留取管后在附近旋转管体的空间，后续防转夹具必须可释放。",
+      "role": "asset"
+    },
+    {
+      "asset_ids": [
+        "A16"
+      ],
+      "configurations": [
+        "instrument",
+        "cooler",
+        "holder_500114",
+        "tube_520045"
+      ],
+      "depends_on": [],
+      "id": "asset16",
+      "requirements": "生成S220、CH03、500114单管夹及520045专管。S220机身约0.200×0.530×0.330；专管玻璃部分0.006×0.016，不能作为含盖及夹具总包络。保留预切隔膜盖、内置纤维、真实安全盖关节、水槽和夹具定位。专管经隔膜通道装卸液体，不要求拆除整个盖。冷却回路内径约0.009525，软管和快接须连续并有占用空间；未知冷却器包络和接口显式报告。软件启动为事件，不增加虚构按钮；不生成E220附件。",
+      "role": "asset"
+    },
+    {
+      "asset_ids": [
+        "A17"
+      ],
+      "configurations": [
+        "instrument",
+        "loading_station",
+        "reaction_tube"
+      ],
+      "depends_on": [],
+      "id": "asset17",
+      "requirements": "生成Veriti 4375786、独立九十六位装载架与桌面防溅底座，以及PCR-02-C平顶连盖单管。机身0.237×0.485×0.245，开盖高0.400，机顶上方总预留按资料0.555、后方0.155执行。热盖和管盖均有真实关节；装载架可从底座拆出进入仪器，底座不能进入加热块。四个反应管身份独立，不增加无盖压框、八联管或另一种容量的快速型。核对装载方向、孔配合及热盖闭合。",
+      "role": "asset"
+    },
+    {
+      "asset_ids": [
+        "A18"
+      ],
+      "depends_on": [],
+      "id": "asset18",
+      "requirements": "生成第一代cBot及其完整高输出v3装载组件。机身0.380×0.620×0.390，开盖高0.700。保留热台、流动池夹、独立样本流动池、歧管、出口及夹、sipper comb两侧锁扣与定位销、独立模板八联条、废液瓶和试剂板。试剂板含十一排已装八联条及空置第十二排，第十排白膜可剥离，其余膜支持穿刺状态；保护盖和封膜可分离。所有夹杆、盖、锁扣为真实活动机构。样本流动池由本任务唯一生成，之后进入A19，不再复制一个测序样本流动池。仅一个模板通道为样本，其余为配置空白状态。",
+      "role": "asset"
+    },
+    {
+      "asset_ids": [
+        "A19",
+        "A21"
+      ],
+      "configurations": [
+        "sequencer_loaded",
+        "replacement_station",
+        "priming_station"
+      ],
+      "depends_on": [],
+      "id": "asset19_21",
+      "requirements": "联合建模直接配合的HiSeq 2500、载架、漏斗盖、锥底瓶、装载管和暂存架。整机1.186×0.760×0.940，保留右侧额外0.100废瓶和前方额外0.190键盘托盘，不缩减双侧机体；仅使用一侧。sequencer_loaded包含八个首装锥底瓶、十个首装管、独立可拆漏斗盖及原装载架；十管身份为三个预装索引管和七个预装水管。replacement_station含九个独立替换管、一个替换一号锥底瓶及空盖位。priming_station含八个独立空接收管、稳定支架及独立已用且清洁的预冲流动池暂存位。瓶、管、盖和流动池必须是独立可卸物体，不能将成套构型焊死。管身高0.1188、主外径0.01737、口内径0.01466、螺纹外径0.01925、合盖总高0.12075；盖高0.01041、外径0.02298。载架留出盖缘及吸液管空间。生成真实舱门、抽拉架、吸液管升降锁、三状态流动池锁杆和独立八条废液管；冷凝排管保持独立不改道。保持十个编号位及第十七位保留条件，正常检查用状态表达。预冲流动池与A18样本流动池身份永久不同。",
+      "role": "asset"
+    },
+    {
+      "asset_ids": [
+        "A20"
+      ],
+      "configurations": [
+        "coolrack",
+        "large_tube_rack",
+        "source_bottle",
+        "waste_liquid",
+        "waste_tips"
+      ],
+      "depends_on": [],
+      "id": "asset20",
+      "requirements": "生成CoolRack M15、独立大管架、1395-0100预装源液瓶、1395-0250废液瓶及W014372废头罐。CoolRack外形0.102×0.064×0.038，十五孔、三行五列，孔径0.0111、深0.0327、双向中心距0.0178，禁止为适配微管隐式扩大孔。大管架至少两个A05管位并留独立盖位。瓶罐容量和预装量沿用资料，废液与废头分开；废头罐盖接口89 mm-400为资料型号标识，建模长度用0.089。未知外形及壁厚须满足真实容量、抓持稳定和可开口腔体。圆孔架不当作防转或开盖反力夹。",
+      "role": "asset"
+    },
+    {
+      "asset_ids": [
+        "A01",
+        "A03",
+        "A04",
+        "A07"
+      ],
+      "depends_on": [
+        "asset01",
+        "asset02",
+        "asset03",
+        "asset04",
+        "asset05",
+        "asset06",
+        "asset07",
+        "asset08",
+        "asset09",
+        "asset10",
+        "asset11",
+        "asset12",
+        "asset13",
+        "asset14",
+        "asset15",
+        "asset16",
+        "asset17",
+        "asset18",
+        "asset19_21",
+        "asset20"
+      ],
+      "id": "fixture_membrane",
+      "requirements": "基于真实膜夹、膜、培养皿及柜内接口设计柜内自承重切割承托站，初拟包络0.450×0.450×0.030。提供可释放膜边夹、整膜折展承托、培养皿定位及带护罩的机械切刀。夹爪通过明确杠杆驱动刀与夹持机构，不引入未声明电动辅助。刀和压夹有真实关节与反力路径；不可用固定碰撞片代替切割机构。不得覆盖柜格栅或依赖桌面凹槽。原文切片面积冲突保留为未决参数，不自动裁成任一冲突尺寸。",
+      "role": "fixture"
+    },
+    {
+      "asset_ids": [
+        "A05",
+        "A08",
+        "A13",
+        "A14",
+        "A15",
+        "A16",
+        "A17",
+        "A18",
+        "A19",
+        "A20",
+        "A21"
+      ],
+      "configurations": [
+        "tube_service",
+        "pipette_parking",
+        "special_tube_support",
+        "flowcell_service"
+      ],
+      "depends_on": [
+        "asset01",
+        "asset02",
+        "asset03",
+        "asset04",
+        "asset05",
+        "asset06",
+        "asset07",
+        "asset08",
+        "asset09",
+        "asset10",
+        "asset11",
+        "asset12",
+        "asset13",
+        "asset14",
+        "asset15",
+        "asset16",
+        "asset17",
+        "asset18",
+        "asset19_21",
+        "asset20"
+      ],
+      "id": "fixture_service",
+      "requirements": "全部为台面自承重、可由原厂夹爪驱动的被动辅助装置，不依赖未声明孔槽或桌边外伸。tube_service基于实际管身设计可释放防转夹、翻盖支点、螺盖独立停车位及移液器按压反力座；不得以压扁管体防转，且能释放管体完成旋转。pipette_parking提供五个独立移液器承托位，初拟包络0.320×0.140、底端承托面高0.030；不假装固定外壳会驱动夹指。special_tube_support初拟0.100×0.100×0.030，按520045及500114真实接口设计专用座，稳定支撑专管且暴露隔膜入口，不能用普通微管架孔替代。flowcell_service初拟0.320×0.240×0.040，提供样本和预冲流动池的分隔非接触接口暂存位、预装擦拭接触面、冲洗承接区和可释放翻转支撑；流动池边缘及接口不得触桌面。各构型输出真实接触面和活动关节，不宣称原厂夹爪已完成全部细操作验证。",
+      "role": "fixture"
+    }
+  ],
+  "layout": {
+    "docks": [
+      {
+        "id": "dock_cabinet",
+        "instance": "cabinet",
+        "pose": [
+          -2.35,
+          0.5,
+          3.141593
+        ],
+        "reason": "从柜正面接近，先保留常规0.200开口条件；不是已验证的柜内操作姿态。"
+      },
+      {
+        "id": "dock_sampler",
+        "instance": "sampler",
+        "pose": [
+          -2.35,
+          -1.05,
+          3.141593
+        ],
+        "reason": "面向采样器前接口，实际夹膜高度未知，生成后重算。"
+      },
+      {
+        "id": "dock_balance",
+        "instance": "balance",
+        "pose": [
+          -2.75,
+          1.3,
+          1.570796
+        ],
+        "reason": "从北台前缘接近滑门和称盘，保持底盘不进入台下。"
+      },
+      {
+        "id": "dock_large_centrifuge",
+        "instance": "centrifuge_large",
+        "pose": [
+          -2.15,
+          1.3,
+          1.570796
+        ],
+        "reason": "面向离心机前缘，开盖后转子深处可达性独立验证。"
+      },
+      {
+        "id": "dock_prep",
+        "instance": "waterbath",
+        "pose": [
+          -1.55,
+          1.3,
+          1.570796
+        ],
+        "reason": "覆盖水浴、横架暂存及振荡器的前缘接近建议。"
+      },
+      {
+        "id": "dock_micro_centrifuge",
+        "instance": "centrifuge_micro",
+        "pose": [
+          -0.85,
+          1.3,
+          1.570796
+        ],
+        "reason": "面向微管离心机和前置服务夹具。"
+      },
+      {
+        "id": "dock_fridge",
+        "instance": "fridge",
+        "pose": [
+          1.2,
+          0,
+          1.570796
+        ],
+        "reason": "在门前留底盘位置；开门扫掠可能要求偏置停靠，尚未验证。"
+      },
+      {
+        "id": "dock_sonicator",
+        "instance": "sonicator",
+        "pose": [
+          -2.7,
+          -1.08,
+          -1.570796
+        ],
+        "reason": "面向南台专管支撑座及S220，开盖与取夹路径后续检查。"
+      },
+      {
+        "id": "dock_thermal",
+        "instance": "thermal_cycler",
+        "pose": [
+          -1.7,
+          -1.08,
+          -1.570796
+        ],
+        "reason": "面向独立装载底座和热循环仪，不把底座带入仪器。"
+      },
+      {
+        "id": "dock_molecular",
+        "instance": "magnetic_stand",
+        "pose": [
+          -0.65,
+          -1.08,
+          -1.570796
+        ],
+        "reason": "服务磁架、管架与前沿防转站；后排移液器可能需要侧向停靠或先转移，未作全流程可达认证。"
+      },
+      {
+        "id": "dock_cbot",
+        "instance": "cbot",
+        "pose": [
+          0.9,
+          -1.08,
+          -1.570796
+        ],
+        "reason": "面向cBot与替换材料站，夹杆和打开的盖需独立扫掠验证。"
+      },
+      {
+        "id": "dock_sequencer",
+        "instance": "sequencer",
+        "pose": [
+          1.55,
+          0,
+          0
+        ],
+        "reason": "沿测序仪正面接近，保留键盘托盘外伸；舱门及抽架打开时另行评估底盘退让。"
+      },
+      {
+        "id": "dock_priming",
+        "instance": "priming_station",
+        "pose": [
+          1.55,
+          1.46,
+          0
+        ],
+        "reason": "从测序桌端部前侧接近八管收集站，仍需验证废液软管长度、转弯半径和腕部距离。"
+      }
+    ],
+    "robot_home": [
+      0,
+      0,
+      0
+    ],
+    "room": {
+      "reason": "房间以原点为中心；容纳西侧独立安全柜及采样器、北侧前处理台、南侧共享分子操作台、东侧完整测序仪台及中央移动区域。边界给HiSeq侧向0.610、后方0.102的要求和大型仪器开盖留空提供初步空间；未知门盖扫掠、采样器及冷却器外形仍须以实际模型复核。",
+      "size": [
+        8,
+        7
+      ]
+    },
+    "tables": [
+      {
+        "height": 0.8,
+        "id": "bench1",
+        "position": [
+          -1.4,
+          2.35
+        ],
+        "reason": "共享称重、大管离心、水浴、振荡和微管离心操作面，前缘安排管架和开盖反力站。宽度覆盖真实离心机深度和前方取放区；不为各类设备单独建桌。台架承载必须覆盖99千克离心机、转子及其余设备的实际组合载荷。",
+        "size": [
+          3.4,
+          1.1,
+          0.06
+        ],
+        "yaw": 0
+      },
+      {
+        "height": 0.8,
+        "id": "bench2",
+        "position": [
+          -0.8,
+          -2.25
+        ],
+        "reason": "超声与冷却、热循环、磁架、重复管和移液器共享连续工作面，右端连接cBot及测序替换材料暂存。前沿保留专管、装载架和流动池操作区，后沿保留冷却管路及仪器后部空间，避免再加耗材桌。",
+        "size": [
+          4.6,
+          1.3,
+          0.06
+        ],
+        "yaw": 0
+      },
+      {
+        "height": 0.8,
+        "id": "bench3",
+        "position": [
+          2.85,
+          0
+        ],
+        "reason": "单独承载完整226千克HiSeq及其原装附件，长边用于1.186机宽、侧置废瓶和双侧要求留空；深边覆盖机深、前键盘托盘及后方间隙。八管预冲暂存站置于侧向服务留空之外的端部，实际管路长度和可达性待验证。台架须核验重载、挠度和倾覆，不能用落地放置规避台式安装。",
+        "size": [
+          3.2,
+          1.65,
+          0.08
+        ],
+        "yaw": 1.570796
+      }
+    ]
+  },
+  "robot_posture": {
+    "lift_joint": -0.25
+  },
+  "table_modifications": []
+}

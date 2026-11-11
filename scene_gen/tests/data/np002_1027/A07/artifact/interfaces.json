@@ -1,0 +1,206 @@
+{
+  "schema_version": "1.0",
+  "asset_ids": [
+    "A07"
+  ],
+  "parts": [
+    {
+      "id": "funnel_assembly",
+      "body": "A07_funnel_assembly"
+    },
+    {
+      "id": "47mm_membrane",
+      "body": "A07_47mm_PES_membrane"
+    },
+    {
+      "id": "suction_bottle",
+      "body": "A07_suction_bottle"
+    },
+    {
+      "id": "vacuum_hose",
+      "body": "A07_vacuum_hose"
+    },
+    {
+      "id": "vacuum_pump",
+      "body": "A07_vacuum_pump"
+    }
+  ],
+  "interfaces": [
+    {
+      "id": "funnel_press",
+      "asset_id": "A07",
+      "kind": "press",
+      "body": "A07_funnel_pressing_lid",
+      "site": "A07_funnel_lid_grasp_site",
+      "approach_axis": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "funnel_grasp",
+      "asset_id": "A07",
+      "kind": "grasp",
+      "body": "A07_funnel_assembly",
+      "site": "A07_funnel_grasp_site",
+      "approach_axis": [
+        1,
+        0,
+        0
+      ]
+    },
+    {
+      "id": "membrane_grasp",
+      "asset_id": "A07",
+      "kind": "grasp",
+      "body": "A07_47mm_PES_membrane",
+      "site": "A07_membrane_grasp_site",
+      "approach_axis": [
+        1,
+        0,
+        0
+      ]
+    },
+    {
+      "id": "bottle_connection",
+      "asset_id": "A07",
+      "kind": "insert",
+      "body": "A07_funnel_assembly",
+      "site": "A07_bottle_mount_site"
+    },
+    {
+      "id": "hose_connection",
+      "asset_id": "A07",
+      "kind": "insert",
+      "body": "A07_vacuum_hose",
+      "site": "A07_hose_connection_site"
+    },
+    {
+      "id": "pump_start_stop",
+      "asset_id": "A07",
+      "kind": "press",
+      "body": "A07_vacuum_pump",
+      "site": "A07_pump_switch_site",
+      "operation": {
+        "status": "declared",
+        "axis": [
+          0,
+          1,
+          0
+        ],
+        "joint": "A07_pump_start_stop_slide",
+        "range": [
+          0,
+          0.004
+        ],
+        "clearance_m": 0.001,
+        "grasp_geoms": [
+          "A07_pump_switch"
+        ],
+        "basis": {
+          "range": {
+            "kind": "assumption",
+            "reference": "modeling value"
+          }
+        }
+      }
+    },
+    {
+      "id": "pressure_release",
+      "asset_id": "A07",
+      "kind": "rotate",
+      "body": "A07_pressure_release_valve",
+      "site": "A07_pressure_release_site",
+      "operation": {
+        "status": "declared",
+        "axis": [
+          0,
+          0,
+          1
+        ],
+        "joint": "A07_pressure_release_rotate",
+        "range": [
+          -0.8,
+          0.8
+        ],
+        "basis": {
+          "range": {
+            "kind": "assumption",
+            "reference": "modeling value"
+          }
+        }
+      }
+    }
+  ],
+  "assumptions": [
+    "抽滤瓶外形、壁厚、塞体密封细节和侧管位置为建模假设；容量按资料指定1 L表达。",
+    "管路内径按约9.5 mm建模，软管路径和接头外形为建模假设。",
+    "泵外形严格采用330 x 165 x 220 mm规格，泵头、开关和接口细节为建模假设。",
+    "漏斗整体高度按229 mm规格建模，主筒直径按89 mm规格建模；有效过滤面积按47 mm膜片表达。"
+  ],
+  "approximations": [
+    "漏斗透明杯和抽滤瓶采用带真实厚度的实体几何近似，保留上口和过滤通道的开口关系。",
+    "磁性压合采用铰链压环与锁止等式近似，未模拟磁场。",
+    "真空泵内部过程和液体流动不模拟，仅保留连续管路、启停滑钮和压差释放机构。"
+  ],
+  "buttons": [
+    {
+      "id": "pump_start_stop_button",
+      "joint": "A07_pump_start_stop_slide",
+      "geom": "A07_pump_switch",
+      "pressed_at": 0.004,
+      "released_at": 0.0005,
+      "event": "pump_start_stop_event"
+    }
+  ],
+  "connections": [
+    {
+      "id": "funnel_detach",
+      "kind": "detachable",
+      "equality": "A07_funnel_to_bottle_weld",
+      "release_event": "funnel_grasp",
+      "irreversible": false,
+      "attach_event": "bottle_connection",
+      "capture_sites": [
+        "A07_bottle_mount_site",
+        "A07_funnel_filter_site"
+      ],
+      "position_tolerance_m": 0.005,
+      "angle_tolerance_rad": 0.2
+    },
+    {
+      "id": "membrane_detach",
+      "kind": "detachable",
+      "equality": "A07_membrane_to_funnel_weld",
+      "release_event": "membrane_grasp",
+      "irreversible": false,
+      "attach_event": "funnel_press",
+      "capture_sites": [
+        "A07_funnel_filter_site",
+        "A07_membrane_grasp_site"
+      ],
+      "position_tolerance_m": 0.005,
+      "angle_tolerance_rad": 0.2
+    },
+    {
+      "id": "funnel_latch",
+      "kind": "latch",
+      "equality": "A07_lid_latch_lock",
+      "release_event": "funnel_press",
+      "irreversible": false
+    }
+  ],
+  "mechanical_events": [
+    {
+      "id": "pump_start_stop_event",
+      "interface": "pump_start_stop",
+      "action": "release"
+    },
+    {
+      "id": "pressure_release_event",
+      "interface": "pressure_release",
+      "action": "release"
+    }
+  ]
+}

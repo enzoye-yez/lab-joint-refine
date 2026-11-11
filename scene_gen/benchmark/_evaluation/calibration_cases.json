@@ -1,0 +1,378 @@
+{
+  "version": "0.3.1-mobile-evidence-review",
+  "status": "synthetic_training_examples_not_empirically_validated",
+  "examples": [
+    {
+      "id": "VIS-0",
+      "criterion_id": "S2",
+      "aspect": "appearance",
+      "scenario": "The required instrument is absent in a complete scene inventory.",
+      "illustrative_rating": 0,
+      "rationale": "Absence establishes the lowest appearance rating; other missing-asset consequences remain separate.",
+      "evidence_type": "synthetic_written_vignette",
+      "use": "Anchor training only; not independent validation data."
+    },
+    {
+      "id": "VIS-1",
+      "criterion_id": "S2",
+      "aspect": "appearance",
+      "scenario": "Only a generic box represents the selected instrument; characteristic visible parts are absent.",
+      "illustrative_rating": 1,
+      "rationale": "Coarse class resemblance without characteristic structure.",
+      "evidence_type": "synthetic_written_vignette",
+      "use": "Anchor training only; not independent validation data."
+    },
+    {
+      "id": "VIS-2",
+      "criterion_id": "S2",
+      "aspect": "appearance",
+      "scenario": "The instrument family is recognizable, but several major visible component positions disagree with the supplied views.",
+      "illustrative_rating": 2,
+      "rationale": "Multiple supported structural discrepancies.",
+      "evidence_type": "synthetic_written_vignette",
+      "use": "Anchor training only; not independent validation data."
+    },
+    {
+      "id": "VIS-3",
+      "criterion_id": "S2",
+      "aspect": "appearance",
+      "scenario": "The correct model and major components match; one localized cosmetic proportion differs.",
+      "illustrative_rating": 3,
+      "rationale": "A local supported discrepancy with limited scope.",
+      "evidence_type": "synthetic_written_vignette",
+      "use": "Anchor training only; not independent validation data."
+    },
+    {
+      "id": "VIS-4",
+      "criterion_id": "S2",
+      "aspect": "appearance",
+      "scenario": "All source-supported major visible forms and interface locations agree; unseen interiors are not judged.",
+      "illustrative_rating": 4,
+      "rationale": "No material supported appearance discrepancy; no claim about unseen geometry.",
+      "evidence_type": "synthetic_written_vignette",
+      "use": "Anchor training only; not independent validation data."
+    },
+    {
+      "id": "EFF-0",
+      "criterion_id": "T4",
+      "aspect": "detours",
+      "scenario": "For a matched operation, the observed detour segment achieves no useful progress and a collision-valid direct alternative is demonstrated.",
+      "illustrative_rating": 0,
+      "rationale": "The stated aspect wastes activity despite an evidenced alternative; do not infer the rating from elapsed time alone.",
+      "evidence_type": "synthetic_written_vignette",
+      "use": "Anchor training only; not independent validation data."
+    },
+    {
+      "id": "EFF-1",
+      "criterion_id": "T4",
+      "aspect": "detours",
+      "scenario": "Avoidable travel dominates the achieved operation; the same attained goal has a demonstrated feasible compact route.",
+      "illustrative_rating": 1,
+      "rationale": "Extensive avoidable movement dominates this aspect.",
+      "evidence_type": "synthetic_written_vignette",
+      "use": "Anchor training only; not independent validation data."
+    },
+    {
+      "id": "EFF-2",
+      "criterion_id": "T4",
+      "aspect": "detours",
+      "scenario": "A repeated unnecessary loop adds substantial travel relative to an evidenced comparable route.",
+      "illustrative_rating": 2,
+      "rationale": "Clear repeated avoidable burden.",
+      "evidence_type": "synthetic_written_vignette",
+      "use": "Anchor training only; not independent validation data."
+    },
+    {
+      "id": "EFF-3",
+      "criterion_id": "T4",
+      "aspect": "detours",
+      "scenario": "One localized unnecessary detour occurs; all required careful alignment remains justified.",
+      "illustrative_rating": 3,
+      "rationale": "Limited unnecessary movement, not a penalty for careful insertion.",
+      "evidence_type": "synthetic_written_vignette",
+      "use": "Anchor training only; not independent validation data."
+    },
+    {
+      "id": "EFF-4",
+      "criterion_id": "T4",
+      "aspect": "detours",
+      "scenario": "For the achieved comparable goal, no avoidable movement is evidenced; all extra alignment is justified by geometry.",
+      "illustrative_rating": 4,
+      "rationale": "No evidenced unnecessary burden; not a claim of globally shortest motion.",
+      "evidence_type": "synthetic_written_vignette",
+      "use": "Anchor training only; not independent validation data."
+    },
+    {
+      "id": "FIX-0",
+      "criterion_id": "K4",
+      "aspect": "structure",
+      "scenario": "Two incompatible linkage stages prevent required installation; a demonstrated compatible single passive support performs the same scoped function.",
+      "illustrative_rating": 0,
+      "rationale": "Observed overcomplication prevents use despite an evidenced simpler alternative.",
+      "evidence_type": "synthetic_written_vignette",
+      "use": "Anchor training only; not independent validation data."
+    },
+    {
+      "id": "FIX-1",
+      "criterion_id": "K4",
+      "aspect": "structure",
+      "scenario": "Several unused powered joints repeatedly obstruct assembly and tool access; their removal is geometrically verified not to affect the demanded function.",
+      "illustrative_rating": 1,
+      "rationale": "Multiple unjustified additions substantially complicate use.",
+      "evidence_type": "synthetic_written_vignette",
+      "use": "Anchor training only; not independent validation data."
+    },
+    {
+      "id": "FIX-2",
+      "criterion_id": "K4",
+      "aspect": "configuration",
+      "scenario": "Identical compatible tubes receive separate adapters requiring repeated changeover; a tested shared adapter meets the same interface demands.",
+      "illustrative_rating": 2,
+      "rationale": "Demonstrated avoidable duplication, not merely a high count.",
+      "evidence_type": "synthetic_written_vignette",
+      "use": "Anchor training only; not independent validation data."
+    },
+    {
+      "id": "FIX-3",
+      "criterion_id": "K4",
+      "aspect": "structure",
+      "scenario": "One redundant alignment feature remains; inspection establishes only a small extra assembly burden and no blocked operation.",
+      "illustrative_rating": 3,
+      "rationale": "Localized redundancy with limited effect.",
+      "evidence_type": "synthetic_written_vignette",
+      "use": "Anchor training only; not independent validation data."
+    },
+    {
+      "id": "FIX-4",
+      "criterion_id": "K4",
+      "aspect": "structure",
+      "scenario": "A multi-part support has demonstrated load-bearing and clearance roles for every major feature; no defensible redundant feature is identified.",
+      "illustrative_rating": 4,
+      "rationale": "Necessary complexity can receive full simplicity credit.",
+      "evidence_type": "synthetic_written_vignette",
+      "use": "Anchor training only; not independent validation data."
+    },
+    {
+      "id": "FIX-5",
+      "criterion_id": "K4",
+      "aspect": "structure",
+      "scenario": "The baseline gripper needs no extra hardware and completes the fixture demand with the required support and access.",
+      "illustrative_rating": 4,
+      "rationale": "Zero added hardware is eligible for full burden credit when evidenced.",
+      "evidence_type": "synthetic_written_vignette",
+      "use": "Anchor training only; not independent validation data."
+    },
+    {
+      "id": "FIX-6",
+      "criterion_id": "K4",
+      "aspect": "structure",
+      "scenario": "A simple jaw has almost no added assembly burden but drops the required object in the recorded function test.",
+      "illustrative_rating": 4,
+      "rationale": "Simplicity remains high; K2 function/support fail independently. Do not let K4 erase that failure.",
+      "evidence_type": "synthetic_written_vignette",
+      "use": "Anchor training only; not independent validation data."
+    },
+    {
+      "id": "FIX-7",
+      "criterion_id": "K4",
+      "aspect": "configuration",
+      "scenario": "Two holders have different interface dimensions and verified functions for incompatible containers.",
+      "illustrative_rating": 4,
+      "rationale": "Task-required diversity is not redundant duplication.",
+      "evidence_type": "synthetic_written_vignette",
+      "use": "Anchor training only; not independent validation data."
+    },
+    {
+      "id": "FIX-8",
+      "criterion_id": "K4",
+      "aspect": "use",
+      "scenario": "A redundant changeover is observed for every repeated transfer although a demonstrated compatible configuration avoids it.",
+      "illustrative_rating": 2,
+      "rationale": "Score demonstrated avoidable setup/use burden in this aspect.",
+      "evidence_type": "synthetic_written_vignette",
+      "use": "Anchor training only; not independent validation data."
+    },
+    {
+      "id": "FIX-9",
+      "criterion_id": "K4",
+      "aspect": "structure",
+      "scenario": "A feature looks unnecessary but neither geometry nor a comparison establishes removability.",
+      "illustrative_rating": null,
+      "rationale": "Suspicion alone is insufficient for a redundancy penalty; obtain evidence or mark the relevant judgment unverified.",
+      "evidence_type": "synthetic_written_vignette",
+      "use": "Anchor training only; not independent validation data."
+    }
+  ],
+  "diagnostic_counterexamples": [
+    {
+      "id": "D01",
+      "scenario": "A complete integrated trace shows an early abort before the last workflow stage.",
+      "expected": "Uncompleted required P1/P2 outcomes are VERIFIED_FAIL, while an untested downstream component capability may be BLOCKED. Do not call the abort efficient."
+    },
+    {
+      "id": "D02",
+      "scenario": "A required final tube pose is visible but the transition recording is missing.",
+      "expected": "A directly evidenced final-state predicate may pass; required prior physical transition remains EVIDENCE_MISSING."
+    },
+    {
+      "id": "D03",
+      "scenario": "The correct tube reaches the correct destination by an unsupported state teleport.",
+      "expected": "A final-position predicate may pass. Physical transition and causal-contact predicates fail. Record the shared issue, without a global penalty."
+    },
+    {
+      "id": "D04",
+      "scenario": "Robot limits are not frozen, but the complete scene contains only three of four required tubes.",
+      "expected": "The count predicate fails independently. Only limit-dependent checks are PROFILE_PENDING."
+    },
+    {
+      "id": "D05",
+      "scenario": "The planner times out; no geometric impossibility witness is available.",
+      "expected": "Report observed planning failure and any known uncompleted workflow goals. Do not assert that the layout is geometrically unreachable."
+    },
+    {
+      "id": "D06",
+      "scenario": "The submitted scene cannot load, but reference images and fixture assembly documentation can still be inspected.",
+      "expected": "Continue independent document/geometry checks where evidence is sufficient. Runtime capabilities remain unverified or fail only when decisively established. No global zero."
+    },
+    {
+      "id": "D07",
+      "scenario": "One source-required physical episode ends in an intentional retained grasp and has no release requirement.",
+      "expected": "The evaluator must predeclare the release subcheck as NOT_APPLICABLE before submissions. The system cannot claim this exclusion after a failed required release."
+    },
+    {
+      "id": "D08",
+      "scenario": "The device internal dwell is represented by a declared accelerated clock, while external loading and cover motions remain recorded.",
+      "expected": "The declared abstraction is allowed. Do not penalize accelerated internal dwell or excuse omitted external handling."
+    }
+  ],
+  "independent_pilot": {
+    "executor": "User and independent human reviewers; not automatically run by the assistant.",
+    "minimum_reviewers": 2,
+    "case_selection": "Use actual artifact/evidence sets, multiple quality levels, tasks and failure modes; distinguish calibration from held-out evaluation.",
+    "blindness": "Remove system identity and expected/reference ratings from reviewer forms. Reviewers score independently before discussing disagreements.",
+    "required_case_fields": [
+      "id",
+      "task_id",
+      "criterion_id",
+      "aspect",
+      "evidence_locators",
+      "scenario"
+    ],
+    "suggested_initial_budget": "Two reviewers, 20-30 actual cases spanning S2, T4 and all three K4 aspects; choose time budget before starting. This is a pragmatic pilot size, not a power calculation.",
+    "report": [
+      "rated and unverified counts",
+      "exact agreement",
+      "mean absolute ordinal difference",
+      "quadratic-weighted kappa with sample count and undefined cases",
+      "disagreement reasons and resolved anchor revisions"
+    ],
+    "limits": "Small or homogeneous samples do not establish general reliability. Agreement does not determine whether the criterion weights are substantively justified."
+  },
+  "weight_review": "Keep the current 25-point dimensions and 12/7/6 workflow weights as explicit proposals. Review content coverage and score sensitivity separately from rater agreement; do not tune weights to favor an observed method.",
+  "policy_boundary_examples": [
+    {
+      "id": "PB-01",
+      "scenario": "A tube is capped at the required first-stage boundary and deliberately opened during the next required stage.",
+      "expected": "The later opening does not invalidate the earlier P1 cap outcome; assess each stage at its own required boundary."
+    },
+    {
+      "id": "PB-02",
+      "scenario": "The task says a lid must be locked, but neither its accepted lock state nor an equivalent physical criterion is defined.",
+      "expected": "SPECIFICATION_PENDING when the missing definition is decisive; do not assign EVIDENCE_MISSING merely because there is no usable rule."
+    },
+    {
+      "id": "PB-03",
+      "scenario": "The accepted lock condition is defined, but no decisive state, geometry or equivalent observation was submitted.",
+      "expected": "EVIDENCE_MISSING, preserving any independently confirmed unrelated scores."
+    },
+    {
+      "id": "PB-04",
+      "scenario": "One source section is represented by three equally weighted registered stages and another by one.",
+      "expected": "Apply authoritative released atom weights and disclose source-section totals; do not claim the two source sections receive equal weight."
+    },
+    {
+      "id": "PB-05",
+      "scenario": "Two results have identical rubric version strings but different policy hashes.",
+      "expected": "Do not silently aggregate them as the same scoring configuration."
+    },
+    {
+      "id": "PB-06",
+      "scenario": "A closed lid is present at the initial and final states, but the required opening and reclosing transition has no witness.",
+      "expected": "The final-state evidence does not establish the required transition; distinguish an observed omission from missing trace evidence."
+    }
+  ],
+  "mobile_cases": [
+    {
+      "id": "MOBILE-1",
+      "scenario": "redocking",
+      "expected": "Allow different base poses to serve a real-scale interface; require pose witness for verified reach.",
+      "verification": "authored policy conformance case; physical checker not executed"
+    },
+    {
+      "id": "MOBILE-2",
+      "scenario": "one_arm",
+      "expected": "One valid selected arm suffices; no requirement for both arms.",
+      "verification": "authored policy conformance case; physical checker not executed"
+    },
+    {
+      "id": "MOBILE-3",
+      "scenario": "whole_envelope",
+      "expected": "Base-only clearance cannot establish passage with protruding arms/tools.",
+      "verification": "authored policy conformance case; physical checker not executed"
+    },
+    {
+      "id": "MOBILE-4",
+      "scenario": "stock_tools",
+      "expected": "Zero custom tools is not itself failure; assess required task capability.",
+      "verification": "authored policy conformance case; physical checker not executed"
+    },
+    {
+      "id": "MOBILE-5",
+      "scenario": "per_arm_payload",
+      "expected": "A single-arm overload is not cured by summing both arm ratings.",
+      "verification": "authored policy conformance case; physical checker not executed"
+    },
+    {
+      "id": "MOBILE-6",
+      "scenario": "justified_tables",
+      "expected": "Required separation and real dimensions can justify additional tables.",
+      "verification": "authored policy conformance case; physical checker not executed"
+    },
+    {
+      "id": "MOBILE-7",
+      "scenario": "few_large_tables",
+      "expected": "Fewer tables alone does not establish compactness of surfaces or room.",
+      "verification": "authored policy conformance case; physical checker not executed"
+    },
+    {
+      "id": "MOBILE-8",
+      "scenario": "blocked_clearance",
+      "expected": "Do not reward smaller footprint obtained by obstructing required access.",
+      "verification": "authored policy conformance case; physical checker not executed"
+    },
+    {
+      "id": "MOBILE-9",
+      "scenario": "static_only",
+      "expected": "Keep unexecuted integrated predicates unknown; no static 100-point score.",
+      "verification": "authored policy conformance case; physical checker not executed"
+    },
+    {
+      "id": "MOBILE-10",
+      "scenario": "stale_evidence",
+      "expected": "Changed robot/tool/pose/layout invalidates bound evidence.",
+      "verification": "authored policy conformance case; physical checker not executed"
+    },
+    {
+      "id": "MOBILE-11",
+      "scenario": "missing_asset",
+      "expected": "Record known deficit separately from unknown checks; continue unrelated assessment.",
+      "verification": "authored policy conformance case; physical checker not executed"
+    },
+    {
+      "id": "MOBILE-12",
+      "scenario": "old_new_results",
+      "expected": "Different content identities cannot be silently combined.",
+      "verification": "authored policy conformance case; physical checker not executed"
+    }
+  ]
+}

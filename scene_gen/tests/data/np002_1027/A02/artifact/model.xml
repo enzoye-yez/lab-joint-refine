@@ -1,0 +1,88 @@
+<mujoco model="PL303_precision_balance">
+  <compiler angle="radian" autolimits="true"/>
+  <option gravity="0 0 -9.81"/>
+  <default>
+    <geom contype="1" conaffinity="1" friction="0.7 0.1 0.1" density="650"/>
+    <joint damping="0.25" armature="0.0001"/>
+  </default>
+  <asset>
+    <material name="body_dark_gray" rgba="0.22 0.24 0.26 1"/>
+    <material name="body_light_gray" rgba="0.62 0.64 0.66 1"/>
+    <material name="black_panel" rgba="0.035 0.04 0.045 1"/>
+    <material name="display_green" rgba="0.38 0.62 0.48 1"/>
+    <material name="steel" rgba="0.72 0.74 0.76 1"/>
+    <material name="pan_metal" rgba="0.82 0.84 0.86 1"/>
+    <material name="glass" rgba="0.72 0.88 0.94 0.22"/>
+    <material name="rubber" rgba="0.08 0.085 0.09 1"/>
+    <material name="label_white" rgba="0.88 0.89 0.87 1"/>
+  </asset>
+  <worldbody>
+    <body name="pl303_balance_body" pos="0 0 0">
+      <inertial pos="0 0 0.09" mass="5.1" diaginertia="0.045 0.060 0.035"/>
+      <geom name="balance_lower_housing" type="box" pos="0 0 0.074" size="0.119 0.1676 0.074" material="body_dark_gray"/>
+      <geom name="balance_upper_deck" type="box" pos="0 0.005 0.119" size="0.108 0.145 0.018" material="body_light_gray"/>
+      <geom name="front_control_panel" type="box" pos="-0.101 -0.005 0.096" size="0.004 0.115 0.040" material="black_panel"/>
+      <geom name="display_window" type="box" pos="-0.106 -0.005 0.118" size="0.002 0.040 0.014" material="display_green"/>
+      <geom name="control_knob" type="cylinder" pos="-0.107 -0.060 0.088" size="0.010 0.004" material="black_panel" zaxis="0 1 0"/>
+      <geom name="control_key_1" type="cylinder" pos="-0.107 -0.030 0.084" size="0.007 0.003" material="steel" zaxis="0 1 0"/>
+      <geom name="control_key_2" type="cylinder" pos="-0.107 -0.010 0.084" size="0.007 0.003" material="steel" zaxis="0 1 0"/>
+      <geom name="control_key_3" type="cylinder" pos="-0.107 0.010 0.084" size="0.007 0.003" material="steel" zaxis="0 1 0"/>
+      <geom name="control_key_4" type="cylinder" pos="-0.107 0.030 0.084" size="0.007 0.003" material="steel" zaxis="0 1 0"/>
+
+      <body name="weighing_pan_support" pos="0 0 0.119">
+        <inertial pos="0 0 0.008" mass="0.08" diaginertia="0.00008 0.00008 0.00012"/>
+        <geom name="pan_support_post" type="cylinder" pos="0 0 0.008" size="0.018 0.008" material="steel"/>
+        <geom name="pan_support_ring" type="cylinder" pos="0 0 0.016" size="0.058 0.003" material="steel"/>
+        <body name="weighing_pan" pos="0 0 0.012">
+          <inertial pos="0 0 0" mass="0.045" diaginertia="0.00006 0.00006 0.00010"/>
+          <geom name="round_weighing_pan" type="cylinder" pos="0 0 0" size="0.050 0.003" material="pan_metal"/>
+          <geom name="pan_inner_surface" type="cylinder" pos="0 0 0.0032" size="0.043 0.0008" material="steel"/>
+          <site name="weighing_pan_center" pos="0 0 0.004" size="0.006" rgba="0.1 0.8 0.2 0.7"/>
+        </body>
+      </body>
+
+      <body name="glass_enclosure_fixed" pos="0 0 0">
+        <inertial pos="0 0 0.205" mass="0.34" diaginertia="0.003 0.003 0.003"/>
+        <geom name="glass_left_panel" type="box" pos="-0.109 0.010 0.209" size="0.002 0.145 0.075" material="glass"/>
+        <geom name="glass_rear_panel" type="box" pos="0 0.151 0.209" size="0.109 0.002 0.075" material="glass"/>
+        <geom name="glass_top_panel" type="box" pos="0 0.010 0.284" size="0.109 0.145 0.003" material="glass"/>
+        <geom name="rear_top_rail" type="box" pos="0 0.145 0.279" size="0.112 0.010 0.006" material="body_light_gray"/>
+        <geom name="left_side_rail" type="box" pos="-0.111 0.010 0.132" size="0.006 0.153 0.008" material="body_light_gray"/>
+        <geom name="right_side_rail" type="box" pos="0.111 0.010 0.132" size="0.006 0.153 0.008" material="body_light_gray"/>
+        <site name="enclosure_service_side" pos="0.115 -0.015 0.210" size="0.008" rgba="0.1 0.5 1 0.7"/>
+      </body>
+
+      <body name="side_sliding_door" pos="0.111 -0.005 0.209">
+        <joint name="side_door_slide_joint" type="slide" axis="0 1 0" range="-0.105 0.105" limited="true"/>
+        <inertial pos="0 0 0" mass="0.16" diaginertia="0.0015 0.0015 0.0015"/>
+        <geom name="sliding_glass_panel" type="box" pos="0 0 0" size="0.0025 0.145 0.075" material="glass"/>
+        <geom name="door_upper_frame" type="box" pos="0 0 0.077" size="0.006 0.150 0.005" material="body_light_gray"/>
+        <geom name="door_lower_frame" type="box" pos="0 0 -0.077" size="0.006 0.150 0.005" material="body_light_gray"/>
+        <geom name="door_handle_mount" type="box" pos="0 -0.005 0.010" size="0.006 0.012 0.026" material="steel"/>
+        <geom name="door_handle" type="capsule" fromto="0 -0.020 0.010 0 0.020 0.010" size="0.004" material="steel"/>
+        <site name="side_door_handle_grasp" pos="0 -0.005 0.010" size="0.008" rgba="0.9 0.4 0.1 0.8"/>
+        <site name="side_door_panel_center" pos="0 0 0" size="0.006" rgba="0.2 0.7 1 0.6"/>
+      </body>
+
+      <body name="foot_front_left" pos="-0.092 -0.132 0.018">
+        <inertial pos="0 0 0" mass="0.035" diaginertia="0.00001 0.00001 0.00001"/>
+        <geom name="front_left_foot" type="cylinder" size="0.012 0.018" material="rubber"/>
+      </body>
+      <body name="foot_front_right" pos="0.092 -0.132 0.018">
+        <inertial pos="0 0 0" mass="0.035" diaginertia="0.00001 0.00001 0.00001"/>
+        <geom name="front_right_foot" type="cylinder" size="0.012 0.018" material="rubber"/>
+      </body>
+      <body name="foot_rear_left" pos="-0.092 0.132 0.018">
+        <inertial pos="0 0 0" mass="0.035" diaginertia="0.00001 0.00001 0.00001"/>
+        <geom name="rear_left_foot" type="cylinder" size="0.012 0.018" material="rubber"/>
+      </body>
+      <body name="foot_rear_right" pos="0.092 0.132 0.018">
+        <inertial pos="0 0 0" mass="0.035" diaginertia="0.00001 0.00001 0.00001"/>
+        <geom name="rear_right_foot" type="cylinder" size="0.012 0.018" material="rubber"/>
+      </body>
+
+      <site name="balance_front_grasp" pos="-0.115 -0.105 0.095" size="0.008" rgba="0.9 0.4 0.1 0.7"/>
+      <site name="balance_mount_reference" pos="0 0 0.018" size="0.008" rgba="0.2 0.8 0.2 0.7"/>
+    </body>
+  </worldbody>
+</mujoco>

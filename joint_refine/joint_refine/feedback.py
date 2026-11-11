@@ -107,14 +107,36 @@ def select(findings, instances, attempted=(), max_jobs=MAX_JOBS):
     return selected, skipped, sorted(jobs)
 
 
+def scene_findings(findings, round_dir):
+    """Keep only what the scene must change: the task types triaged to the scene side (see triage.py);
+    a finding keeps just its tasks of those types. Trajectory and deferred types are not sent."""
+    from .triage import task_type, write_triage
+    table = (read(round_dir / "triage.json") if (round_dir / "triage.json").exists() else {"types": write_triage(round_dir)})["types"]
+    results = {r["task"]: r for r in map(json.loads, (round_dir / "trajectory/results.jsonl").open())}
+    kept, dropped = [], []
+    for f in findings:
+        classes = {}
+        for t in f["blocked_tasks"]:
+            r = results.get(t)
+            key = task_type(t, r.get("instance", "") if r else f.get("instance", ""), r.get("skill", "") if r else "")
+            classes[t] = table.get(key, {}).get("class", "scene")
+        scene = [t for t in f["blocked_tasks"] if classes[t] == "scene"]
+        if scene:
+            kept.append({**f, "blocked_tasks": scene})
+        else:
+            dropped.append({"finding": f["id"], "why": "triaged to " + "/".join(sorted(set(classes.values()))) + ", not the scene"})
+    return kept, dropped
+
+
 def write_feedback(round_dir, scene_artifact, scene_sha256, max_rounds=3, attempted=()):
     """Ask the LLM for the message, validate, let it correct up to `max_rounds` times; record all."""
     round_dir = Path(round_dir)
     out = round_dir / "feedback"
     diagnosis = read(round_dir / "diagnosis/findings.json")
     instances = plan_instances(scene_artifact)
-    sendable, skipped, jobs = select([f for f in diagnosis["findings"] if f["attribution"] != "method"],
-                                     instances, set(attempted))
+    scene_side, triaged_out = scene_findings([f for f in diagnosis["findings"] if f["attribution"] != "method"], round_dir)
+    sendable, skipped, jobs = select(scene_side, instances, set(attempted))
+    skipped += triaged_out
     write(out / "selection.json", {"max_jobs": MAX_JOBS, "max_findings": MAX_FINDINGS, "jobs": jobs, "sent": [f["id"] for f in sendable],
                                    "attempted_before": sorted(attempted), "skipped": skipped})
     findings = {"findings": sendable, "tasks": diagnosis["tasks"], "success": diagnosis["success"]}

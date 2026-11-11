@@ -20,6 +20,7 @@ import time
 import traceback
 
 from . import diagnose, feedback, judge, quota, repair, trajectory
+from .harness import feedback as harness_feedback, run as harness_run
 from .common import ROOT, TRAJ, Ledger, git_identity, now, read, write
 
 # The generator kept the source scene: nothing new to evaluate.
@@ -172,18 +173,61 @@ def run_cycle(cy, c):
     return True
 
 
+def run_harness_cycle(cy, c):
+    """Cycle c with the repair-skill harness as the scene step: eval S_c_T_c (resumed), then
+    harness -> verified requirements -> scene repair -> S_{c+1} -> eval S_{c+1}_T_c -> scene judge."""
+    if str(c) not in cy.state["trajs"]:
+        raise SystemExit(f"register T{c} first (--register-traj {c})")
+    record = cy.state["cycles"].setdefault(str(c), {"started": now()})
+    cy.evaluate(c, c)
+    if "trajectory_judge" not in record and f"S{c}_T{c - 1}" in cy.state["evals"]:
+        record["trajectory_judge"] = cy.judge((c, c - 1), (c, c), "trajectory")
+    record["scene_step"] = "harness"
+    cy.save()
+    key, out = f"S{c}_T{c}", cy.eval_dir(c, c)
+    summary = cy.step(key, "harness", lambda: harness_run.harness(cy.name, key))
+    if not summary["requirements"]:
+        cy.log(f"cycle {c}: the harness verified no scene requirement")
+        return False
+    if not cy.quota_ok(key):
+        return False
+    scene = cy.state["scenes"][str(c)]
+    cy.step(key, "feedback", lambda: {"source": "harness", "failures": len(harness_feedback.write_feedback(
+        out, scene["artifact"], scene["sha256"])["failures"])})
+    if not cy.quota_ok(key):
+        return False
+    result = cy.step(key, "scene_repair", lambda: repair.repair(out, scene["run"], f"{cy.name}_S{c + 1}", cy.log))
+    if result.get("status") in STOP_STATUSES:
+        cy.log(f"cycle {c}: scene repair ended {result.get('status')}: {result.get('reason')}")
+        return False
+    artifact, sha = repair.source_scene(result["run"])
+    if sha == scene["sha256"]:
+        cy.log(f"cycle {c}: scene repair ended {result.get('status')} with the source scene unchanged")
+        return False
+    cy.state["scenes"][str(c + 1)] = {"run": result["run"], "artifact": str(artifact), "sha256": sha,
+                                      "from": f"S{c}_T{c}", "repair_status": result.get("status"), "feedback": "harness"}
+    cy.save()
+    cy.evaluate(c + 1, c)
+    record["scene_judge"] = cy.judge((c, c), (c + 1, c), "scene")
+    record["finished"] = now()
+    cy.save()
+    cy.log(f"cycle {c} finished (harness)")
+    return True
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--exp", required=True)
     parser.add_argument("--register-traj", type=int)
     parser.add_argument("--note", default="")
     parser.add_argument("--cycle", type=int)
+    parser.add_argument("--harness", action="store_true", help="scene step through the repair-skill harness")
     args = parser.parse_args()
     cy = Cycles(args.exp)
     if args.register_traj is not None:
         register_traj(cy, args.register_traj, args.note)
     if args.cycle is not None:
-        ok = run_cycle(cy, args.cycle)
+        ok = (run_harness_cycle if args.harness else run_cycle)(cy, args.cycle)
         cy.ledger.event(step="cycle", cycle=args.cycle, status="finished" if ok else "stopped")
 
 

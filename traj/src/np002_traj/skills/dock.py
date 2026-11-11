@@ -92,11 +92,12 @@ COMFORT = 0.50            # m, shoulder-to-part horizontal distance where the ar
 
 def find_dock(session, kinematics, occupancy, frames, pre_distance=0.10, allowed=(), extra=(0.0, 0.06, 0.15, 0.25, 0.35),
               bearings=36, lift_offsets=(0.15, 0.0, 0.3), max_candidates=600, hand_state=None, path=None,
-              tool=None):
+              tool=None, sides=None):
     """hand_state(side, frame) -> (qpos addresses, values) of the tool joints during the operation
     (pre-shaped fingers, press pin). Default: the fingers at the frame's approach opening.
     tool(side) -> (robot geoms, margin): the element that makes the contact, held at the grasp and on
     the way in to the margin the frames were synthesised with instead of the hand's.
+    sides: the arms that may serve (the one already holding a tool); default both.
     path(frame) -> TCP poses the operation will follow from the frame (a mechanism's motion): every
     one must have an IK solution continuous from the grasp, with room left to the joint limits."""
     if hand_state is None:
@@ -123,6 +124,8 @@ def find_dock(session, kinematics, occupancy, frames, pre_distance=0.10, allowed
             u = np.array([np.cos(phi), np.sin(phi)])
             normal = np.array([-u[1], u[0]])
             for side in robot.arms:
+                if sides is not None and side not in sides:
+                    continue
                 lateral = robot.profile["arms"][side]["lateral_m"]   # this arm's shoulder in line with the part
                 key = (round(target[0], 3), round(target[1], 3), k, side)
                 if key not in distances:
@@ -213,7 +216,8 @@ def _solve(session, kinematics, worlds, side, base, lift, frame, pre_distance, a
     robot, kin = session.robot, kinematics
     world = worlds.get(side)
     if world is None:
-        world = worlds[side] = CollisionWorld(session.model, robot, robot.arms[side].qpos, margin=FREE_MARGIN)
+        world = worlds[side] = CollisionWorld(session.model, robot, robot.arms[side].qpos, margin=FREE_MARGIN,
+                                              ignore=getattr(session, "carried", ()))
         world.sync(session.data)
         worlds[side + ":body"] = WholeBody(kin, world, robot, side)
     body = worlds[side + ":body"]

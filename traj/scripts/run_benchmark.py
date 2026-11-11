@@ -31,7 +31,8 @@ from np002_traj.scene.interfaces import load
 from np002_traj.scene.locality import Locality
 from np002_traj.scene.settle import enable_sleep
 from np002_traj.skills.dock import Kinematics
-from np002_traj.skills.library import SKILLS, Context
+from np002_traj.tasks.types import representatives, task_type
+from np002_traj.skills.library import SKILLS, Context, hold_up, mount_fit, present_again, tool_pick
 from np002_traj.planning.base import OccupancyMap
 from np002_traj.tasks.benchmark import task_for
 from np002_traj.tasks.semantics import Semantics
@@ -89,9 +90,25 @@ def _timeout(signum, frame):
     raise TaskTimeout()
 OPENING_SKILLS = ("actuate", "rotate")
 OPEN_TRAVEL = 0.8             # fraction of the joint range an opener prerequisite drives to
+OPEN_TRAVEL_MAX = 0.95        # an actuated joint is driven to 0.97 of its range: ask no more than it reaches
 
 
-def prerequisite(abort, model, payload):
+def declared_travel(target, opener, model, data):
+    """Fraction of the way to its far end that the target's declared prerequisite asks the opener's
+    joint to go (an asset says a tip box lid must stand at 1.98 rad for its tips), or None."""
+    for need in (target.extra.get("prerequisites") or []) if target is not None else ():
+        if need.get("interface") != opener.id.split("__", 1)[-1] or need.get("target_position") is None:
+            continue
+        joint = opener.mechanism.joint
+        now = float(data.qpos[model.jnt_qposadr[joint]])
+        low, high = model.jnt_range[joint]
+        far = high if high - now >= now - low else low
+        if abs(far - now) > 1e-6:
+            return min(OPEN_TRAVEL_MAX, abs(float(need["target_position"]) - now) / abs(far - now))
+    return None
+
+
+def prerequisite(abort, model, payload, target=None, data=None):
     """The interface (and its task) that opens the movable part an enclosure abort names, if any."""
     if abort.reason != "enclosed" or not abort.detail.get("joint"):
         return None
@@ -112,7 +129,9 @@ def prerequisite(abort, model, payload):
             task = make_task(candidate, model, payload)
             if not task.excluded and task.skill in OPENING_SKILLS:
                 if "travel" in task.parameters:         # open it far enough to clear the part behind it
-                    task.parameters["travel"] = task.goal["travel"] = max(task.parameters["travel"], OPEN_TRAVEL)
+                    declared = declared_travel(target, candidate, model, data) if data is not None else None
+                    task.parameters["travel"] = task.goal["travel"] = max(task.parameters["travel"], OPEN_TRAVEL,
+                                                                          declared or 0.0)
                 openers.append((OPENING_SKILLS.index(task.skill), candidate.id, candidate, task))
     return min(openers, key=lambda o: o[:2])[2:] if openers else None
 
@@ -143,14 +162,138 @@ def unlock(ctx, session, task, model, payload, result):
         result["prerequisites"].append(step)
 
 
+def tool_for(interface, session, model, payload):
+    """For a part the fingers cannot hold but that declares an orifice (a pipette tip), the tool with a
+    declared mount point from the same catalogue asset (the pipettes of a tip set) whose mount end fits
+    the part's opening best, the nearest among equals, with the tool's own grasp interface and task."""
+    interfaces = STATE["interfaces"].values()
+    orifice = next((i for i in interfaces if i.kind == "insert" and i.body == interface.body and i.site >= 0
+                    and i.approach is not None), None)
+    if orifice is None:
+        return None
+    where = session.data.site_xpos[orifice.site]
+    tools = []
+    for mount in interfaces:
+        if mount.kind != "mount" or mount.site < 0 or mount.approach is None or mount.instance == interface.instance \
+                or mount.extra.get("asset_id") != orifice.extra.get("asset_id"):
+            continue
+        for grasp in interfaces:
+            if grasp.kind == "grasp" and grasp.body == mount.body:
+                grasp_task = make_task(grasp, model, payload)
+                if not grasp_task.excluded and grasp_task.skill == "pick":
+                    fit = round(mount_fit(model, session.data, mount, orifice), 4)      # 0.1 mm classes
+                    tools.append((fit, float(np.linalg.norm(session.data.site_xpos[mount.site] - where)), mount.id,
+                                  {"mount": mount, "grasp": grasp}, grasp_task))
+                break
+    if not tools:
+        return None
+    _, _, _, tool, grasp_task = min(tools, key=lambda t: t[:3])
+    grasp_task.key = "tool:" + tool["grasp"].id
+    return tool, grasp_task, orifice
+
+
+FRESH_GRASPS = 2           # fresh grasps after a regrasp closed on nothing while driving a mechanism
+HOLD_MAX_KG = 3.0             # a loose part up to this mass may be held up in one hand while worked on
+HELD_SKILLS = ("press", "actuate", "rotate")
+
+
+def holder_for(interface, model, payload):
+    """A loose, light part's own grasp interface (a pipette's handle for its knob, plunger or ejector)
+    and its pick task, or None when the part is fixed, heavy or has no other grasp."""
+    root = interface.body
+    while model.body_parentid[root] > 0:
+        root = model.body_parentid[root]
+    free = any(int(model.jnt_type[j]) == int(mujoco.mjtJoint.mjJNT_FREE) for j in range(model.njnt) if model.jnt_bodyid[j] == root)
+    if not free or model.body_subtreemass[root] > HOLD_MAX_KG:
+        return None
+    for grasp in STATE["interfaces"].values():
+        if grasp.kind != "grasp" or grasp.id == interface.id:
+            continue
+        b = grasp.body
+        while model.body_parentid[b] > 0:
+            b = model.body_parentid[b]
+        if b != root:
+            continue
+        grasp_task = make_task(grasp, model, payload)
+        if not grasp_task.excluded and grasp_task.skill == "pick":
+            grasp_task.key = "hold:" + grasp.id
+            return grasp, grasp_task
+    return None
+
+
+def _opened_enough(session, opener, task):
+    """An opener's joint has gone at least OPEN_TRAVEL of the way from where it started to its far end."""
+    joint = opener.mechanism.joint
+    start = session.monitor.origins.get(task.key)
+    if joint is None or joint < 0 or start is None or np.size(start) != 1 or \
+            session.model.jnt_type[joint] not in (mujoco.mjtJoint.mjJNT_HINGE, mujoco.mjtJoint.mjJNT_SLIDE):
+        return False                       # only a 1-DoF opener has a "fraction of the way"
+    start = float(np.ravel(start)[0])
+    low, high = session.model.jnt_range[joint]
+    far = high if high - start >= start - low else low
+    now = float(session.data.qpos[session.model.jnt_qposadr[joint]])
+    return abs(far - start) > 1e-6 and (now - start) / (far - start) >= OPEN_TRAVEL
+
+
+def _achieved(session, task):
+    return session.monitor.evaluate(task.goal, task.key) is True or (task.momentary and task.key in session.monitor.reached)
+
+
 def attempt(ctx, session, interface, task, model, payload, result):
     """Run the task's skill; when a movable part encloses the target, open it first and retry."""
     for tries in range(MAX_PREREQUISITES + 1):
         try:
-            SKILLS[task.skill](ctx, interface, task)
+            failure = None
+            for again in range(FRESH_GRASPS + 1):
+                try:
+                    SKILLS[task.skill](ctx, interface, task)
+                    failure = None
+                except Abort as exc:
+                    if exc.reason == "enclosed":
+                        raise
+                    failure = exc
+                # A regrasp that closed on nothing mid-drive: start over with a fresh grasp where it now is.
+                if failure is None or failure.reason not in ("regrasp_missed", "regrasp_failed"):
+                    break
+                result.setdefault("fresh_grasps", 0)
+                result["fresh_grasps"] += 1
+            if failure is None and (task.skill not in HELD_SKILLS or _achieved(session, task)):
+                return
+            if task.skill == "pick" and failure.reason == "no_grasp":
+                found = tool_for(interface, session, model, payload)
+                if found is None:
+                    raise failure
+                # The fingers cannot hold it: use the tool made for it (a pipette for its tip).
+                result["tool"] = found[0]["mount"].id
+                tool_pick(ctx, interface, task, *found)
+                return
+            holder = holder_for(interface, model, payload) if task.skill in HELD_SKILLS and ctx.holding is None else None
+            if holder is None:
+                if failure is not None:
+                    raise failure
+                return                            # the goal check after the task decides
+            # It slides or turns on the bench under the hand: hold it up with one hand, work it with the other.
+            result["held_by"] = holder[0].id
+            hold_up(ctx, *holder)
+            for spot in range(1, 99):
+                try:
+                    SKILLS[task.skill](ctx, interface, task)
+                except Abort as exc:
+                    if exc.reason == "enclosed":
+                        raise
+                    failure = exc
+                else:
+                    failure = None
+                    if _achieved(session, task):
+                        return
+                # The other arm cannot reach or work it there: present it elsewhere and try again.
+                if not present_again(ctx, holder[0], spot):
+                    if failure is not None:
+                        raise failure
+                    return
             return
         except Abort as exc:
-            opener = prerequisite(exc, model, payload) if tries < MAX_PREREQUISITES else None
+            opener = prerequisite(exc, model, payload, interface, session.data) if tries < MAX_PREREQUISITES else None
             if opener is None:
                 raise
             # Something movable is in the way (a lid, a door): open it with its own interface first.
@@ -163,9 +306,13 @@ def attempt(ctx, session, interface, task, model, payload, result):
                 if opener[1].skill != "set_aside":         # even part-way: let the exact checks decide
                     ctx.opened = (ctx.opened or set()) | {opener[0].mechanism.joint}
             except Abort as inner:
-                step["failed"] = inner.reason
-                result["prerequisites"].append(step)
-                raise Abort("prerequisite_failed", step=step, original=exc.reason)
+                if not _opened_enough(session, opener[0], opener[1]):
+                    step["failed"] = inner.reason
+                    result["prerequisites"].append(step)
+                    raise Abort("prerequisite_failed", step=step, original=exc.reason)
+                # Stopped short of the declared position but past the usual opening: go on, the checks decide.
+                step.update(opened=True, stopped=inner.reason)
+                ctx.opened = (ctx.opened or set()) | {opener[0].mechanism.joint}
             result["prerequisites"].append(step)
 
 
@@ -193,7 +340,7 @@ def run_task(task_id):
         result = _run_task(task_id, interface, task, model, robot, payload)
     except TaskTimeout:                 # fired outside the skill (goal checks after it)
         result = {"task": task_id, "skill": task.skill, "kind": interface.kind, "mechanism": interface.mechanism.kind,
-                  "instance": interface.instance, "prerequisites": [], "reason": "task_timeout",
+                  "instance": interface.instance, "type": task_type(interface.id, interface.instance, task.skill), "prerequisites": [], "reason": "task_timeout",
                   "detail": {"wall_limit_s": TASK_WALL_S}, "goal": False, "disturbed": {}, "log": [],
                   "wall_s": float(TASK_WALL_S), "achieved": False, "success": False}
     finally:
@@ -237,9 +384,10 @@ def _run_task(task_id, interface, task, model, robot, payload):
         own.add(b)
         b = model.body_parentid[b]
     ctx = Context(session, STATE["kinematics"], STATE["occupancy"], [], keep_closest=True)
+    equalities = (model.eq_obj1id.copy(), model.eq_obj2id.copy(), model.eq_data.copy())   # skills re-target welds
     started = time.time()
     result = {"task": task_id, "skill": task.skill, "kind": interface.kind, "mechanism": interface.mechanism.kind,
-              "instance": interface.instance}
+              "instance": interface.instance, "type": task_type(interface.id, interface.instance, task.skill)}
     result["prerequisites"] = []
     try:
         unlock(ctx, session, task, model, payload, result)
@@ -252,6 +400,7 @@ def _run_task(task_id, interface, task, model, robot, payload):
         result["reason"], result["detail"] = "task_timeout", {"wall_limit_s": TASK_WALL_S}
     except Exception as exc:                                         # a code bug, never fed to a model
         result["reason"], result["detail"] = "code_error", {"error": repr(exc), "trace": traceback.format_exc()[-1500:]}
+    model.eq_obj1id[:], model.eq_obj2id[:], model.eq_data[:] = equalities
     own |= ctx.moved or set()                                       # set aside on purpose by a prerequisite
     disturbed = _disturbed(model, data, start, own, interface.instance)
     goal = session.monitor.evaluate(task.goal, "goal")
@@ -269,6 +418,8 @@ def main():
     parser.add_argument("--limit", type=int, default=0, help="stratified sample of N tasks (0 = all)")
     parser.add_argument("--workers", type=int, default=32)
     parser.add_argument("--only", nargs="*", default=None, help="interface ids")
+    parser.add_argument("--per-type", type=int, default=0,
+                        help="run only N representatives of each task type (0 = every task)")
     args = parser.parse_args()
     out = ROOT / "runs" / args.run
     out.mkdir(parents=True, exist_ok=False)
@@ -279,7 +430,12 @@ def main():
     runnable = sorted(i for i, t in tasks.items() if not t.excluded)
     if args.only:
         runnable = [i for i in runnable if i in set(args.only)]
-    elif args.limit:
+    if args.per_type:
+        members = collections.defaultdict(list)
+        for i in runnable:
+            members[task_type(i, STATE["interfaces"][i].instance, tasks[i].skill)].append(i)
+        runnable = sorted(j for g in members.values() for j in representatives(g, args.per_type))
+    elif args.limit and not args.only:
         # Round-robin over (skill, instrument) so one instrument with many parts does not dominate.
         groups = collections.defaultdict(list)
         for i in runnable:

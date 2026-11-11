@@ -98,7 +98,8 @@ def part_geoms(model, data, interface, centre, radius=PART_RADIUS):
     return np.array(keep, int)
 
 
-def grasp_frames(model, data, interface, probe, robot_geoms, angles=12, depths=(0.0, -0.005), shifts=(0.0, 0.008, -0.008)):
+def grasp_frames(model, data, interface, probe, robot_geoms, angles=12, depths=(0.0, -0.005), shifts=(0.0, 0.008, -0.008),
+                 raise_m=0.0):
     """Antipodal parallel grasps synthesised on the part's collision geometry with the real hand.
 
     For each approach normal and closing axis the open hand is placed at the site, the pad-to-part
@@ -108,6 +109,7 @@ def grasp_frames(model, data, interface, probe, robot_geoms, angles=12, depths=(
     (frames, report) where the report counts why candidates were rejected.
     """
     centre = data.site_xpos[interface.site].copy() if interface.site >= 0 else data.xpos[interface.body].copy()
+    centre[2] += raise_m                  # higher up the same part (the end standing out of a rack)
     part = part_geoms(model, data, interface, centre)
     report = {"candidates": 0, "no_part_between": 0, "not_antipodal": 0, "open_collision": 0,
               "closed_collision": 0, "corridor": 0, "blocking": {}}

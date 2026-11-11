@@ -21,8 +21,12 @@ def travel_posture(robot, side):
 
 # -- arm -------------------------------------------------------------------
 def arm_world(session, side, margin=0.005):
-    world = CollisionWorld(session.model, session.robot, session.robot.arms[side].qpos, margin=margin)
+    world = CollisionWorld(session.model, session.robot, session.robot.arms[side].qpos, margin=margin,
+                           ignore=getattr(session, "carried", ()), driven_only=True)
     world.sync(session.data)
+    held = getattr(session, "carried_root", None)
+    if held is not None and held[1] == side:
+        world.attach(held[0], session.robot.arms[side].tcp)
     return world
 
 
@@ -32,6 +36,12 @@ def move_arm(session, side, goal, world=None, rng=None):
     world = world or arm_world(session, side)
     start = session.data.qpos[arm.qpos].copy()
     limits = session.model.jnt_range[arm.joints]
+    if not world.valid(start):
+        # The arm starts touching something (a hand resting on the bench after a press): the motion may
+        # leave those contacts; everything else is checked as usual.
+        touching = {int(other) for value, _, other, _, _, own in world.close_pairs(start, world.margin) if not own}
+        if touching:
+            world.allow(set(np.asarray(getattr(world, "allowed", ()), int).tolist()) | touching)
     if not world.valid(goal):
         raise Abort("goal_in_collision", blocking=world.blocking(goal))
     try:

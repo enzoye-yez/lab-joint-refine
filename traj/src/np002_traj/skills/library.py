@@ -31,6 +31,8 @@ class Context:
     probes: dict = None
     opened: set = None        # joints a prerequisite already opened: no longer count as blockers
     moved: set = None         # bodies a prerequisite moved on purpose (set aside)
+    holding: str = None       # arm holding the part up: the other arm works from where the robot stands
+    tool_check: object = None  # set while a tool is carried: raises if it has left the hand
 
     def probe(self, side=None):
         """Hand geometry for grasp synthesis (both hands are built alike)."""
@@ -93,10 +95,12 @@ def no_frames(ctx, interface, reason, report):
     raise Abort(reason, **report)
 
 
-def _approach(ctx, interface, frames, allowed, hand_state=None, prepare=None, path=None, tool=None):
+def _approach(ctx, interface, frames, allowed, hand_state=None, prepare=None, path=None, tool=None, sides=None):
     s = ctx.session
+    if ctx.holding is not None:
+        return _approach_held(ctx, frames, allowed, hand_state, prepare, path, tool)
     dock, search = find_dock(s, ctx.kinematics, ctx.occupancy, frames, PRE_DISTANCE, allowed, hand_state=hand_state,
-                             path=path, tool=tool)
+                             path=path, tool=tool, sides=sides)
     if dock is None:
         closest = search["reasons"].pop("_closest", None)
         if ctx.keep_closest and closest:
@@ -104,10 +108,15 @@ def _approach(ctx, interface, frames, allowed, hand_state=None, prepare=None, pa
         raise Abort("no_dock", frames=len(frames), **search)
     search["reasons"].pop("_closest", None)
     _note(ctx, "dock", base=dock.base.round(3).tolist(), side=dock.side, lift=round(dock.lift, 3), **search)
+    check = getattr(ctx, "tool_check", None) or (lambda step: None)
     for side in s.robot.arms:
-        motion.move_arm(s, side, motion.travel_posture(s.robot, side))
+        _let_go(ctx, side, keep=sides)
+        motion.move_arm(s, side, _carry_posture(s, side))
+        check("fold_" + side)
     motion.drive(s, dock.base, ctx.occupancy)
+    check("drive")
     motion.set_lift(s, dock.lift)
+    check("lift")
     for side in s.robot.arms:
         if side != dock.side and np.max(np.abs(dock.q_other - motion.travel_posture(s.robot, side))) > 1e-3:
             motion.move_arm(s, side, dock.q_other)
@@ -119,6 +128,26 @@ def _approach(ctx, interface, frames, allowed, hand_state=None, prepare=None, pa
         motion.gripper(s, dock.side, dock.frame.opening, seconds=0.6)      # pre-shape the fingers
     motion.move_arm(s, dock.side, dock.q_pre)
     _note(ctx, "pre_pose", side=dock.side, repaired={k: v for k, v in search["reasons"].items() if k.startswith("repaired")})
+    return dock
+
+
+def _approach_held(ctx, frames, allowed, hand_state, prepare, path, tool):
+    """The free arm's approach while the other arm holds the part up: base, lift and holding arm stay."""
+    from .dock import relay_dock
+    s = ctx.session
+    side = next(o for o in s.robot.arms if o != ctx.holding)
+    dock, search = relay_dock(s, ctx.kinematics, frames, side, allowed, pre_distance=PRE_DISTANCE,
+                              hand_state=hand_state, tool=tool, path=path)
+    if dock is None:
+        raise Abort("no_dock_held", frames=len(frames), **search)
+    _note(ctx, "dock_held", side=side, **search)
+    dock.tool = tool
+    if prepare is not None:
+        prepare(dock)
+    elif dock.frame.opening is not None:
+        motion.gripper(s, side, dock.frame.opening, seconds=0.6)
+    motion.move_arm(s, side, dock.q_pre)
+    _note(ctx, "pre_pose", side=side, held_by=ctx.holding)
     return dock
 
 
@@ -217,6 +246,48 @@ def _pads_touch(ctx, side, geoms):
     return all(rows), [sum(r[2] for r in row) for row in rows]
 
 
+CARRY_FOLDS = (1.0, 0.75, 0.5, 0.25, 0.0)   # fractions of the way to the travel posture tried with a tool
+
+
+def _carry_posture(s, side):
+    """The travel posture, or, for the arm carrying a tool that would strike the robot folded fully, the
+    most folded posture on the way there in which the tool is clear (checked with the tool along)."""
+    travel = motion.travel_posture(s.robot, side)
+    held = getattr(s, "carried_root", None)
+    if held is None or held[1] != side:
+        return travel
+    world = motion.arm_world(s, side)
+    here = s.data.qpos[s.robot.arms[side].qpos].copy()
+    for fold in CARRY_FOLDS:
+        q = here + (travel - here) * fold
+        if world.valid(q):
+            return q
+    return here
+
+
+LET_GO_BACK_M = 0.05      # m an idle hand backs out along its tool axis after opening
+
+
+def _let_go(ctx, side, keep=None):
+    """An arm left on a part by an earlier step (a lid it opened, a button it pressed) opens its fingers and
+    backs out before the robot folds and drives; the arm holding a part up, or the tool arm, keeps it."""
+    s, m, d = ctx.session, ctx.session.model, ctx.session.data
+    if side == ctx.holding or (keep is not None and side in keep):
+        return
+    arm = s.robot.arms[side]
+    own = set(body_geoms(m, subtree_bodies(m, int(m.jnt_bodyid[arm.joints[0]]))).tolist())
+    robot = set(s.robot.geoms.tolist())
+    touching = any((c.geom1 in own and c.geom2 not in robot) or (c.geom2 in own and c.geom1 not in robot)
+                   for c in d.contact[:d.ncon])
+    if not touching:
+        return
+    motion.gripper(s, side, arm.gripper_open, seconds=0.6)
+    rotation = d.site_xmat[arm.tcp].reshape(3, 3).copy()
+    motion.move_tcp(s, side, d.site_xpos[arm.tcp] - rotation[:, 2] * LET_GO_BACK_M, rotation, speed=0.08)
+    s.use_joint(side)
+    _note(ctx, "let_go", side=side)
+
+
 def _retreat(ctx, dock):
     """Back the hand out along its tool axis as far as the arm stays clear of everything (checked)."""
     from ..planning.ik import IKFailure, Target
@@ -290,7 +361,17 @@ def actuate(ctx, interface, task):
     moving = set(part_geoms(m, s.data, interface, _site(s, interface)).tolist())
     s.allowed_contact = moving
     hinge = interface.mechanism.kind == "hinge"
-    dock = _approach(ctx, interface, frames, moving, path=operation_path(ctx, interface, limit=TURN_PER_GRASP if hinge else None))
+    # A dock is first asked to follow a whole wrist turn (a hinge) or the whole stroke (a slide); when none
+    # can, a shorter first stage is enough: the part is regrasped where it stopped and driven on.
+    stages = DOCK_STAGES["hinge" if hinge else "slide"]
+    for i, limit in enumerate(stages):
+        try:
+            dock = _approach(ctx, interface, frames, moving, path=operation_path(ctx, interface, limit=limit))
+            break
+        except Abort as exc:
+            if exc.reason != "no_dock" or not exc.detail.get("reasons", {}).get("path") or i == len(stages) - 1:
+                raise
+            _note(ctx, "dock_stage", limit=limit, rejected_paths=exc.detail["reasons"]["path"])
     arm = s.robot.arms[dock.side]
     _final_approach(ctx, dock)
     motion.gripper(s, dock.side, 0.0, force=40.0)
@@ -312,7 +393,8 @@ def actuate(ctx, interface, task):
     cartesian = s.cartesian[dock.side]
     cartesian.kp[:3] = FOLLOW_STIFFNESS
     cartesian.kd[:3] = 2 * np.sqrt(FOLLOW_STIFFNESS * 3.0)
-    for cycle in range(MAX_REGRASPS + 1):
+    stalled = 0
+    for cycle in range(MAX_DRIVE_CYCLES):
         now = s.data.qpos[address]
         stroke = target - now
         if hinge:                                    # one wrist turn at a time, then regrasp
@@ -324,7 +406,10 @@ def actuate(ctx, interface, task):
         _note(ctx, "drive_mechanism", cycle=cycle, reached=reached, detail=s.monitor.details.get(task.key))
         # A slide the arm could not follow to the end is regrasped where it stopped, like a hinge, if it moved.
         progress = abs(s.data.qpos[address] - now)
-        if reached or abs(target - s.data.qpos[address]) < (0.05 if hinge else 0.005) or (not hinge and progress < 0.005):
+        # Regrasp and go on while each grasp still moves it; stop after two grasps that do not.
+        stalled = stalled + 1 if progress < (STALL_HINGE if hinge else STALL_SLIDE) else 0
+        if reached or abs(target - s.data.qpos[address]) < (0.05 if hinge else 0.005) or stalled >= 2 \
+                or cycle == MAX_DRIVE_CYCLES - 1:
             break
         _regrasp(ctx, dock, interface, moving)
     release_events(ctx, task, "driven")
@@ -334,9 +419,12 @@ def actuate(ctx, interface, task):
     _retreat(ctx, dock)
 
 
+DOCK_STAGES = {"hinge": (2.0, 1.0, 0.5), "slide": (None, 0.10, 0.04)}   # rad / m
 DRIVE_FRACTION = 0.97                      # of the remaining joint range
 FOLLOW_STIFFNESS = 2000.0                  # N/m while driving a mechanism
-MAX_REGRASPS, TURN_PER_GRASP = 6, 2.0        # rad of mechanism rotation per grasp (FR3 wrist: +-2.9 rad)
+TURN_PER_GRASP = 2.0                     # rad of mechanism rotation per grasp (FR3 wrist: +-2.9 rad)
+MAX_DRIVE_CYCLES = 16                        # grasps while driving one mechanism, as long as each makes progress
+STALL_HINGE, STALL_SLIDE = 0.02, 0.002       # rad / m: a grasp that moves it less makes no progress
 
 
 def _regrasp(ctx, dock, interface, allowed):
@@ -393,6 +481,12 @@ def pick(ctx, interface, task):
             _note(ctx, "suction_synthesis", **suction_report)
             report["suction"] = {k: v for k, v in suction_report.items() if k != "blocking"}
             suction = bool(frames)
+    for raise_m in GRASP_RAISES if not frames else ():
+        # Neighbours (a rack, the next tube) close round the declared point: try the part higher up.
+        frames, higher = grasp_frames(m, s.data, interface, ctx.probe(), s.robot.geoms, raise_m=raise_m)
+        if frames:
+            _note(ctx, "grasp_synthesis", raised_m=raise_m, **higher)
+            break
     if not frames:
         no_frames(ctx, interface, "no_grasp", report)
     root = interface.mechanism.body
@@ -401,30 +495,59 @@ def pick(ctx, interface, task):
         part = set(body_geoms(m, subtree_bodies(m, root)).tolist())
     s.allowed_contact = part
     hand = _closed_hand(s) if suction else None
-    dock = _approach(ctx, interface, frames, part, hand_state=hand,
-                     prepare=(lambda d: motion.gripper(s, d.side, 0.0, force=40.0, seconds=0.6)) if suction else None)
-    dock.suction = suction
-    arm = s.robot.arms[dock.side]
-    _final_approach(ctx, dock)
-    if suction:
-        rotation = s.data.site_xmat[arm.tcp].reshape(3, 3).copy()
-        normal = rotation[:, 0]                                  # tool x = the face's outward normal
-        motion.move_tcp(s, dock.side, s.data.site_xpos[arm.tcp] - normal * 0.002, rotation, speed=0.01)
-        suction_on(s, dock.side, root)
-        _note(ctx, "suction_on", body=m.body(root).name)
-    else:
-        motion.gripper(s, dock.side, 0.0, force=30.0)
-        touching, forces = _pads_touch(ctx, dock.side, part)
-        _note(ctx, "grasp", pad_force_n=[round(f, 2) for f in forces])
-        if not touching:
-            raise Abort("grasp_missed", pad_force_n=forces)
-    release_events(ctx, task, "grasped")                    # e.g. a retention clip lets go once the object is held
-    s.monitor.evaluate(task.goal, task.key)                   # anchors the lift height at the grasp
-    extract(ctx, dock.side, root, np.array([0.0, 0.0, 1.0]), task.parameters.get("lift_m", 0.08))
+    lift = task.parameters.get("lift_m", 0.08)
+    tried = []
+    for attempt in range(1 if suction else GRASP_ATTEMPTS):
+        candidates = [f for f in frames if not any(f is g for g in tried)]
+        if not candidates:
+            break
+        dock = _approach(ctx, interface, candidates, part, hand_state=hand,
+                         prepare=(lambda d: motion.gripper(s, d.side, 0.0, force=40.0, seconds=0.6)) if suction else None)
+        tried.append(dock.frame)
+        last = attempt == GRASP_ATTEMPTS - 1 or len(candidates) == 1
+        dock.suction = suction
+        arm = s.robot.arms[dock.side]
+        _final_approach(ctx, dock)
+        if suction:
+            rotation = s.data.site_xmat[arm.tcp].reshape(3, 3).copy()
+            normal = rotation[:, 0]                                  # tool x = the face's outward normal
+            motion.move_tcp(s, dock.side, s.data.site_xpos[arm.tcp] - normal * 0.002, rotation, speed=0.01)
+            suction_on(s, dock.side, root)
+            _note(ctx, "suction_on", body=m.body(root).name)
+        else:
+            motion.gripper(s, dock.side, 0.0, force=30.0)
+            touching, forces = _pads_touch(ctx, dock.side, part)
+            _note(ctx, "grasp", pad_force_n=[round(f, 2) for f in forces])
+            if not touching:
+                if last:
+                    raise Abort("grasp_missed", pad_force_n=forces)
+                _let_go_part(ctx, dock)
+                continue
+        release_events(ctx, task, "grasped")                    # e.g. a retention clip lets go once the object is held
+        s.monitor.evaluate(task.goal, task.key)                   # anchors the lift height at the grasp
+        start = s.data.xpos[root].copy()
+        extract(ctx, dock.side, root, np.array([0.0, 0.0, 1.0]), lift)
+        rise = float(s.data.xpos[root][2] - start[2])
+        if suction or last or rise >= GRASP_HELD_FRACTION * lift:
+            break
+        # It stayed behind (slipped out of a weak or lopsided grasp): put the hand back and try another grasp.
+        _note(ctx, "grasp_slipped", rise_mm=round(rise * 1e3, 1), attempt=attempt)
+        _let_go_part(ctx, dock)
     s.wait(1.0, lambda: s.monitor.evaluate(task.goal, task.key) is True)
     return dock
 
 
+GRASP_ATTEMPTS = 3           # grasps tried on one part when the fingers miss it or it slips out
+GRASP_HELD_FRACTION = 0.5    # of the lift the part must rise with the hand to count as held
+
+
+def _let_go_part(ctx, dock):
+    s = ctx.session
+    motion.gripper(s, dock.side, s.robot.arms[dock.side].gripper_open, seconds=0.6)
+    _retreat(ctx, dock)
+
+
+GRASP_RAISES = (0.006, 0.012, 0.018, 0.024)   # m above the declared grasp point tried when it has no grasp
 EXTRACT_STEP = 0.005        # m of travel between clearance measurements
 EXTRACT_CLEAR = 0.004       # m the held object is kept from its neighbours, sideways
 EXTRACT_SHIFT = 0.002       # m largest sideways correction per step
@@ -730,9 +853,9 @@ def _relay(ctx, interface, dock, target):
     it; None when it cannot take over (then the first arm lets go as usual)."""
     from .dock import relay_dock
     s, m = ctx.session, ctx.session.model
-    other = [o for o in s.robot.arms if o != dock.side]
+    other = [o for o in s.robot.arms if o != dock.side and o != ctx.holding]
     if not other:
-        return None
+        return None                   # the other arm holds the part up: no hand to take over
     side = other[0]
     try:
         frames, element, report = _push_synthesis(ctx, interface, side, target, relay=True)
@@ -788,6 +911,291 @@ def release_events(ctx, task, when):
                 continue
         s.data.eq_active[event["equality"]] = 0
         _note(ctx, "release_event", event=event["id"], when=when)
+
+
+MOUNT_ANGLES = 12          # turns of the held tool about the mounting axis tried for a dock
+MOUNT_DEPTH = 0.002        # m the tool's mount point is pushed past the part's orifice
+MOUNT_SEATED = 0.004       # m largest mount-to-orifice distance that counts as seated
+MOUNT_ABOVE = 0.03         # m above the orifice the mount point is aligned before going in
+MOUNT_FIT_DEPTH = 0.008    # m of the tool end and of the part's open end compared for the fit
+TOOL_SLIP_M = 0.10          # m the tool may shift in the hand before it counts as dropped (re-measured after)
+MOUNT_LIFT_STEP = 0.01      # m per straight joint-space step when a mounted part is drawn out
+
+
+def _axis_rotation(a, b):
+    """Smallest rotation taking unit vector a to unit vector b."""
+    a, b = a / np.linalg.norm(a), b / np.linalg.norm(b)
+    v, c = np.cross(a, b), float(a @ b)
+    if np.linalg.norm(v) < 1e-9:
+        if c > 0:
+            return np.eye(3)
+        p = np.eye(3)[np.argmin(np.abs(a))]
+        v = np.cross(a, p) / np.linalg.norm(np.cross(a, p))
+        return 2 * np.outer(v, v) - np.eye(3)
+    k = np.array([[0, -v[2], v[1]], [v[2], 0, -v[0]], [-v[1], v[0], 0]])
+    return np.eye(3) + k + k @ k / (1 + c)
+
+
+def _about(axis, angle):
+    axis = axis / np.linalg.norm(axis)
+    k = np.array([[0, -axis[2], axis[1]], [axis[2], 0, -axis[0]], [-axis[1], axis[0], 0]])
+    return np.eye(3) + np.sin(angle) * k + (1 - np.cos(angle)) * k @ k
+
+
+def _extent(m, d, bodies, origin, axis):
+    """(least, most) reach of the bodies' collision geometry along `axis` from `origin` (box corners)."""
+    signs = np.array(np.meshgrid([-1, 1], [-1, 1], [-1, 1])).T.reshape(-1, 3)
+    values = []
+    for g in body_geoms(m, bodies):
+        if not (m.geom_contype[g] or m.geom_conaffinity[g]):
+            continue
+        rot = d.geom_xmat[g].reshape(3, 3)
+        centre = d.geom_xpos[g] + rot @ m.geom_aabb[g, :3]
+        values.extend(((centre + (signs * m.geom_aabb[g, 3:]) @ rot.T) - origin) @ axis)
+    return (min(values), max(values)) if values else (0.0, 0.0)
+
+
+def _radial(m, d, bodies, origin, axis, lo, hi):
+    """Radii from the line (origin, axis) of the bodies' collision box corners lying between `lo` and `hi`
+    along the axis."""
+    signs = np.array(np.meshgrid([-1, 1], [-1, 1], [-1, 1])).T.reshape(-1, 3)
+    radii = []
+    for g in body_geoms(m, bodies):
+        if not (m.geom_contype[g] or m.geom_conaffinity[g]):
+            continue
+        rot = d.geom_xmat[g].reshape(3, 3)
+        centre = d.geom_xpos[g] + rot @ m.geom_aabb[g, :3]
+        rel = (centre + (signs * m.geom_aabb[g, 3:]) @ rot.T) - origin
+        along = rel @ axis
+        keep = (along >= lo) & (along <= hi)
+        radii.extend(np.linalg.norm(rel[keep] - np.outer(along[keep], axis), axis=1))
+    return np.asarray(radii)
+
+
+def mount_fit(m, d, mount, orifice):
+    """How far a tool's mount end is from fitting a part's opening (m; 0 = it fits): the tool's outer
+    radius over its leading length against the part's inner radius at its open end."""
+    down = d.site_xmat[orifice.site].reshape(3, 3) @ orifice.approach
+    down = down / np.linalg.norm(down)
+    part = subtree_bodies(m, orifice.mechanism.body)
+    near, _ = _extent(m, d, part, d.site_xpos[orifice.site], down)
+    opening = d.site_xpos[orifice.site] + down * near
+    bore = _radial(m, d, part, opening, down, 0.0, MOUNT_FIT_DEPTH)
+    axis = d.site_xmat[mount.site].reshape(3, 3) @ mount.approach
+    axis = axis / np.linalg.norm(axis)
+    tool = subtree_bodies(m, mount.mechanism.body)
+    _, lead = _extent(m, d, tool, d.site_xpos[mount.site], axis)
+    nozzle = _radial(m, d, tool, d.site_xpos[mount.site], axis, max(lead - MOUNT_FIT_DEPTH, 0.0), lead)
+    if not len(bore) or not len(nozzle):
+        return float("inf")
+    return abs(float(nozzle.max()) - float(bore.min()))
+
+
+def _world_approach(s, interface):
+    return s.data.site_xmat[interface.site].reshape(3, 3) @ interface.approach
+
+
+def _joint_tcp(ctx, side, position, rotation, speed):
+    """TCP to a pose by joint-space interpolation to its IK solution: the joint PD holds a payload to
+    sub-millimetre, where the Cartesian impedance sags by centimetres at the end of a held tool."""
+    from ..planning.ik import IKFailure, Target
+    s, kin, arm = ctx.session, ctx.kinematics, ctx.session.robot.arms[side]
+    base = s.robot.base_pose(s.data.qpos)
+    q_base = kin.qpos(kin.robot.base_joint_values(base), float(s.data.qpos[s.robot.lift_qpos]), {})
+    try:
+        q = kin.ik[side].solve(q_base, Target(position, rotation, position_tolerance=5e-4),
+                               seed=s.data.qpos[arm.qpos], restarts=1).q
+    except IKFailure as exc:
+        raise Abort("tool_ik", residual_mm=round(exc.best.position_error * 1e3, 2))
+    start = s.data.qpos[arm.qpos].copy()
+    distance = float(np.linalg.norm(s.data.site_xpos[arm.tcp] - position))
+    steps = max(50, int(distance / speed / s.model.opt.timestep))
+    for k in range(1, steps + 1):
+        t = k / steps
+        s.use_joint(side, start + (q - start) * t * t * (3 - 2 * t))
+        s.step()
+    s.use_joint(side, q)
+    s.wait(0.5, lambda: np.max(np.abs(s.data.qvel[arm.dofs])) < 0.01)
+    return float(np.linalg.norm(s.data.site_xpos[arm.tcp] - position))
+
+
+def _free_root(m, body):
+    """The body carrying the free joint that `body` moves with (the loose part itself), or `body`."""
+    b = body
+    while b > 0:
+        j = int(m.body_jntadr[b])
+        if j >= 0 and m.jnt_type[j] == mujoco.mjtJoint.mjJNT_FREE:
+            return b
+        b = int(m.body_parentid[b])
+    return body
+
+
+def _robot_contacts(s, extra_bodies=()):
+    """Names of what the robot (and a held tool) touches now, for the log."""
+    m, d = s.model, s.data
+    mine = set(s.robot.geoms.tolist()) | set(body_geoms(m, extra_bodies).tolist())
+    seen = set()
+    for c in d.contact[:d.ncon]:
+        a, b = int(c.geom1), int(c.geom2)
+        if (a in mine) != (b in mine):
+            inside, outside = (a, b) if a in mine else (b, a)
+            seen.add((m.geom(inside).name.split("__")[-1][:24], m.geom(outside).name[:40]))
+    return sorted(seen)[:8]
+
+
+def tool_pick(ctx, interface, task, tool, tool_task, orifice):
+    """Pick a part the fingers cannot hold (a pipette tip in its rack) with a tool: grasp the tool by
+    its own grasp interface, carry it so its mount point enters the part's orifice along the declared
+    axes, seat it and lift. The press fit is modelled as a weld once the mount point is seated, as the
+    suction cup is; the part's declared release event lets it leave its holder."""
+    from .grasp import Frame
+    s, m = ctx.session, ctx.session.model
+    mount = tool["mount"]
+    held = pick(ctx, tool["grasp"], tool_task)
+    side, arm = held.side, s.robot.arms[held.side]
+    cup = arm.suction
+    if cup is None:
+        raise Abort("no_tool_attachment")
+    tool_bodies = set(subtree_bodies(m, mount.mechanism.body))
+    def still_held(step):
+        rotation_now = s.data.site_xmat[arm.tcp].reshape(3, 3)
+        moved = float(np.linalg.norm(rotation_now.T @ (_site(s, mount) - s.data.site_xpos[arm.tcp]) - offset))
+        fingers = [g for g in s.robot.geoms if m.geom_bodyid[g] in arm.fingers]
+        others = np.array(sorted(body_geoms(m, tool_bodies).tolist()))
+        touch = s.monitor.contacts(np.array(fingers), others)
+        _note(ctx, "tool_check", stage=step, moved_mm=round(moved * 1e3, 1), finger_contacts=len(touch),
+              force_n=round(float(sum(r[2] for r in touch)), 1), mount=_site(s, mount).round(3).tolist())
+        if moved > TOOL_SLIP_M:
+            raise Abort("tool_dropped", step=step, moved_mm=round(moved * 1e3, 1))
+    ctx.moved = (ctx.moved or set()) | tool_bodies           # the tool is moved on purpose
+    # The planners treat the tool in the hand as part of the hand (not an obstacle); if it strikes
+    # anything on the way the session's contact-force guard still aborts the task.
+    s.carried = set(body_geoms(m, tool_bodies).tolist())
+    offset = s.data.site_xmat[arm.tcp].reshape(3, 3).T @ (_site(s, mount) - s.data.site_xpos[arm.tcp])
+    still_held("picked")
+    s.carried_root = (_free_root(m, mount.mechanism.body), side)    # planned motions carry it along, checked
+    rotation = s.data.site_xmat[arm.tcp].reshape(3, 3).copy()
+    offset = rotation.T @ (_site(s, mount) - s.data.site_xpos[arm.tcp])
+    local = rotation.T @ _world_approach(s, mount)            # mounting direction, tool frame
+    target = _world_approach(s, orifice)
+    down = target / np.linalg.norm(target)
+    align = _axis_rotation(rotation @ local, target) @ rotation
+    root = interface.mechanism.body
+    # The tool enters the part at its far end against the approach (a tip's open top), on the orifice axis;
+    # its own geometry leads its mount point by `lead` along the mounting direction.
+    near, _ = _extent(m, s.data, subtree_bodies(m, root), _site(s, orifice), down)
+    _, lead = _extent(m, s.data, tool_bodies, _site(s, mount), _world_approach(s, mount) / np.linalg.norm(_world_approach(s, mount)))
+    opening = _site(s, orifice) + down * near
+    entry = opening + down * MOUNT_DEPTH
+    frames = []
+    for k in range(MOUNT_ANGLES):
+        r = _about(target, 2 * np.pi * k / MOUNT_ANGLES) @ align
+        frames.append(Frame(entry - r @ offset, r, float("inf"), rank=0, variant=k, opening=None,
+                            axis=tuple(local / np.linalg.norm(local))))
+    part = set(body_geoms(m, subtree_bodies(m, root)).tolist())
+    s.allowed_contact = part | set(body_geoms(m, tool_bodies).tolist())
+    ctx.tool_check = still_held
+    try:
+        dock = _approach(ctx, orifice, frames, part, hand_state=_closed_hand(s), sides=[side])
+    finally:
+        ctx.tool_check = None
+    still_held("approach")
+    # The tool may have turned in the fingers on the way: re-measure it in the hand and steer its mount
+    # point (not the TCP) above the orifice, then straight in along the orifice axis.
+    _note(ctx, "tool_target", opening=opening.round(3).tolist(), orifice_now=_site(s, orifice).round(3).tolist(),
+          tcp=s.data.site_xpos[arm.tcp].round(3).tolist(), mount=_site(s, mount).round(3).tolist(),
+          near_mm=round(near * 1e3, 1), lead_mm=round(lead * 1e3, 1))
+    for stand_off in (MOUNT_ABOVE + lead, MOUNT_ABOVE + lead, -MOUNT_DEPTH):
+        rotation = s.data.site_xmat[arm.tcp].reshape(3, 3).copy()
+        held_offset = rotation.T @ (_site(s, mount) - s.data.site_xpos[arm.tcp])
+        turn = _axis_rotation(_world_approach(s, mount), down) @ rotation
+        goal = opening - down * stand_off
+        tcp_error = _joint_tcp(ctx, side, goal - turn @ held_offset, turn, speed=0.01 if stand_off < 0 else 0.05)
+        _note(ctx, "tool_align", stand_off_mm=round(stand_off * 1e3, 1), tcp_error_mm=round(tcp_error * 1e3, 1),
+              error_mm=round(float(np.linalg.norm(_site(s, mount) - goal)) * 1e3, 2), contacts=_robot_contacts(s, tool_bodies))
+    gap = float(np.linalg.norm(_site(s, mount) - entry))
+    _note(ctx, "tool_seat", tool=mount.id, gap_mm=round(gap * 1e3, 2), opening_above_site_mm=round(-near * 1e3, 1),
+          lead_mm=round(lead * 1e3, 1))
+    if gap > MOUNT_SEATED + MOUNT_DEPTH:
+        raise Abort("tool_not_seated", gap_mm=round(gap * 1e3, 2))
+    # The fit: weld the part to the tool where it now sits (the free cup equality of this arm).
+    e, own = cup["equality"], mount.mechanism.body
+    m.eq_obj1id[e], m.eq_obj2id[e] = own, root
+    turn = s.data.xmat[own].reshape(3, 3)
+    m.eq_data[e, :3] = 0.0
+    m.eq_data[e, 3:6] = turn.T @ (s.data.xpos[root] - s.data.xpos[own])
+    quat = np.zeros(4)
+    mujoco.mju_mat2Quat(quat, (turn.T @ s.data.xmat[root].reshape(3, 3)).flatten())
+    m.eq_data[e, 6:10] = quat
+    m.eq_data[e, 10] = 1.0
+    s.data.eq_active[e] = 1
+    release_events(ctx, task, "grasped")
+    s.monitor.evaluate(task.goal, task.key)                   # anchors the lift height at the fit
+    # Straight back out along the orifice axis on the joint PD: the part leaves its seat the way the tool
+    # went in (steering sideways, as a loose part's extraction does, drags it against its neighbours).
+    rotation = s.data.site_xmat[arm.tcp].reshape(3, 3).copy()
+    start = s.data.site_xpos[arm.tcp].copy()
+    lift = task.parameters.get("lift_m", 0.08)
+    for k in range(1, int(np.ceil(lift / MOUNT_LIFT_STEP)) + 1):
+        _joint_tcp(ctx, side, start - down * min(k * MOUNT_LIFT_STEP, lift), rotation, speed=0.02)
+    _note(ctx, "tool_lift", rise_mm=round(float((s.data.site_xpos[arm.tcp] - start) @ -down) * 1e3, 1))
+    s.wait(1.0, lambda: s.monitor.evaluate(task.goal, task.key) is True)
+    return dock
+
+
+HOLD_LIFT_M = 0.30         # m a loose part is lifted off the bench before it is worked on in the hand
+# Where the held part is presented, tried in turn while the other arm cannot reach it: (m in front of the
+# base centre, m towards the holding arm's side, turn of the hand about the vertical in rad, m higher).
+PRESENT_SPOTS = ((0.55, 0.12, 0.0, 0.0), (0.50, 0.25, 0.0, 0.05), (0.55, 0.12, np.pi / 4, 0.05),
+                 (0.55, 0.12, -np.pi / 4, 0.05), (0.65, 0.05, 0.0, 0.10))
+
+
+def hold_up(ctx, holder, holder_task):
+    """Pick a loose part by its own grasp interface and keep it up in that hand (a pipette whose knob,
+    plunger or ejector cannot be worked while it lies on the bench); the other arm then works on it."""
+    holder_task.parameters["lift_m"] = max(holder_task.parameters.get("lift_m", 0.08), HOLD_LIFT_M)
+    dock = pick(ctx, holder, holder_task)
+    ctx.holding = dock.side
+    _present(ctx, dock.side, holder)
+    _note(ctx, "hold_up", side=dock.side, by=holder.id)
+    return dock
+
+
+def present_again(ctx, holder, spot):
+    """Move the part already held up to presentation spot `spot`; False when there are no more spots."""
+    if spot >= len(PRESENT_SPOTS):
+        return False
+    _present(ctx, ctx.holding, holder, spot)
+    return True
+
+
+def _present(ctx, side, holder, spot=0):
+    """Bring the held part in front of the robot, clear of the bench (spot 0: on the holding arm's side)."""
+    from ..planning.ik import IKFailure, Target
+    s, kin, arm = ctx.session, ctx.kinematics, ctx.session.robot.arms[side]
+    m = s.model
+    base = s.robot.base_pose(s.data.qpos)
+    forward = np.array([np.cos(base[2]), np.sin(base[2]), 0.0])
+    left = np.array([-forward[1], forward[0], 0.0])
+    lateral = s.robot.profile["arms"][side]["lateral_m"]
+    ahead, aside, turn, higher = PRESENT_SPOTS[spot]
+    goal = np.array([base[0], base[1], 0.0]) + forward * ahead + left * np.sign(lateral) * aside
+    goal[2] = s.data.site_xpos[arm.tcp][2] + higher
+    c, si = np.cos(turn * np.sign(lateral)), np.sin(turn * np.sign(lateral))
+    rotation = np.array([[c, -si, 0.0], [si, c, 0.0], [0.0, 0.0, 1.0]]) @ s.data.site_xmat[arm.tcp].reshape(3, 3)
+    q_base = kin.qpos(kin.robot.base_joint_values(base), float(s.data.qpos[s.robot.lift_qpos]), {})
+    root = holder.mechanism.body
+    s.carried = set(body_geoms(m, subtree_bodies(m, root)).tolist())     # moves with the hand on the way
+    s.carried_root = (_free_root(m, root), side)
+    try:
+        q = kin.ik[side].solve(q_base, Target(goal, rotation, position_tolerance=5e-3), seed=s.data.qpos[arm.qpos],
+                               restarts=2).q
+        motion.move_arm(s, side, q)
+        _note(ctx, "present", spot=spot, at=goal.round(3).tolist())
+    except (IKFailure, Abort) as exc:
+        _note(ctx, "present", spot=spot, failed=getattr(exc, "reason", type(exc).__name__))   # work it where it is
+    finally:
+        s.carried, s.carried_root = set(), None
 
 
 def set_aside(ctx, interface, task, distances=(0.15, 0.25), clearance=0.004):

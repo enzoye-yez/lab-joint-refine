@@ -24,19 +24,38 @@ def excluded(model, g, h, signatures):
     return signature in signatures
 
 
+ATTACHED_GEOMS = 8          # geoms of a carried part checked (the largest; the rest lie within them)
+
+
 class CollisionWorld:
-    def __init__(self, model, robot, joints, margin=0.01, self_margin=0.004, radius=2.0, ignore=()):
-        """joints: qpos addresses varied by queries. ignore: geoms never checked (e.g. a grasped handle)."""
+    def __init__(self, model, robot, joints, margin=0.01, self_margin=0.004, radius=2.0, ignore=(), driven_only=False):
+        """joints: qpos addresses varied by queries. ignore: geoms never checked (e.g. a grasped handle).
+        driven_only: only robot geoms moved by `joints` are checked against the world; the rest of the robot
+        (the other arm holding a lid, a hand resting on the bench) stays where it is during the motion, so a
+        contact it already has neither starts nor ends there. Robot-robot pairs are always checked."""
         self.model, self.robot, self.joints = model, robot, np.asarray(joints)
         self.margin, self.self_margin, self.radius = margin, self_margin, radius
         self.data = mujoco.MjData(model)
         self.moving = np.array([g for g in robot.geoms if model.geom_contype[g] or model.geom_conaffinity[g]])
         self.ignore = set(ignore)
+        self.driven = self._driven_geoms() if driven_only else None
         signatures = set(model.exclude_signature.tolist())
         pairs = [(g, h) for i, g in enumerate(self.moving) for h in self.moving[i + 1:]
                  if collides(model, g, h) and not excluded(model, g, h, signatures)]
         self.self_pairs = np.array(pairs, int).reshape(-1, 2)
         self.obstacle_pairs = np.zeros((0, 2), int)
+
+    def _driven_geoms(self):
+        m = self.model
+        addresses = set(int(a) for a in self.joints.tolist())
+        roots = {int(m.jnt_bodyid[j]) for j in range(m.njnt) if int(m.jnt_qposadr[j]) in addresses}
+        driven = np.zeros(m.nbody, bool)
+        for b in range(m.nbody):
+            a = b
+            while a > 0 and not driven[b]:
+                driven[b] = a in roots
+                a = int(m.body_parentid[a])
+        return self.moving[driven[m.geom_bodyid[self.moving]]]
 
     def sync(self, data):
         """Copy the world state; obstacle pairs are re-selected around the robot by `select`."""
@@ -58,12 +77,42 @@ class CollisionWorld:
         near = (np.linalg.norm(d.geom_xpos[others] - centre, axis=1) - m.geom_rbound[others] < self.radius) \
             | np.isin(m.geom_type[others], PLANES)
         others = others[near]
-        a = np.repeat(self.moving, len(others))
-        b = np.tile(others, len(self.moving))
+        moving = self.moving if self.driven is None else self.driven
+        a = np.repeat(moving, len(others))
+        b = np.tile(others, len(moving))
         ok = ((m.geom_contype[a] & m.geom_conaffinity[b]) | (m.geom_contype[b] & m.geom_conaffinity[a])) != 0
         # The base rides on its planar joints: its own geometry is not checked against the floor.
         ok &= ~((m.geom_bodyid[a] == self.robot.root) & np.isin(m.geom_type[b], PLANES))
         self.obstacle_pairs = np.stack([a[ok], b[ok]], axis=1)
+
+    def attach(self, root, site):
+        """A free part held in the hand (a carried tool) rides with `site` in the next queries and its
+        geometry is checked against the world and the rest of the robot, as the hand's own is."""
+        m, d = self.model, self.data
+        joint = int(m.body_jntadr[root])
+        if joint < 0 or m.jnt_type[joint] != mujoco.mjtJoint.mjJNT_FREE:
+            return
+        rotation = d.site_xmat[site].reshape(3, 3)
+        self.attached = (int(site), int(m.jnt_qposadr[joint]),
+                         rotation.T @ (d.xpos[root] - d.site_xpos[site]), rotation.T @ d.xmat[root].reshape(3, 3))
+        bodies = [b for b in range(m.nbody) if self._within(b, root)]
+        geoms = np.flatnonzero(np.isin(m.geom_bodyid, bodies) & ((m.geom_contype != 0) | (m.geom_conaffinity != 0)))
+        geoms = geoms[np.argsort(-m.geom_rbound[geoms])][:ATTACHED_GEOMS]     # its largest pieces bound it
+        # The hand holding it (the site's body and below) touches it by design; the rest of the robot may not.
+        hand = int(m.site_bodyid[site])
+        robot = np.asarray([g for g in self.robot.geoms if not self._within(int(m.geom_bodyid[g]), hand)
+                            and (m.geom_contype[g] or m.geom_conaffinity[g])], int)
+        others = np.concatenate([self.obstacle_pairs[:, 1], robot]) if len(self.obstacle_pairs) else robot
+        others = np.unique(others[~np.isin(others, geoms)])
+        a, b = np.repeat(geoms, len(others)), np.tile(others, len(geoms))
+        self.obstacle_pairs = np.concatenate([self.obstacle_pairs, np.stack([a, b], axis=1)])
+
+    def _within(self, body, root):
+        while body > 0:
+            if body == root:
+                return True
+            body = int(self.model.body_parentid[body])
+        return body == root
 
     def set_joints(self, addresses, values):
         """Fix other joints of the query world (e.g. a candidate base pose and lift height)."""
@@ -73,6 +122,15 @@ class CollisionWorld:
     def _pose(self, q):
         self.data.qpos[self.joints] = q
         mujoco.mj_kinematics(self.model, self.data)
+        if getattr(self, "attached", None) is not None:
+            site, address, offset, turn = self.attached
+            d = self.data
+            rotation = d.site_xmat[site].reshape(3, 3)
+            d.qpos[address:address + 3] = d.site_xpos[site] + rotation @ offset
+            quat = np.zeros(4)
+            mujoco.mju_mat2Quat(quat, (rotation @ turn).flatten())
+            d.qpos[address + 3:address + 7] = quat
+            mujoco.mj_kinematics(self.model, d)
 
     def hold(self, geoms=()):
         """Robot geoms that stay where they are, holding the part, during the next queries: only their

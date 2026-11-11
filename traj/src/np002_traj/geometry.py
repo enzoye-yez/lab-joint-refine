@@ -53,5 +53,15 @@ def subtree_bodies(model, root):
     return ids
 
 
+def rigid_bodies(model, root):
+    """Bodies welded to `root`: its subtree up to (not into) any body with a joint of its own, so a part
+    held there moves the root (a pipette's handle, not its sliding ejector rod)."""
+    ids = {root}
+    for body in range(root + 1, model.nbody):
+        if model.body_parentid[body] in ids and model.body_jntnum[body] == 0:
+            ids.add(body)
+    return ids
+
+
 def body_geoms(model, bodies):
     return np.flatnonzero(np.isin(model.geom_bodyid, list(bodies)))

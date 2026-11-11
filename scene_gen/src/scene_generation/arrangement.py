@@ -13,6 +13,10 @@ assets exist, so that a mobile robot can reach every instrument and the room rea
 - whatever rests on another instance keeps its pose relative to that support.
 
 Nothing here scales an asset or changes its geometry; arranged plans go through the same checks.
+
+The spacing constants below are defaults. An instance may carry an optional "arrangement" mapping
+(see OVERRIDES) that overrides them for that instance only, e.g. after a simulation-verified
+directed repair (directed_repair.py); without it the arrangement is exactly the default one.
 """
 import copy
 import math
@@ -31,6 +35,51 @@ WALL_M = .03
 AISLE_M = 1.8            # chassis 0.63 m docked on either side and room to turn (half diagonal 0.44 m)
 ROW_END_M = .40
 DOCK_STANDOFF_M = .03    # chassis front to the bench edge
+
+# Optional per-instance overrides (instance["arrangement"]) with their admissible ranges.
+# gap_m: free space to each neighbour (the larger of two neighbours' gaps wins; at a bench end it
+# also widens the bench end); setback_m/back_m: front-face setback and rear clearance of this
+# instance; dock_standoff_m: its dock; offset_m: [along the row, toward the wall] shift of the
+# arranged pose in the row frame; yaw_offset: rotation added to the arranged yaw.
+OVERRIDES = {"gap_m": (0., 1.), "setback_m": (-.2, .6), "back_m": (0., 1.), "dock_standoff_m": (0., .5),
+             "offset_m": (-1., 1.), "yaw_offset": (-math.pi, math.pi)}
+
+
+def overrides(item):
+    """The validated arrangement overrides of one instance ({} when it has none)."""
+    value = item.get("arrangement")
+    if value is None:
+        return {}
+    if not isinstance(value, dict) or not value or not set(value) <= set(OVERRIDES):
+        raise ValueError("Invalid arrangement override fields")
+    for key, number in value.items():
+        lo, hi = OVERRIDES[key]
+        numbers = number if key == "offset_m" else [number]
+        if key == "offset_m" and not (isinstance(number, list) and len(number) == 2):
+            raise ValueError("arrangement offset_m must be [along_row, toward_wall]")
+        if not all(isinstance(x, (int, float)) and not isinstance(x, bool) and math.isfinite(x) and lo <= x <= hi
+                   for x in numbers):
+            raise ValueError("arrangement %s out of range [%g, %g]" % (key, lo, hi))
+    return value
+
+
+def knob(item, key, default):
+    return overrides(item).get(key, default)
+
+
+def pair_gap(a, b):
+    """Free space between two neighbouring instances (either may be None)."""
+    return max([GAP_M]+[knob(i, "gap_m", GAP_M) for i in (a, b) if i is not None])
+
+
+def end_margin(item):
+    return max(BENCH_END_M, knob(item, "gap_m", 0.))
+
+
+def member_gap(a, b):
+    """Free space between two row members; only floor instruments carry their own gap."""
+    pick = lambda m: m["item"] if m["kind"] == "floor" else None
+    return pair_gap(pick(a), pick(b))
 
 
 def shape(artifact, configuration):
@@ -103,8 +152,9 @@ def arrange(plan, shapes, env):
     # Members of a row: benches with their instruments, and free-standing floor instruments.
     members = []
     for table in layout["tables"]:
+        # A recorded row offset does not change the planned order along the bench.
         on = sorted((i for i in roots if i.get("table_id") == table["id"]),
-                    key=lambda i: local_xy(i["position"], old_tables[table["id"]])[0])
+                    key=lambda i: local_xy(i["position"], old_tables[table["id"]])[0]-knob(i, "offset_m", [0, 0])[0])
         if on:
             members.append({"kind": "table", "table": table, "roots": on})
     for item in roots:
@@ -132,12 +182,16 @@ def arrange(plan, shapes, env):
             yaw, lo, hi = facing(shapes[item["id"]], (0, -1))
             slots.append((item, yaw, lo, hi))
         member["slots"] = slots
-        member["length"] = 2*BENCH_END_M+sum(float(hi[0]-lo[0]) for _, _, lo, hi in slots)+GAP_M*(len(slots)-1)
-        member["depth"] = max(MIN_DEPTH_M, max(float(hi[1]-lo[1]) for _, _, lo, hi in slots)+SETBACK_M+BACK_M)
+        gaps = [pair_gap(a[0], b[0]) for a, b in zip(slots, slots[1:])]
+        member["gaps"] = gaps
+        member["length"] = (end_margin(slots[0][0])+end_margin(slots[-1][0])+sum(float(hi[0]-lo[0]) for _, _, lo, hi in slots)
+                            +sum(gaps))
+        member["depth"] = max(MIN_DEPTH_M, max(float(hi[1]-lo[1])+knob(item, "setback_m", SETBACK_M)+knob(item, "back_m", BACK_M)
+                                               for item, _, lo, hi in slots))
         member["depth"] = math.ceil(member["depth"]/.05-1e-9)*.05
     rows = split_rows(members)
     depths = [max((m["depth"] for m in row), default=MIN_DEPTH_M) for row in rows]
-    lengths = [sum(m["length"] for m in row)+GAP_M*max(0, len(row)-1) for row in rows]
+    lengths = [sum(m["length"] for m in row)+sum(member_gap(a, b) for a, b in zip(row, row[1:])) for row in rows]
     room = [max(lengths)+2*ROW_END_M, 2*WALL_M+depths[0]+AISLE_M+depths[1]]
     layout["room"] = {"size": [round(v, 3) for v in room],
                       "reason": "Two bench rows against the long walls facing one %.1f m robot aisle; "
@@ -151,9 +205,9 @@ def arrange(plan, shapes, env):
         yaw_row = 0. if side == 0 else math.pi
         inward = np.array(rotate([0, 1], yaw_row))
         cursor = -lengths[side]/2
-        for member in row:
+        for index, member in enumerate(row):
             centre_x = cursor+member["length"]/2
-            cursor += member["length"]+GAP_M
+            cursor += member["length"]+(member_gap(member, row[index+1]) if index+1 < len(row) else 0.)
             # Every member stands against the wall at its own depth.
             front_point = np.array([centre_x, walls[side]])-inward*member["depth"]
             if member["kind"] == "table":
@@ -167,12 +221,13 @@ def arrange(plan, shapes, env):
                         item["position"] = world_xy(local_xy(item["position"], old), table)+[item["position"][2]]
                         item["yaw"] = item["yaw"]-old["yaw"]+yaw_row
                     continue
-                x = -member["length"]/2+BENCH_END_M
-                for item, yaw, lo, hi in member["slots"]:
-                    local = [x-float(lo[0]), -depth/2+SETBACK_M-float(lo[1])]
-                    x += float(hi[0]-lo[0])+GAP_M
+                x = -member["length"]/2+end_margin(member["slots"][0][0])
+                for index, (item, yaw, lo, hi) in enumerate(member["slots"]):
+                    offset = knob(item, "offset_m", [0., 0.])
+                    local = [x-float(lo[0])+offset[0], -depth/2+knob(item, "setback_m", SETBACK_M)-float(lo[1])+offset[1]]
+                    x += float(hi[0]-lo[0])+(member["gaps"][index] if index < len(member["gaps"]) else 0.)
                     item["position"] = world_xy(local, table)+[item["position"][2]]
-                    item["yaw"] = round(math.remainder(yaw+yaw_row, 2*math.pi), 6)
+                    item["yaw"] = round(math.remainder(yaw+yaw_row+knob(item, "yaw_offset", 0.), 2*math.pi), 6)
                     docks.append(dock(item, shapes[item["id"]], front_point, inward, env))
                 continue
             item = member["item"]
@@ -180,9 +235,10 @@ def arrange(plan, shapes, env):
             if member.get("rigid"):
                 item["position"] = world_xy([0, .3], frame)+[item["position"][2]]
                 continue
-            local = [-float(member["lo"][0]+member["hi"][0])/2, -float(member["lo"][1])]
+            offset = knob(item, "offset_m", [0., 0.])
+            local = [-float(member["lo"][0]+member["hi"][0])/2+offset[0], -float(member["lo"][1])+offset[1]]
             item["position"] = world_xy(local, frame)+[item["position"][2]]
-            item["yaw"] = round(math.remainder(member["yaw"]+yaw_row, 2*math.pi), 6)
+            item["yaw"] = round(math.remainder(member["yaw"]+yaw_row+knob(item, "yaw_offset", 0.), 2*math.pi), 6)
             docks.append(dock(item, shapes[item["id"]], front_point, inward, env))
     layout["tables"] = [m["table"] for row in rows for m in row if m["kind"] == "table"]
     layout["robot_home"] = [0., round((front_lines[0]+front_lines[1])/2, 4), 0.]  # aisle centre
@@ -211,11 +267,12 @@ def dock(item, item_shape, front_point, inward, env):
     targets = [origin+rotate(p[:2], yaw) for p, _ in item_shape["targets"]]
     centre = np.mean(targets, axis=0) if targets else origin
     on_line = centre-inward*float((centre-front_point)@inward)
-    base = on_line-inward*(DOCK_STANDOFF_M+env["robot"]["mobile"]["base_size"][0]/2)
+    standoff = knob(item, "dock_standoff_m", DOCK_STANDOFF_M)
+    base = on_line-inward*(standoff+env["robot"]["mobile"]["base_size"][0]/2)
     return {"id": ("dock_"+item["id"])[:48], "instance": item["id"],
             "pose": [round(float(base[0]), 4), round(float(base[1]), 4), round(math.atan2(inward[1], inward[0]), 6)],
             "reason": "Chassis square to the row, %.0f mm short of the edge, centred on the operation targets"
-                      % (DOCK_STANDOFF_M*1000)}
+                      % (standoff*1000)}
 
 
 def move_cuts(plan, updated):

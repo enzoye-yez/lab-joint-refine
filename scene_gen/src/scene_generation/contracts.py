@@ -126,8 +126,14 @@ def validate_plan(value, asset_ids, limits, env=None):
                     "The end-effector must read the generated tabletop fixtures to keep the co-design consistent")
     instances = {}
     for item in value["instances"]:
-        require(isinstance(item, dict) and set(item) - {"support_instance","configuration","table_id"} == {"id", "job", "placement", "position", "yaw"}, "Invalid instance fields")
+        require(isinstance(item, dict) and set(item) - {"support_instance","configuration","table_id","arrangement"} == {"id", "job", "placement", "position", "yaw"}, "Invalid instance fields")
         identifier(item["id"])
+        if "arrangement" in item:
+            # Optional per-instance spacing overrides (arrangement.OVERRIDES), e.g. from a verified directed repair.
+            from .arrangement import overrides
+            require("layout" in value and item.get("placement") in {"table", "floor"}, "Arrangement overrides apply to arranged table or floor instances only")
+            try: overrides(item)
+            except ValueError as exc: require(False, str(exc))
         require(item["id"] not in instances and isinstance(item['job'],str) and item["job"] in jobs, "Duplicate instance or invalid job reference")
         require(isinstance(item['placement'],str) and item["placement"] in {"table", "floor", "robot"}, "Invalid placement surface")
         require('support_instance' not in item or isinstance(item['support_instance'],str) and bool(item['support_instance']), 'Invalid support instance id')

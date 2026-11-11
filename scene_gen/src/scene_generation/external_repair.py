@@ -4,6 +4,9 @@ A new run is seeded from an immutable source run, bound to this source tree, and
 feedback bound to the source scene digest. One repair round then runs plan -> assets -> assemble,
 like robot_operation.scene_bridge.SceneBridge.repair, with its progress saved in the run's own
 ledger (state["robot_feedback"]) so an interrupted repair resumes where it stopped.
+
+The seeding, assets and assemble phases are shared with directed_repair.py (deterministic,
+already-verified edits); every phase takes the ledger key (kind) the run was started under.
 """
 
 import argparse
@@ -25,6 +28,8 @@ from .contracts import SceneConfig, environment
 from .feedback import planning_feedback
 
 KIND = "robot_feedback"
+# Ledger keys of runs seeded by this module or by directed_repair; either can be a later source.
+KINDS = ("robot_feedback", "directed_repair")
 CONFIG_FILES = ("provider.json", "generation.json", "scene.json", "environment.json")
 # Identity fields a repair may not change; implementation and binding follow this source tree.
 FIXED_IDENTITY = ("catalogue", "environment", "contract", "provider", "model", "base_url", "output_token_parameter",
@@ -41,9 +46,10 @@ def published(scene):
 
 def source_inputs(project, source, state):
     """Configuration, package and protocol the source run was generated from."""
-    receipt = state.get(KIND)
-    if receipt:
-        return {**receipt["inputs"], "config_dir": str(source/KIND/"config")}
+    for kind in KINDS:
+        receipt = state.get(kind)
+        if receipt:
+            return {**receipt["inputs"], "config_dir": str(source/kind/"config")}
     for path in sorted((source.parent/"batches").glob("*/batch.json")):
         batch = json.loads(path.read_text(encoding="utf-8"))
         entry = next((e for e in batch.get("entries", []) if e.get("run") == source.name), None)
@@ -52,7 +58,7 @@ def source_inputs(project, source, state):
     return None
 
 
-def build_run(project, root, inputs, budget, *, resume, retry_uncertain=False):
+def build_run(project, root, inputs, budget, *, resume, retry_uncertain=False, kind=KIND):
     from asset_generation.checks import load_model
     from asset_generation.local import LocalBackend
     from asset_generation.transport import transport_for
@@ -60,7 +66,7 @@ def build_run(project, root, inputs, budget, *, resume, retry_uncertain=False):
     from .benchmark_input import bind_environment
     from .inputs import catalog
     from .pipeline import SceneRun, code_identity
-    config = root/KIND/"config"
+    config = root/kind/"config"
     provider = Config.load(config/"provider.json")
     generation = GenerationConfig.load(config/"generation.json")
     limits = replace(SceneConfig(**read_json(config/"scene.json")), validation_mode="static",
@@ -79,8 +85,12 @@ def build_run(project, root, inputs, budget, *, resume, retry_uncertain=False):
                     expected_implementation=code_identity(project))
 
 
-def start(project, source, root, feedback, max_calls, max_tokens, config_dir=None, package=None, protocol_pdf=None):
-    """Create the run: freeze inputs, validate feedback against the source scene, bind identity."""
+def start(project, source, root, feedback, max_calls, max_tokens, config_dir=None, package=None, protocol_pdf=None,
+          *, kind=KIND, check=planning_feedback, document="feedback.json"):
+    """Create the run: freeze inputs, validate feedback against the source scene, bind identity.
+
+    check(document, scene_sha256, plan) validates the input document against the published source
+    scene; its result is kept as receipt["feedback"] (directed_repair passes its edit validator)."""
     from asset_prep.state_archive import read_state
     require(not root.exists() or not any(p.name != ".lock" for p in root.iterdir()),
             "Run directory is not empty; resume explicitly or use a new name")
@@ -96,7 +106,7 @@ def start(project, source, root, feedback, max_calls, max_tokens, config_dir=Non
     artifact = safe_path(source, record["artifact"])
     scene_sha256 = digest(snapshot(artifact))
     require(scene_sha256 == record["artifact_sha256"], "The published source scene was modified")
-    checked = planning_feedback(feedback, scene_sha256, scene["plan"])
+    checked = check(feedback, scene_sha256, scene["plan"])
     inputs = source_inputs(project, source, state) or {}
     if config_dir: inputs["config_dir"] = str(config_dir)
     if package: inputs["package"] = str(package)
@@ -117,18 +127,18 @@ def start(project, source, root, feedback, max_calls, max_tokens, config_dir=Non
     config_dir, inputs = Path(inputs["config_dir"]), resolved
     del state, scene
     root.mkdir(parents=True, exist_ok=True)
-    config = root/KIND/"config"
+    config = root/kind/"config"
     config.mkdir(parents=True, exist_ok=True)
     for name in CONFIG_FILES:
         shutil.copyfile(config_dir/name, config/name)
-    atomic_json(root/KIND/"feedback.json", feedback)
-    run = build_run(project, root, inputs, budget, resume=False)
+    atomic_json(root/kind/document, feedback)
+    run = build_run(project, root, inputs, budget, resume=False, kind=kind)
     identity = run.store.state["identity"]
     # Worktrees reach the same environment through their own .venv link (see the relocation continuation).
     same = lambda k, v: {f: x for f, x in v.items() if f != "python"} if k == "backend" else v
     changed = [k for k in FIXED_IDENTITY if same(k, identity.get(k)) != same(k, source_identity.get(k))]
     require(not changed, "Repair inputs differ from the source run: "+", ".join(changed))
-    run.store.state[KIND] = {"version": 1, "phase": "seeding", "source_run": str(source), "source_state_sha256": source_state_sha256,
+    run.store.state[kind] = {"version": 1, "phase": "seeding", "source_run": str(source), "source_state_sha256": source_state_sha256,
         "source_implementation": source_identity["implementation"], "implementation": identity["implementation"],
         "source_scene": {"artifact": record["artifact"], "sha256": scene_sha256, "directory": record.get("directory")},
         "inputs": {k: inputs[k] for k in ("package", "protocol_pdf")}, "budget": budget,
@@ -150,11 +160,15 @@ def inject(scene, checked, feedback_sha256):
     return scene
 
 
-def install(run, source):
-    """Copy the source stages and ledger into the new run (idempotent), then hand it the feedback."""
-    from robot_operation.scene_bridge import seed
+def install(run, source, *, kind=KIND, adopt=None,
+            reason="keep assets, reviews and call ledger; repair the assets and layout named by measured robot feedback"):
+    """Copy the source stages and ledger into the new run (idempotent), then hand it the feedback.
+
+    adopt(scene, receipt) prepares the copied scene for the plan phase; by default the receipt's
+    planner rows are injected (inject) for route_repair."""
+    from .store import seed
     from asset_prep.phase_budget import ceilings
-    receipt = run.store.state[KIND]
+    receipt = run.store.state[kind]
     copied = seed(source, run.root)
     if copied["source_state_sha256"] != receipt["source_state_sha256"]:
         raise ValidationError("The source run changed while it was being copied")
@@ -165,13 +179,13 @@ def install(run, source):
     # The whole repair allowance is the scene phase: --max-calls/--max-tokens are exact.
     state["phase_budget"] = {"version": 1, "entry": totals, "ceilings": {p: dict(limits) for p in ceilings(totals, limits)},
                              "phase": "scene"}
-    scene = inject(copied["scene"], receipt["feedback"], receipt["feedback_sha256"])
+    scene = (adopt or (lambda copied_scene, r: inject(copied_scene, r["feedback"], r["feedback_sha256"])))(
+        copied["scene"], receipt)
     state["scene"] = scene
     state["source_identity"] = copied["source_identity"]
-    state.setdefault("implementation_history", []).append({"kind": KIND, "at": time.time(), "source_run": receipt["source_run"],
+    state.setdefault("implementation_history", []).append({"kind": kind, "at": time.time(), "source_run": receipt["source_run"],
         "source_state_sha256": receipt["source_state_sha256"], "from": receipt["source_implementation"],
-        "to": receipt["implementation"], "model_calls_added": 0,
-        "reason": "keep assets, reviews and call ledger; repair the assets and layout named by measured robot feedback"})
+        "to": receipt["implementation"], "model_calls_added": 0, "reason": reason})
     receipt.update(phase="plan", call_start=len(state["calls"]), totals_start=totals,
                    history_start=len(scene.get("repair_history", [])), baseline_plan=deepcopy(scene["plan"]),
                    baseline_jobs={k: v["stage"] for k, v in scene["jobs"].items()},
@@ -200,26 +214,23 @@ def author(run, job):
     return ready
 
 
-def assess(run, published_scene, targets):
+def assess(run, published_scene, targets, kind=KIND):
     """Static assessment; quality repairs of assets the directive did not name are not started here."""
     from .scene_first import assess_scene
     unresolved = run.state.setdefault("asset_repairs_unresolved", {})
     for key in run.state["jobs"]:
         if key not in targets and key not in unresolved:
-            unresolved[key] = {"reason": "Outside the robot-feedback repair scope", KIND: True}
+            unresolved[key] = {"reason": "Outside the robot-feedback repair scope", kind: True}
     try:
         return assess_scene(run, published_scene)
     finally:
-        skipped = sorted(k for k, v in unresolved.items() if v.get(KIND))
+        skipped = sorted(k for k, v in unresolved.items() if v.get(kind))
         for key in skipped:
             unresolved.pop(key)
         run.store.save()
 
 
 def repair(run):
-    from .candidate import usable
-    from .local_repair import precheck
-    from .scene_first import publish
     state, receipt = run.state, run.store.state[KIND]
     if receipt["phase"] == "plan":
         if len(state.get("repair_history", [])) == receipt["history_start"]:
@@ -235,6 +246,15 @@ def repair(run):
                 return
         receipt["phase"] = "assets"
         run.store.save()
+    execute(run)
+
+
+def execute(run, kind=KIND):
+    """Assets and assemble phases of one planned repair round (repair_history[history_start])."""
+    from .candidate import usable
+    from .local_repair import precheck
+    from .scene_first import publish
+    state, receipt = run.state, run.store.state[kind]
     entry = state["repair_history"][receipt["history_start"]]
     targets = set(entry["action"]["jobs"])
     if receipt["phase"] == "assets":
@@ -262,7 +282,7 @@ def repair(run):
             if scene is None:
                 receipt.update(phase="done", status="assembly_failed", reason="The repaired scene could not be assembled")
                 break
-            report, review = assess(run, scene, targets)
+            report, review = assess(run, scene, targets, kind)
             if report is None:
                 # A re-authored target failed its audit and went back to its author (scene_first.schedule_asset_repairs).
                 for key in state["order"]:
@@ -283,7 +303,7 @@ def repair(run):
             receipt.update(phase="done", status="assessment_exhausted", reason="Asset quality repairs did not converge")
         if "selection" not in entry and entry.get("status") == "evaluated":
             # The robot benchmark judges this candidate; the static comparison is kept as information.
-            entry["selection"] = KIND
+            entry["selection"] = kind
         run.store.save()
 
 

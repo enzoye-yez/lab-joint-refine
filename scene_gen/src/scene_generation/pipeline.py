@@ -34,6 +34,46 @@ def code_identity(project):
     return implementation.implementation_digest(implementation.source_manifest(project))
 
 
+def repair_scope(state, updated, jobs):
+    """Jobs a repair reaches: the named jobs with their dependants, and the non-asset jobs whose
+    instance pose (or a dependency's) changed and must be revalidated. state["order"] is the order
+    of the updated plan."""
+    dirty = set(jobs)
+    for key in state["order"]:
+        job = next(j for j in updated["jobs"] if j["id"] == key)
+        if dirty.intersection(job["depends_on"]):
+            dirty.add(key)
+    old_items = {i['id']:i for i in state['plan']['instances']}
+    moved_jobs = {i['job'] for i in updated['instances'] if i != old_items.get(i['id'])}
+    if "layout" in updated and layout_revision(updated) != layout_revision(state["plan"]):
+        moved_jobs |= {j["id"] for j in updated["jobs"] if j["role"]!="asset"}
+    revalidate = set()
+    for key in state['order']:
+        job = next(j for j in updated['jobs'] if j['id']==key)
+        if job['role'] != 'asset' and (key in moved_jobs or (moved_jobs|revalidate).intersection(job['depends_on'])):
+            revalidate.add(key)
+    return dirty, revalidate
+
+
+def mark_repair_jobs(state, updated, jobs, dirty, revalidate):
+    """Mark the named jobs for regeneration and the reached ones for revalidation (repair_scope)."""
+    # Dependency propagation triggers re-verification; only geometry edits of the direct jobs are authorized.
+    for key in set(jobs):
+        if key in state["jobs"]:
+            state["jobs"][key]["dirty"] = True
+            state["jobs"][key]["regenerate"] = True
+    revalidate = revalidate | (dirty-set(jobs))
+    dirty = set(jobs)
+    pending_generation = (revalidate | dirty) - set(state['jobs'])
+    revalidate = revalidate & set(state['jobs'])
+    for key in revalidate-dirty:
+        state['jobs'][key].update(dirty=True,status='review_pending',layout_revalidation={
+            'reason':'The actual instance pose of a dependency or of this device changed; check whether the existing geometry still mates, and request a local redesign if needed',
+            'previous_layout':state['jobs'][key].get('layout_revision'),
+            'current_layout':layout_revision(updated)})
+    return dirty, revalidate, pending_generation
+
+
 def evidence_stop_status(outcome):
     reason=(outcome or {}).get('reason')
     if reason in {'capability_blocked','inspection_unavailable'}:
@@ -956,20 +996,7 @@ class SceneRun:
         self.state.pop("repair_error", None)
         self.before_repair(value)
         _, self.state["order"] = validate_plan(updated,self.catalogue["asset_ids"],self.limits,self.env)
-        dirty = set(value["jobs"])
-        for key in self.state["order"]:
-            job = next(j for j in updated["jobs"] if j["id"] == key)
-            if dirty.intersection(job["depends_on"]):
-                dirty.add(key)
-        old_items = {i['id']:i for i in self.state['plan']['instances']}
-        moved_jobs = {i['job'] for i in updated['instances'] if i != old_items.get(i['id'])}
-        if "layout" in updated and layout_revision(updated) != layout_revision(self.state["plan"]):
-            moved_jobs |= {j["id"] for j in updated["jobs"] if j["role"]!="asset"}
-        revalidate = set()
-        for key in self.state['order']:
-            job = next(j for j in updated['jobs'] if j['id']==key)
-            if job['role'] != 'asset' and (key in moved_jobs or (moved_jobs|revalidate).intersection(job['depends_on'])):
-                revalidate.add(key)
+        dirty, revalidate = repair_scope(self.state, updated, value["jobs"])
         destination = self.begin("repair")
         atomic_json(destination/"action.json",value)
         self.state.setdefault('repair_history',[]).append({'input_key':input_key,'action':value,'cycle':cycle,
@@ -985,20 +1012,7 @@ class SceneRun:
         self.state["repair_tasks"]={key:[t for t in tasks if any(items[i]["job"]==key for i in t["instances"] if i in items)] for key in value["jobs"]}
         for addition in value.get("tool_additions",[]):
             self.state["repair_tasks"][addition["job"]["id"]]=tasks
-        # Dependency propagation triggers re-verification; only geometry edits of the direct jobs are authorized.
-        for key in set(value['jobs']):
-            if key in self.state["jobs"]:
-                self.state["jobs"][key]["dirty"] = True
-                self.state["jobs"][key]["regenerate"] = True
-        revalidate |= dirty-set(value['jobs'])
-        dirty = set(value['jobs'])
-        pending_generation = (revalidate | dirty) - set(self.state['jobs'])
-        revalidate &= set(self.state['jobs'])
-        for key in revalidate-dirty:
-            self.state['jobs'][key].update(dirty=True,status='review_pending',layout_revalidation={
-                'reason':'The actual instance pose of a dependency or of this device changed; check whether the existing geometry still mates, and request a local redesign if needed',
-                'previous_layout':self.state['jobs'][key].get('layout_revision'),
-                'current_layout':layout_revision(updated)})
+        dirty, revalidate, pending_generation = mark_repair_jobs(self.state, updated, value["jobs"], dirty, revalidate)
         self.commit("repair",{"call":call,"dirty_jobs":sorted(dirty),"layout_revalidation_jobs":sorted(revalidate-dirty),"pending_generation_jobs":sorted(pending_generation),"plan":updated})
         self.state.pop('repair_planning',None)
         self.state["repair_pending"] = False

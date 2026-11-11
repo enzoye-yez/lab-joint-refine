@@ -209,6 +209,11 @@ def assemble(plan, env, artifacts, robot_root, output):
         target = safe_path(output,relative)
         target.parent.mkdir(parents=True,exist_ok=True)
         target.write_bytes(content)
+    # The XML keeps inertias to 6 significant digits: a flat part whose principal moments sit exactly on
+    # A + B = C (a membrane, a foil) can fail that check when the written scene is loaded again.
+    # A near-massless part (a membrane piece of ~1 mg) can also lose its mass and moments to that rounding.
+    spec.compiler.balanceinertia = True
+    spec.compiler.boundmass, spec.compiler.boundinertia = 1e-7, 1e-13
     (output/"model.xml").write_text(spec.to_xml(), encoding="utf-8")
     atomic_json(output/"interfaces.json", manifest)
     atomic_json(output/"scene.json", {"plan":plan, "environment":env,

@@ -118,8 +118,10 @@ def follow(session, side, poses, speed=0.05, until=None):
     return until() if until is not None else True
 
 
-def gripper(session, side, opening, force=40.0, seconds=1.5):
-    """Command each finger to `opening` (m) with a force limit; returns the measured finger position."""
+def gripper(session, side, opening, force=None, seconds=1.5):
+    """Command each finger to `opening` (m) with a force limit (default: capability grip_force_n); returns
+    the measured finger position."""
+    force = session.robot.capability["grip_force_n"] if force is None else force
     arm, m, d = session.robot.arms[side], session.model, session.data
     m.actuator_forcerange[arm.gripper] = [-force, force]
     d.ctrl[arm.gripper] = opening

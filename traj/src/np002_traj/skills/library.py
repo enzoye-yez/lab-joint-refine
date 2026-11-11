@@ -54,7 +54,7 @@ def check_enclosure(ctx, interface, hand_radius=0.035):
     own = subtree_bodies(s.model, interface.mechanism.body if interface.mechanism.body >= 0 else interface.body)
     from ..scene.interfaces import mechanism
     opened = ctx.opened or set()
-    payload = s.robot.profile["arms"]["left"]["payload_kg"]
+    payload = s.robot.capability["arms"]["left"]["payload_kg"]
 
     def movable(g):
         mech = mechanism(s.model, int(s.model.geom_bodyid[g]), s.data.eq_active)
@@ -79,7 +79,7 @@ def no_frames(ctx, interface, reason, report):
     from ..scene.interfaces import mechanism
     s = ctx.session
     own = subtree_bodies(s.model, interface.mechanism.body if interface.mechanism.body >= 0 else interface.body)
-    payload = s.robot.profile["arms"]["left"]["payload_kg"]
+    payload = s.robot.capability["arms"]["left"]["payload_kg"]
     for name in report.get("blocking", {}):
         g = s.model.geom(name).id
         if int(s.model.geom_bodyid[g]) in own:
@@ -374,7 +374,7 @@ def actuate(ctx, interface, task):
             _note(ctx, "dock_stage", limit=limit, rejected_paths=exc.detail["reasons"]["path"])
     arm = s.robot.arms[dock.side]
     _final_approach(ctx, dock)
-    motion.gripper(s, dock.side, 0.0, force=40.0)
+    motion.gripper(s, dock.side, 0.0)
     touching, forces = _pads_touch(ctx, dock.side, moving)
     _note(ctx, "grasp", pad_force_n=[round(f, 2) for f in forces])
     if not touching:
@@ -461,7 +461,7 @@ def _regrasp(ctx, dock, interface, allowed):
     _, dock.frame, dock.q_pre, dock.q_goal = best
     motion.move_arm(s, dock.side, dock.q_pre)
     _final_approach(ctx, dock)
-    motion.gripper(s, dock.side, 0.0, force=40.0)
+    motion.gripper(s, dock.side, 0.0)
     touching, forces = _pads_touch(ctx, dock.side, allowed)
     if not touching:
         raise Abort("regrasp_missed", pad_force_n=forces)
@@ -502,7 +502,7 @@ def pick(ctx, interface, task):
         if not candidates:
             break
         dock = _approach(ctx, interface, candidates, part, hand_state=hand,
-                         prepare=(lambda d: motion.gripper(s, d.side, 0.0, force=40.0, seconds=0.6)) if suction else None)
+                         prepare=(lambda d: motion.gripper(s, d.side, 0.0, seconds=0.6)) if suction else None)
         tried.append(dock.frame)
         last = attempt == GRASP_ATTEMPTS - 1 or len(candidates) == 1
         dock.suction = suction
@@ -515,7 +515,7 @@ def pick(ctx, interface, task):
             suction_on(s, dock.side, root)
             _note(ctx, "suction_on", body=m.body(root).name)
         else:
-            motion.gripper(s, dock.side, 0.0, force=30.0)
+            motion.gripper(s, dock.side, 0.0, force=s.robot.capability["light_grip_force_n"])
             touching, forces = _pads_touch(ctx, dock.side, part)
             _note(ctx, "grasp", pad_force_n=[round(f, 2) for f in forces])
             if not touching:
@@ -677,7 +677,7 @@ def _element_geoms(s, element):
 def _pin_deploy(s, element="pin"):
     def deploy(dock):
         qpos, actuator, extended = _element(s.robot.arms[dock.side], element)
-        motion.gripper(s, dock.side, 0.0, force=40.0, seconds=0.6)
+        motion.gripper(s, dock.side, 0.0, seconds=0.6)
         s.data.ctrl[actuator] = extended
         s.wait(1.0, lambda: abs(s.data.qpos[qpos] - extended) < 5e-4)
     return deploy

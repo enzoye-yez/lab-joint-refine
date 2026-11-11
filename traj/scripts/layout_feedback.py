@@ -24,7 +24,7 @@ BEARINGS = 36
 
 def check(interface, data, robot, kinematics, occupancy):
     half = robot.profile["base"]["footprint_half_m"]
-    reach = robot.profile["arms"]["left"]["reach_m"]
+    reach = robot.capability["arms"]["left"]["reach_m"]
     lift_range = robot.profile["lift"]["range_m"]
     shoulder0 = kinematics.shoulder_height(0.0)
     target = data.site_xpos[interface.site] if interface.site >= 0 else data.xpos[interface.body]
@@ -51,12 +51,12 @@ def check(interface, data, robot, kinematics, occupancy):
 def main(directory=None):
     rb.init()
     model, robot = rb.STATE["model"], rb.STATE["robot"]
-    payload = robot.profile["arms"]["left"]["payload_kg"]
+    payload = robot.capability["arms"]["left"]["payload_kg"]
     import mujoco
     data = mujoco.MjData(model)
     mujoco.mj_resetDataKeyframe(model, data, model.key("assembled").id)
     mujoco.mj_forward(model, data)
-    reach = robot.profile["arms"]["left"]["reach_m"]
+    reach = robot.capability["arms"]["left"]["reach_m"]
     rows = []
     for interface in rb.STATE["interfaces"].values():
         task = rb.make_task(interface, model, payload)

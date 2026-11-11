@@ -29,12 +29,15 @@ class Session:
     recorder: object = None
     invariants: list = field(default_factory=list)
     check_every: int = 10
-    max_robot_force: float = 80.0
-    max_grip_force: float = 150.0          # on the part being grasped: the squeeze itself is intended
+    max_robot_force: float = None         # default: capability contact_force_n
+    max_grip_force: float = None          # on the part being grasped (capability grasp_reaction_n): the squeeze is intended
 
     def __post_init__(self):
+        cap = self.robot.capability
+        self.max_robot_force = cap["contact_force_n"] if self.max_robot_force is None else self.max_robot_force
+        self.max_grip_force = cap["grasp_reaction_n"] if self.max_grip_force is None else self.max_grip_force
         self.joint = {s: JointPD(self.model, a) for s, a in self.robot.arms.items()}
-        self.cartesian = {s: CartesianImpedance(self.model, a) for s, a in self.robot.arms.items()}
+        self.cartesian = {s: CartesianImpedance(self.model, a, max_force=cap["cartesian_force_n"], max_torque=cap["cartesian_torque_nm"]) for s, a in self.robot.arms.items()}
         self.mode = {s: "joint" for s in self.robot.arms}
         for c in self.joint.values():
             c.hold(self.data)

@@ -11,7 +11,7 @@ import numpy as np
 from ..planning.collision import CollisionWorld
 from ..planning.ik import IK, IKFailure, Target
 from ..planning.wholebody import WholeBody
-from ..robot import ROOT, Robot
+from ..robot import ROOT, Robot, load_capability
 
 
 @dataclass
@@ -28,7 +28,7 @@ class Dock:
     pre_distance: float = 0.10      # the pre-grasp distance q_pre was solved for (shorter in tight places)
 
 
-SHOULDER_FORWARD = 0.08    # m, arm mounts ahead of the base centre (data/robot build)
+SHOULDER_FORWARD = load_capability()["shoulder_forward_m"]    # m, arm mounts ahead of the base centre
 SHORT_PRE = 0.05           # m, fallback pre-grasp distance
 RANK_PENALTY = 0.15
 VARIANT_PENALTY = 0.05     # shifted or shallower grasps after the centred one        # declared approach first, then the main sides, then oblique ones
@@ -39,9 +39,9 @@ GOAL_MARGIN = 0.002        # m, clearance to neighbours at the grasp itself (FR3
 class Kinematics:
     """The robot alone: base, lift and arms, for fast IK in world coordinates."""
 
-    def __init__(self):
+    def __init__(self, capability=None):
         self.model = mujoco.MjModel.from_xml_path(str(ROOT / "data/robot/model.xml"))
-        self.robot = Robot(self.model)
+        self.robot = Robot(self.model, capability=capability)
         self.data = mujoco.MjData(self.model)
         mujoco.mj_resetDataKeyframe(self.model, self.data, 0)
         self.ik = {s: IK(self.model, a, iterations=200) for s, a in self.robot.arms.items()}
@@ -106,7 +106,7 @@ def find_dock(session, kinematics, occupancy, frames, pre_distance=0.10, allowed
     half = robot.profile["base"]["footprint_half_m"]
     lift_range = robot.profile["lift"]["range_m"]
     shoulder0 = kinematics.shoulder_height(0.0)
-    reach = robot.profile["arms"]["left"]["reach_m"]
+    reach = robot.capability["arms"]["left"]["reach_m"]
     worlds = {}
     tried = 0
     reasons = {"footprint": 0, "reach": 0, "pre_ik": 0, "pre_collision": 0, "goal_ik": 0, "goal_collision": 0, "approach": 0}

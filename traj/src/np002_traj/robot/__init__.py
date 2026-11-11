@@ -10,6 +10,7 @@ from ..geometry import body_geoms, subtree_bodies
 
 ROOT = Path(__file__).resolve().parents[3]
 PROFILE = ROOT / "data/robot/profile.json"
+CAPABILITY = ROOT / "data/robot/capability.json"
 
 
 @dataclass
@@ -41,8 +42,9 @@ class Arm:
 class Robot:
     """Binds the profile to a compiled model (the robot alone or inside a scene)."""
 
-    def __init__(self, model, profile=None, prefix=""):
+    def __init__(self, model, profile=None, prefix="", capability=None):
         self.profile = profile or json.loads(PROFILE.read_text(encoding="utf-8"))
+        self.capability = capability or load_capability()
         self.model, self.prefix = model, prefix
         p, name = self.profile, lambda n: prefix + n
         self.base_joints = [model.joint(name(j)).id for j in p["base"]["joints"]]
@@ -106,6 +108,11 @@ class Robot:
         """World-frame base velocity command."""
         local = self._rotate(velocity_xy, -self.frame_yaw)
         data.ctrl[self.base_actuators] = [local[0], local[1], yaw_rate]
+
+
+def load_capability():
+    """The frozen capability profile (forces, payload, reach) the task code and the repair requirements use."""
+    return json.loads(CAPABILITY.read_text(encoding="utf-8"))
 
 
 def load_robot():

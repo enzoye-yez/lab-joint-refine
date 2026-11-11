@@ -1,0 +1,329 @@
+{
+ "model": "data/robot/model.xml",
+ "root_body": "robot_base",
+ "base": {
+  "type": "planar_velocity",
+  "joints": [
+   "base_x",
+   "base_y",
+   "base_yaw"
+  ],
+  "actuators": [
+   "base_x_drive",
+   "base_y_drive",
+   "base_yaw_drive"
+  ],
+  "max_speed_mps": 0.5,
+  "max_yaw_rate": 1.0,
+  "footprint_half_m": [
+   0.3,
+   0.34
+  ]
+ },
+ "lift": {
+  "joint": "lift",
+  "actuator": "lift_drive",
+  "range_m": [
+   0.0,
+   0.6
+  ],
+  "platform_z_m": 0.45
+ },
+ "arms": {
+  "left": {
+   "joints": [
+    "left_fr3_joint1",
+    "left_fr3_joint2",
+    "left_fr3_joint3",
+    "left_fr3_joint4",
+    "left_fr3_joint5",
+    "left_fr3_joint6",
+    "left_fr3_joint7"
+   ],
+   "actuators": [
+    "left_fr3_joint1_motor",
+    "left_fr3_joint2_motor",
+    "left_fr3_joint3_motor",
+    "left_fr3_joint4_motor",
+    "left_fr3_joint5_motor",
+    "left_fr3_joint6_motor",
+    "left_fr3_joint7_motor"
+   ],
+   "gains": {
+    "kp": [
+     1500,
+     1500,
+     1500,
+     1500,
+     600,
+     600,
+     300
+    ],
+    "kd": [
+     80,
+     80,
+     70,
+     60,
+     25,
+     25,
+     12
+    ]
+   },
+   "flange_site": "left_attachment_site",
+   "tcp_site": "left_tcp",
+   "gripper": {
+    "actuator": "left_gripper",
+    "open": 0.025,
+    "closed": 0.0,
+    "joints": [
+     "left_finger_a",
+     "left_finger_b"
+    ],
+    "max_force_n": 40.0,
+    "pads": {
+     "a": "left_pad_a",
+     "b": "left_pad_b"
+    },
+    "finger_bodies": [
+     "left_finger_a",
+     "left_finger_b"
+    ],
+    "tcp_from_flange_m": 0.136,
+    "fingertip_from_tcp_m": 0.012,
+    "pad_half_height_m": 0.01,
+    "finger_thickness_m": 0.008,
+    "tip_thickness_m": 0.005,
+    "body_radius_m": 0.032,
+    "press_pin": {
+     "joint": "left_press_pin",
+     "actuator": "left_press_pin",
+     "body": "left_press_pin",
+     "extended": 0.094,
+     "radius_m": 0.0025,
+     "max_force_n": 40.0,
+     "tip_from_tcp_m": [
+      0.0095,
+      0.0,
+      0.0345
+     ]
+    },
+    "pry_blade": {
+     "joint": "left_pry_blade",
+     "actuator": "left_pry_blade",
+     "body": "left_pry_blade",
+     "geoms": [
+      "left_pry_blade",
+      "left_pry_stem"
+     ],
+     "extended": 0.099,
+     "thickness_m": 0.0012,
+     "tip_from_tcp_m": [
+      -0.0095,
+      0.0,
+      0.037000000000000005
+     ]
+    },
+    "suction": {
+     "body": "left_suction_cup",
+     "geom": "left_suction_cup",
+     "site": "left_suction_face",
+     "equality": "left_suction",
+     "max_mass_kg": 0.5,
+     "face_from_tcp_m": [
+      -0.04,
+      0.0,
+      -0.09100000000000001
+     ],
+     "normal": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "radius_m": 0.01
+    }
+   },
+   "wrist_camera": "left_wrist_camera",
+   "home": [
+    0,
+    -0.6,
+    0,
+    -2.2,
+    0,
+    1.6,
+    -0.785
+   ],
+   "travel": [
+    0,
+    -0.9,
+    0,
+    -3.0,
+    0,
+    1.4,
+    -0.785
+   ],
+   "stow": [
+    -1.5,
+    -1.76,
+    0,
+    -2.6,
+    0,
+    1.4,
+    -0.785
+   ],
+   "lateral_m": 0.22,
+   "payload_kg": 3.0,
+   "reach_m": 0.855
+  },
+  "right": {
+   "joints": [
+    "right_fr3_joint1",
+    "right_fr3_joint2",
+    "right_fr3_joint3",
+    "right_fr3_joint4",
+    "right_fr3_joint5",
+    "right_fr3_joint6",
+    "right_fr3_joint7"
+   ],
+   "actuators": [
+    "right_fr3_joint1_motor",
+    "right_fr3_joint2_motor",
+    "right_fr3_joint3_motor",
+    "right_fr3_joint4_motor",
+    "right_fr3_joint5_motor",
+    "right_fr3_joint6_motor",
+    "right_fr3_joint7_motor"
+   ],
+   "gains": {
+    "kp": [
+     1500,
+     1500,
+     1500,
+     1500,
+     600,
+     600,
+     300
+    ],
+    "kd": [
+     80,
+     80,
+     70,
+     60,
+     25,
+     25,
+     12
+    ]
+   },
+   "flange_site": "right_attachment_site",
+   "tcp_site": "right_tcp",
+   "gripper": {
+    "actuator": "right_gripper",
+    "open": 0.025,
+    "closed": 0.0,
+    "joints": [
+     "right_finger_a",
+     "right_finger_b"
+    ],
+    "max_force_n": 40.0,
+    "pads": {
+     "a": "right_pad_a",
+     "b": "right_pad_b"
+    },
+    "finger_bodies": [
+     "right_finger_a",
+     "right_finger_b"
+    ],
+    "tcp_from_flange_m": 0.136,
+    "fingertip_from_tcp_m": 0.012,
+    "pad_half_height_m": 0.01,
+    "finger_thickness_m": 0.008,
+    "tip_thickness_m": 0.005,
+    "body_radius_m": 0.032,
+    "press_pin": {
+     "joint": "right_press_pin",
+     "actuator": "right_press_pin",
+     "body": "right_press_pin",
+     "extended": 0.094,
+     "radius_m": 0.0025,
+     "max_force_n": 40.0,
+     "tip_from_tcp_m": [
+      0.0095,
+      0.0,
+      0.0345
+     ]
+    },
+    "pry_blade": {
+     "joint": "right_pry_blade",
+     "actuator": "right_pry_blade",
+     "body": "right_pry_blade",
+     "geoms": [
+      "right_pry_blade",
+      "right_pry_stem"
+     ],
+     "extended": 0.099,
+     "thickness_m": 0.0012,
+     "tip_from_tcp_m": [
+      -0.0095,
+      0.0,
+      0.037000000000000005
+     ]
+    },
+    "suction": {
+     "body": "right_suction_cup",
+     "geom": "right_suction_cup",
+     "site": "right_suction_face",
+     "equality": "right_suction",
+     "max_mass_kg": 0.5,
+     "face_from_tcp_m": [
+      -0.04,
+      0.0,
+      -0.09100000000000001
+     ],
+     "normal": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "radius_m": 0.01
+    }
+   },
+   "wrist_camera": "right_wrist_camera",
+   "home": [
+    0,
+    -0.6,
+    0,
+    -2.2,
+    0,
+    1.6,
+    -0.785
+   ],
+   "travel": [
+    0,
+    -0.9,
+    0,
+    -3.0,
+    0,
+    1.4,
+    -0.785
+   ],
+   "stow": [
+    1.5,
+    -1.76,
+    0,
+    -2.6,
+    0,
+    1.4,
+    -0.785
+   ],
+   "lateral_m": -0.22,
+   "payload_kg": 3.0,
+   "reach_m": 0.855
+  }
+ },
+ "head_camera": "head_camera",
+ "force_limits_n": {
+  "robot_default": 80.0,
+  "glass": 30.0,
+  "instrument_door": 40.0
+ },
+ "mass_kg": 116.92697010871153
+}

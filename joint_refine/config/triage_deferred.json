@@ -1,0 +1,14 @@
+{
+ "note": "Task types set aside for now (decided 2026-11-11 with the user): the operation needs dexterity or a deformable part that a parallel gripper with a press pin and a pry blade cannot provide. Each entry is an interface template; '#' stands for an index. They stay in the benchmark score but neither side works on them.",
+ "deferred": [
+  {"template": "row_#_peel", "why": "peeling a foil seal row is a deformable-film operation"},
+  {"template": "reagent_plate_grasp", "why": "released only after every seal row is peeled"},
+  {"template": "reagent_strip_#_grasp", "why": "released only after every seal row is peeled"},
+  {"template": "foil_panel_#_fold_grasp", "why": "folding a foil panel is a deformable-sheet operation"},
+  {"template": "foil_panel_#_loop_blade", "why": "threading a blade through a foil loop"},
+  {"template": "cap_tongue_blade", "why": "prying a flip-cap tongue with a blade edge needs fingertip dexterity"},
+  {"template": "cap_tongue_root_blade", "why": "prying a flip-cap tongue with a blade edge needs fingertip dexterity"},
+  {"template": "q#_fold_grasp", "why": "folding a quartz-fibre membrane is a deformable-sheet operation"},
+  {"template": "q#_quarter_grasp", "why": "handling a folded membrane quarter is a deformable-sheet operation"}
+ ]
+}
